@@ -952,7 +952,10 @@ function leadForm(id){
     "Support Conversion",
     "Other"
 ],r.leadSource || "Cold Call")}
-            ${input("productService","Product / Service",r.productService || "")}
+            <div>
+    <label>Product / Service</label>
+    ${productServiceOptions(r.productService || "")}
+</div>
             ${textarea("requirementNotes","Requirement / Notes",r.requirementNotes || "")}
             ${select("priority","Priority",["High","Medium","Low"],r.priority || "Medium")}
             ${select("status","Status",["New","Follow-up","Quotation Sent","Negotiation","Won","Lost"],r.status || "New")}
