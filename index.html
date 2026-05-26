@@ -319,6 +319,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
         <button class="nav-btn" id="nav-service" onclick="setModule('service')">Service Tickets</button>
         <button class="nav-btn" id="nav-followups" onclick="setModule('followups')">Follow-ups</button>
         <button class="nav-btn" id="nav-invoices" onclick="setModule('invoices')">Tax Invoices</button>
+        <button class="nav-btn" id="nav-payments" onclick="setModule('payments')">Payment Tracking</button>
         <button class="nav-btn" id="nav-reports" onclick="setModule('reports')">Reports</button>
         <button class="nav-btn" id="nav-settings" onclick="setModule('settings')">Settings / Backup</button>
     </aside>
@@ -345,6 +346,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
             <div class="card"><div class="card-title">Pending Follow-ups</div><div class="card-value" id="cntFollowups">0</div></div>
             <div class="card"><div class="card-title">Tax Invoices</div><div class="card-value" id="cntInvoices">0</div></div>
             <div class="card"><div class="card-title">Invoice Value</div><div class="card-value" id="cntInvoiceValue">0.000</div></div>
+            <div class="card"><div class="card-title">Payment Pending</div><div class="card-value" id="cntPaymentPending">0.000</div></div>
         </div>
 
         <section class="panel">
@@ -411,7 +413,8 @@ let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
     leads:[],
     service:[],
     followups:[],
-    invoices:[]
+    invoices:[],
+    payments:[]
 };
 
 function saveDB(){
@@ -426,6 +429,7 @@ function uid(prefix){
     if(prefix === "TKT") count = db.service.length + 1;
     if(prefix === "FUP" || prefix === "FU") count = db.followups.length + 1;
     if(prefix === "INV") count = db.invoices.length + 1;
+    if(prefix === "PAY") count = (db.payments || []).length + 1;
 
     const number = String(count).padStart(4,"0");
     return `${prefix}-${number}/${year}`;
@@ -480,6 +484,7 @@ function setModule(moduleName){
         service:"Service Tickets",
         followups:"Follow-ups",
         invoices:"Tax Invoices",
+        payments:"Payment Tracking",
         reports:"Reports",
         settings:"Settings / Backup"
     };
@@ -492,7 +497,8 @@ function setModule(moduleName){
         leads:"+ Add Lead",
         service:"+ Add Ticket",
         followups:"+ Add Follow-up",
-        invoices:"+ Add Invoice"
+        invoices:"+ Add Invoice",
+        payments:"+ Add Payment"
     };
     document.getElementById("addBtn").innerText = addText[moduleName] || "+ Add";
 
@@ -506,6 +512,11 @@ function updateCounts(){
     document.getElementById("cntFollowups").innerText = db.followups.filter(x => x.statusUpdate !== "Closed" && x.statusUpdate !== "Done").length;
     document.getElementById("cntInvoices").innerText = db.invoices.length;
     document.getElementById("cntInvoiceValue").innerText = money(db.invoices.reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0));
+    if(document.getElementById("cntPaymentPending")){
+        const invoiceTotal = db.invoices.reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0);
+        const receivedTotal = (db.payments || []).reduce((sum, pay) => sum + Number(pay.receivedAmount || 0), 0);
+        document.getElementById("cntPaymentPending").innerText = money(invoiceTotal - receivedTotal);
+    }
 }
 
 function render(){
@@ -518,6 +529,7 @@ function render(){
     if(currentModule === "service") renderService();
     if(currentModule === "followups") renderFollowups();
     if(currentModule === "invoices") renderInvoices();
+    if(currentModule === "payments") renderPayments();
     if(currentModule === "reports") renderReports();
     if(currentModule === "settings") renderSettings();
 }
@@ -631,7 +643,8 @@ function renderDashboard(){
         ...db.leads.map(x => ({type:"Sales Lead",date:x.leadDate,ref:x.leadId,customerId:x.customerId,status:x.status,details:x.productService})),
         ...db.service.map(x => ({type:"Service Ticket",date:x.ticketDate,ref:x.ticketNo,customerId:x.customerId,status:x.serviceStatus,details:x.issueReported})),
         ...db.followups.map(x => ({type:"Follow-up",date:x.followupDate,ref:x.referenceId,customerId:x.customerId,status:x.statusUpdate,details:x.discussion})),
-        ...db.invoices.map(x => ({type:"Tax Invoice",date:x.invoiceDate,ref:x.invoiceNo,customerId:x.customerId,status:x.paymentStatus,details:x.itemDetails}))
+        ...db.invoices.map(x => ({type:"Tax Invoice",date:x.invoiceDate,ref:x.invoiceNo,customerId:x.customerId,status:x.paymentStatus,details:x.itemDetails})),
+        ...(db.payments || []).map(x => ({type:"Payment",date:x.paymentDate,ref:x.paymentId,customerId:x.customerId,status:x.paymentStatus,details:x.remarks}))
     ].sort((a,b) => String(b.date).localeCompare(String(a.date))).slice(0,25);
 
     const rows = activities.map(item => {
@@ -663,7 +676,8 @@ function renderCustomers(){
             db.leads.filter(x => x.customerId === c.customerId).length +
             db.service.filter(x => x.customerId === c.customerId).length +
             db.followups.filter(x => x.customerId === c.customerId).length +
-            db.invoices.filter(x => x.customerId === c.customerId).length;
+            db.invoices.filter(x => x.customerId === c.customerId).length +
+            (db.payments || []).filter(x => x.customerId === c.customerId).length;
 
         return `
         <tr>
@@ -861,6 +875,45 @@ function renderInvoices(){
     );
 }
 
+
+/* ==============================
+   PAYMENT TRACKING
+================================= */
+function renderPayments(){
+    document.getElementById("sectionTitle").innerText = "Payment Tracking";
+
+    const data = (db.payments || []).filter(matchObject);
+    const rows = data.map(p => {
+        const c = getCustomer(p.customerId);
+        const balance = Number(p.invoiceAmount || 0) - Number(p.receivedAmount || 0);
+        return `
+        <tr>
+            <td>${escapeHtml(p.paymentId)}</td>
+            <td>${escapeHtml(p.paymentDate)}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(p.invoiceNo)}</td>
+            <td>${money(p.invoiceAmount)}</td>
+            <td>${money(p.receivedAmount)}</td>
+            <td>${money(balance)}</td>
+            <td>${escapeHtml(p.dueDate)}</td>
+            <td>${statusBadge(p.paymentStatus)}</td>
+            <td>${escapeHtml(p.paymentMode)}</td>
+            <td>${escapeHtml(p.referenceNo)}</td>
+            <td>${escapeHtml(p.nextFollowupDate)}</td>
+            <td>${escapeHtml(p.remarks)}</td>
+            <td>
+                <button class="btn small orange" onclick="openForm('${p.paymentId}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('payments','${p.paymentId}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Payment ID","Payment Date","Company","Invoice No","Invoice Amount","Received Amount","Balance","Due Date","Payment Status","Payment Mode","Reference No","Next Follow-up","Remarks","Action"],
+        rows
+    );
+}
+
 /* ==============================
    REPORTS
 ================================= */
@@ -871,6 +924,7 @@ function renderReports(){
     const expectedRevenue = db.leads.reduce((s,x) => s + (Number(x.expectedDealValue || 0) * Number(x.closingProbability || 0) / 100), 0);
     const invoiceValue = db.invoices.reduce((s,x) => s + Number(x.totalInclVat || 0), 0);
     const pendingInvoice = db.invoices.filter(x => x.paymentStatus !== "Paid").reduce((s,x) => s + Number(x.totalInclVat || 0), 0);
+    const receivedAmount = (db.payments || []).reduce((s,x) => s + Number(x.receivedAmount || 0), 0);
 
     document.getElementById("content").innerHTML = `
         <div class="cards">
@@ -878,6 +932,7 @@ function renderReports(){
             <div class="card"><div class="card-title">Expected Revenue</div><div class="card-value">${money(expectedRevenue)} BHD</div></div>
             <div class="card"><div class="card-title">Total Invoice Value</div><div class="card-value">${money(invoiceValue)} BHD</div></div>
             <div class="card"><div class="card-title">Pending Invoice Value</div><div class="card-value">${money(pendingInvoice)} BHD</div></div>
+            <div class="card"><div class="card-title">Received Amount</div><div class="card-value">${money(receivedAmount)} BHD</div></div>
         </div>
         <hr>
         <h3>Today / Overdue Follow-ups</h3>
@@ -979,6 +1034,7 @@ function openForm(id=null){
     if(currentModule === "service") serviceForm(id);
     if(currentModule === "followups") followupForm(id);
     if(currentModule === "invoices") invoiceForm(id);
+    if(currentModule === "payments") paymentForm(id);
 }
 function closeForm(){
     document.getElementById("formModal").style.display = "none";
@@ -1159,6 +1215,52 @@ function invoiceForm(id){
         </div>`;
 }
 
+
+function paymentForm(id){
+    const r = (db.payments || []).find(x => x.paymentId === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Payment" : "Add Payment";
+
+    document.getElementById("formArea").innerHTML = `
+        <div class="form-grid">
+            ${input("paymentId","Payment ID",r.paymentId || uid("PAY"),"text",true)}
+            ${input("paymentDate","Payment Date",r.paymentDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${invoiceSelect(r.invoiceNo || "", r.customerId || "")}
+            ${input("invoiceAmount","Invoice Amount",r.invoiceAmount || "","number")}
+            ${input("receivedAmount","Received Amount",r.receivedAmount || "","number")}
+            ${input("dueDate","Due Date",r.dueDate || "","date")}
+            ${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}
+            ${select("paymentMode","Payment Mode",["Cash","BenefitPay","Bank Transfer","Cheque","Card","Other"],r.paymentMode || "Bank Transfer")}
+            ${input("referenceNo","Reference No",r.referenceNo || "")}
+            ${input("paymentNextFollowupDate","Next Follow-up Date",r.nextFollowupDate || "","date")}
+            ${textarea("paymentRemarks","Remarks",r.remarks || "")}
+        </div>`;
+}
+
+function invoiceSelect(selected="", selectedCustomer=""){
+    const list = db.invoices || [];
+    return `
+    <div>
+        <label>Invoice No</label>
+        <select id="paymentInvoiceNo" onchange="fillInvoiceAmount()">
+            <option value="">Select Invoice</option>
+            ${list.map(i => {
+                const c = getCustomer(i.customerId);
+                return `<option value="${i.invoiceNo}" ${i.invoiceNo === selected ? "selected" : ""}>${escapeHtml(i.invoiceNo)} - ${escapeHtml(c.companyName || "")} - BHD ${money(i.totalInclVat)}</option>`;
+            }).join("")}
+        </select>
+    </div>`;
+}
+
+function fillInvoiceAmount(){
+    const invNo = document.getElementById("paymentInvoiceNo")?.value;
+    const inv = db.invoices.find(i => i.invoiceNo === invNo);
+    if(inv){
+        document.getElementById("invoiceAmount").value = money(inv.totalInclVat);
+        document.getElementById("customerId").value = inv.customerId;
+    }
+}
+
 /* ==============================
    SAVE FUNCTIONS
 ================================= */
@@ -1169,6 +1271,7 @@ function saveForm(){
         if(currentModule === "service") saveService();
         if(currentModule === "followups") saveFollowup();
         if(currentModule === "invoices") saveInvoice();
+        if(currentModule === "payments") savePayment();
 
         saveDB();
         closeForm();
@@ -1311,6 +1414,32 @@ function saveInvoice(){
     });
 }
 
+
+function savePayment(){
+    const cid = document.getElementById("customerId").value;
+    if(!cid){
+        alert("Please create/select customer first.");
+        throw new Error("Customer missing");
+    }
+
+    if(!db.payments) db.payments = [];
+
+    upsert(db.payments,"paymentId",{
+        paymentId:document.getElementById("paymentId").value,
+        paymentDate:document.getElementById("paymentDate").value,
+        customerId:cid,
+        invoiceNo:document.getElementById("paymentInvoiceNo").value,
+        invoiceAmount:document.getElementById("invoiceAmount").value,
+        receivedAmount:document.getElementById("receivedAmount").value,
+        dueDate:document.getElementById("dueDate").value,
+        paymentStatus:document.getElementById("paymentStatus").value,
+        paymentMode:document.getElementById("paymentMode").value,
+        referenceNo:document.getElementById("referenceNo").value,
+        nextFollowupDate:document.getElementById("paymentNextFollowupDate").value,
+        remarks:document.getElementById("paymentRemarks").value
+    });
+}
+
 /* ==============================
    EDIT / DELETE / FOLLOW-UP LINK
 ================================= */
@@ -1322,7 +1451,8 @@ function deleteRecord(module,id){
         leads:"leadId",
         service:"ticketNo",
         followups:"followupId",
-        invoices:"invoiceNo"
+        invoices:"invoiceNo",
+        payments:"paymentId"
     };
 
     db[module] = db[module].filter(x => x[keyMap[module]] !== id);
@@ -1360,6 +1490,7 @@ function viewCustomer(customerId){
     const service = db.service.filter(x => x.customerId === customerId);
     const followups = db.followups.filter(x => x.customerId === customerId);
     const invoices = db.invoices.filter(x => x.customerId === customerId);
+    const payments = (db.payments || []).filter(x => x.customerId === customerId);
 
     document.getElementById("viewArea").innerHTML = `
         <div class="modal-head no-print">
@@ -1388,6 +1519,9 @@ function viewCustomer(customerId){
 
         <h3>Tax Invoices</h3>
         ${miniTable(["Invoice No","Date","Details","Total Incl. VAT","Payment"], invoices.map(x => [x.invoiceNo,x.invoiceDate,x.itemDetails,money(x.totalInclVat),x.paymentStatus]))}
+
+        <h3>Payments</h3>
+        ${miniTable(["Payment ID","Date","Invoice No","Received","Status","Next Follow-up"], payments.map(x => [x.paymentId,x.paymentDate,x.invoiceNo,money(x.receivedAmount),x.paymentStatus,x.nextFollowupDate]))}
     `;
 
     document.getElementById("viewModal").style.display = "flex";
@@ -1527,6 +1661,15 @@ function exportExcel(){
     rows.push(["Follow-Up Date","Lead ID / Service Ticket","Company Name","Follow-Up Type","Discussion / Action Taken","Next Follow-Up Date","Status Update","Updated By","Follow-Up Count","Remarks"]);
     db.followups.forEach(f=>{
         rows.push([f.followupDate,f.referenceId,f.companyName,f.followupType,f.discussion,f.nextFollowupDate,f.statusUpdate,f.updatedBy,f.followupCount,f.remarks]);
+    });
+
+    rows.push([]);
+    rows.push(["PAYMENT TRACKING"]);
+    rows.push(["Payment ID","Payment Date","Company","Invoice No","Invoice Amount","Received Amount","Balance","Due Date","Payment Status","Payment Mode","Reference No","Next Follow-up","Remarks"]);
+    (db.payments || []).forEach(p=>{
+        let c = getCustomer(p.customerId);
+        let balance = Number(p.invoiceAmount || 0) - Number(p.receivedAmount || 0);
+        rows.push([p.paymentId,p.paymentDate,c.companyName,p.invoiceNo,p.invoiceAmount,p.receivedAmount,balance,p.dueDate,p.paymentStatus,p.paymentMode,p.referenceNo,p.nextFollowupDate,p.remarks]);
     });
 
     rows.push([]);
