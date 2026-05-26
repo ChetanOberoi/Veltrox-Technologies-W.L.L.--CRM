@@ -1013,7 +1013,10 @@ function serviceForm(id){
             ${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}
             ${customerSelect(r.customerId)}
             ${input("ticketLocation","Location",r.location || "")}
-            ${input("ticketProductService","Product / Service",r.productService || "")}
+            <div>
+<label>Product / Service</label>
+${productServiceOptions(r.productService || "")}
+</div>
             ${textarea("issueReported","Issue Reported",r.issueReported || "")}
             ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
             ${input("assignedEngineer","Assigned Engineer",r.assignedEngineer || "")}
