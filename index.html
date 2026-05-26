@@ -9,173 +9,247 @@
 :root{
     --primary:#2563eb;
     --primary-dark:#1d4ed8;
-    --dark:#111827;
-    --dark-2:#1f2937;
-    --bg:#f3f6fb;
+    --accent:#0ea5e9;
+    --dark:#0f172a;
+    --dark-2:#1e293b;
+    --bg:#f6f8fc;
     --white:#ffffff;
-    --border:#e5e7eb;
-    --text:#111827;
-    --muted:#6b7280;
-    --danger:#dc2626;
-    --success:#16a34a;
+    --border:#e6edf5;
+    --text:#172033;
+    --muted:#64748b;
+    --danger:#ef4444;
+    --success:#10b981;
     --warning:#f59e0b;
     --purple:#7c3aed;
+    --shadow:0 10px 30px rgba(15,23,42,.08);
 }
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{
     margin:0;
-    font-family:Segoe UI,Arial,sans-serif;
-    background:var(--bg);
+    font-family:"Segoe UI",Inter,Arial,sans-serif;
+    background:linear-gradient(180deg,#f8fbff 0%,#eef4fb 100%);
     color:var(--text);
 }
 .app{display:flex;min-height:100vh}
 .sidebar{
-    width:280px;
-    background:var(--dark);
+    width:282px;
+    background:linear-gradient(180deg,#0f172a 0%,#111c33 100%);
     color:white;
-    padding:24px 18px;
+    padding:28px 18px;
     position:fixed;
     left:0;
     top:0;
     bottom:0;
     overflow-y:auto;
+    box-shadow:8px 0 28px rgba(15,23,42,.18);
 }
 .logo{
-    font-size:25px;
+    font-size:28px;
     font-weight:900;
+    letter-spacing:.2px;
     margin:0 0 6px;
 }
+.logo::before{
+    content:"";
+    display:inline-block;
+    width:12px;
+    height:12px;
+    background:#38bdf8;
+    border-radius:50%;
+    margin-right:10px;
+    box-shadow:0 0 0 6px rgba(56,189,248,.16);
+}
 .logo-sub{
-    color:#cbd5e1;
+    color:#a7b4c8;
     font-size:13px;
-    margin-bottom:24px;
+    line-height:1.4;
+    margin-bottom:28px;
+    padding-left:23px;
 }
 .nav-btn{
-    display:block;
+    display:flex;
+    align-items:center;
     width:100%;
-    padding:13px 14px;
-    margin:6px 0;
-    color:#d1d5db;
+    padding:14px 15px;
+    margin:7px 0;
+    color:#cbd5e1;
     background:transparent;
     border:0;
-    border-radius:10px;
+    border-radius:14px;
     text-align:left;
     cursor:pointer;
-    font-weight:600;
+    font-weight:700;
+    font-size:14px;
+    transition:.18s ease;
 }
-.nav-btn:hover,.nav-btn.active{
-    background:var(--primary);
+.nav-btn:hover{
+    background:rgba(37,99,235,.16);
+    color:#fff;
+    transform:translateX(2px);
+}
+.nav-btn.active{
+    background:linear-gradient(135deg,#2563eb,#0ea5e9);
     color:white;
+    box-shadow:0 10px 24px rgba(37,99,235,.32);
 }
 .main{
-    margin-left:280px;
-    width:calc(100% - 280px);
-    padding:26px;
+    margin-left:282px;
+    width:calc(100% - 282px);
+    padding:30px;
 }
 .topbar{
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
-    gap:18px;
-    margin-bottom:20px;
+    gap:22px;
+    margin-bottom:24px;
+    background:rgba(255,255,255,.82);
+    border:1px solid rgba(226,232,240,.9);
+    padding:22px;
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    backdrop-filter:blur(10px);
 }
-.topbar h1{margin:0 0 6px;font-size:30px}
-.topbar p{margin:0;color:var(--muted)}
+.topbar h1{
+    margin:0 0 7px;
+    font-size:34px;
+    letter-spacing:-.6px;
+    color:#0f172a;
+}
+.topbar p{margin:0;color:var(--muted);font-size:14px}
 .top-actions{
     display:flex;
-    gap:8px;
+    gap:9px;
     flex-wrap:wrap;
     justify-content:flex-end;
+    align-items:center;
 }
 .search{
-    width:330px;
+    width:360px;
     max-width:100%;
-    padding:12px 14px;
-    border:1px solid #d1d5db;
-    border-radius:12px;
+    padding:13px 16px;
+    border:1px solid #dbe5ef;
+    border-radius:14px;
     outline:none;
+    background:#fff;
+    color:#172033;
+    box-shadow:0 4px 14px rgba(15,23,42,.04);
+}
+.search:focus{
+    border-color:#60a5fa;
+    box-shadow:0 0 0 4px rgba(37,99,235,.12);
 }
 .btn{
     border:0;
-    border-radius:10px;
-    padding:10px 14px;
-    background:var(--primary);
+    border-radius:13px;
+    padding:11px 16px;
+    background:linear-gradient(135deg,var(--primary),var(--accent));
     color:white;
-    font-weight:700;
+    font-weight:800;
     cursor:pointer;
     display:inline-block;
     margin:2px;
+    box-shadow:0 8px 20px rgba(37,99,235,.20);
+    transition:.16s ease;
 }
-.btn:hover{opacity:.9}
-.btn.small{padding:7px 10px;font-size:12px}
-.btn.gray{background:#6b7280}
-.btn.red{background:var(--danger)}
-.btn.green{background:var(--success)}
-.btn.orange{background:var(--warning)}
-.btn.purple{background:var(--purple)}
+.btn:hover{transform:translateY(-1px);filter:brightness(.98)}
+.btn.small{padding:7px 10px;font-size:12px;border-radius:10px;box-shadow:none}
+.btn.gray{background:#64748b;box-shadow:none}
+.btn.red{background:var(--danger);box-shadow:none}
+.btn.green{background:var(--success);box-shadow:none}
+.btn.orange{background:var(--warning);box-shadow:none}
+.btn.purple{background:var(--purple);box-shadow:none}
 .cards{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-    gap:15px;
-    margin-bottom:20px;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:18px;
+    margin-bottom:24px;
 }
 .card{
-    background:white;
-    padding:18px;
-    border-radius:18px;
-    box-shadow:0 8px 22px rgba(0,0,0,.07);
+    background:var(--white);
+    padding:21px;
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    border:1px solid rgba(226,232,240,.9);
+    position:relative;
+    overflow:hidden;
+}
+.card::after{
+    content:"";
+    position:absolute;
+    right:-28px;
+    top:-28px;
+    width:82px;
+    height:82px;
+    border-radius:50%;
+    background:rgba(37,99,235,.08);
 }
 .card-title{
     color:var(--muted);
-    font-weight:700;
+    font-weight:800;
     font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.4px;
 }
 .card-value{
-    font-size:29px;
-    font-weight:900;
-    margin-top:8px;
+    font-size:31px;
+    font-weight:950;
+    margin-top:10px;
+    color:#0f172a;
 }
 .panel{
-    background:white;
-    padding:20px;
-    border-radius:18px;
-    box-shadow:0 8px 22px rgba(0,0,0,.07);
+    background:var(--white);
+    padding:22px;
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    border:1px solid rgba(226,232,240,.9);
 }
 .panel-head{
     display:flex;
     justify-content:space-between;
     align-items:center;
     gap:12px;
-    margin-bottom:15px;
+    margin-bottom:16px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;
 }
-.panel-head h2{margin:0}
-.table-wrap{overflow:auto}
+.panel-head h2{margin:0;color:#0f172a;font-size:22px}
+.table-wrap{overflow:auto;border-radius:16px;border:1px solid var(--border)}
 table{
     width:100%;
-    border-collapse:collapse;
+    border-collapse:separate;
+    border-spacing:0;
     min-width:1200px;
+    background:#fff;
 }
 th,td{
-    padding:10px;
+    padding:12px 11px;
     border-bottom:1px solid var(--border);
     text-align:left;
     font-size:13px;
     vertical-align:top;
 }
 th{
-    background:#f9fafb;
-    color:#374151;
+    background:#f8fafc;
+    color:#475569;
     white-space:nowrap;
+    font-weight:900;
+    position:sticky;
+    top:0;
+    z-index:1;
 }
-tr:hover td{background:#fafafa}
+tbody tr:hover td{background:#f8fbff}
+tbody tr:last-child td{border-bottom:0}
 .badge{
-    padding:5px 9px;
+    padding:6px 10px;
     border-radius:999px;
     font-size:12px;
-    font-weight:800;
+    font-weight:900;
     display:inline-block;
     background:#dbeafe;
     color:#1d4ed8;
+    white-space:nowrap;
 }
 .badge.red{background:#fee2e2;color:#b91c1c}
 .badge.green{background:#dcfce7;color:#166534}
@@ -185,63 +259,76 @@ tr:hover td{background:#fafafa}
     display:none;
     position:fixed;
     inset:0;
-    background:rgba(0,0,0,.48);
+    background:rgba(15,23,42,.58);
     z-index:999;
     align-items:center;
     justify-content:center;
-    padding:14px;
+    padding:16px;
+    backdrop-filter:blur(4px);
 }
 .modal-content{
     background:white;
-    width:960px;
+    width:980px;
     max-width:100%;
     max-height:92vh;
     overflow:auto;
-    border-radius:18px;
-    padding:24px;
+    border-radius:24px;
+    padding:26px;
+    box-shadow:0 30px 90px rgba(15,23,42,.28);
+    border:1px solid rgba(226,232,240,.9);
 }
 .modal-head{
     display:flex;
     justify-content:space-between;
     align-items:center;
     gap:12px;
-    margin-bottom:15px;
+    margin-bottom:18px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;
 }
-.modal-head h2{margin:0}
+.modal-head h2{margin:0;color:#0f172a;font-size:24px}
 .form-grid{
     display:grid;
     grid-template-columns:repeat(2,1fr);
-    gap:13px;
+    gap:15px;
 }
 .full{grid-column:1/-1}
 label{
     display:block;
     font-size:13px;
-    color:#374151;
-    font-weight:800;
-    margin-bottom:5px;
+    color:#334155;
+    font-weight:900;
+    margin-bottom:6px;
 }
 input,select,textarea{
     width:100%;
-    padding:10px 11px;
-    border:1px solid #d1d5db;
-    border-radius:10px;
+    padding:12px 12px;
+    border:1px solid #dbe5ef;
+    border-radius:13px;
     font-family:inherit;
+    background:#fff;
+    color:#172033;
+    outline:none;
 }
-textarea{min-height:78px;resize:vertical}
+input:focus,select:focus,textarea:focus{
+    border-color:#60a5fa;
+    box-shadow:0 0 0 4px rgba(37,99,235,.10);
+}
+textarea{min-height:90px;resize:vertical}
 .form-actions{
     display:flex;
     justify-content:flex-end;
-    gap:8px;
-    margin-top:18px;
+    gap:9px;
+    margin-top:20px;
 }
 .notice{
     background:#eff6ff;
     border:1px solid #bfdbfe;
-    padding:12px;
-    border-radius:12px;
+    padding:13px;
+    border-radius:14px;
     color:#1e40af;
     margin-bottom:14px;
+    font-weight:700;
 }
 .invoice-print{
     background:white;
@@ -269,8 +356,8 @@ textarea{min-height:78px;resize:vertical}
 }
 .invoice-box{
     border:1px solid #d1d5db;
-    padding:12px;
-    border-radius:10px;
+    padding:14px;
+    border-radius:14px;
 }
 .right{text-align:right}
 .small-text{font-size:12px;color:var(--muted)}
@@ -285,13 +372,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
 @media print{
     body *{visibility:hidden!important}
     #printArea,#printArea *{visibility:visible!important}
-    #printArea{
-        position:absolute;
-        left:0;
-        top:0;
-        width:100%;
-        padding:0;
-    }
+    #printArea{position:absolute;left:0;top:0;width:100%;padding:0}
     .no-print{display:none!important}
 }
 @media(max-width:900px){
@@ -299,7 +380,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
     .sidebar{position:relative;width:100%;height:auto}
     .main{margin-left:0;width:100%;padding:16px}
     .topbar{display:block}
-    .top-actions{justify-content:flex-start;margin-top:12px}
+    .top-actions{justify-content:flex-start;margin-top:14px}
     .search{width:100%}
     .form-grid{grid-template-columns:1fr}
     .invoice-header,.invoice-grid{display:block}
@@ -334,6 +415,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
                 <input class="search" id="searchBox" placeholder="Search customer, lead, ticket, invoice..." onkeyup="render()">
                 <button class="btn" id="addBtn" onclick="openForm()">+ Add</button>
                 <button class="btn gray" onclick="exportBackup()">Export Backup</button>
+                <button class="btn green" onclick="exportExcel()">Export Excel</button>
             </div>
         </div>
 
@@ -1153,7 +1235,7 @@ function saveService(){
         ticketDate:document.getElementById("ticketDate").value,
         customerId:cid,
         location:document.getElementById("ticketLocation").value,
-        productService:document.getElementById("ticketProductService").value,
+        productService:document.getElementById("productService").value,
         issueReported:document.getElementById("issueReported").value,
         priority:document.getElementById("ticketPriority").value,
         assignedEngineer:document.getElementById("assignedEngineer").value,
@@ -1411,6 +1493,150 @@ function printInvoice(invoiceNo){
 /* ==============================
    BACKUP
 ================================= */
+
+function exportExcel(){
+    let rows = [];
+
+    rows.push(["CUSTOMER MASTER"]);
+    rows.push(["Customer ID","Company Name","Contact Person","Mobile","Email","CR No","VAT No","Location","Address","Remarks"]);
+
+    db.customers.forEach(c=>{
+        rows.push([
+            c.customerId,
+            c.companyName,
+            c.contactPerson,
+            c.mobile,
+            c.email,
+            c.crNo,
+            c.vatNo,
+            c.location,
+            c.address,
+            c.remarks
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(["SALES LEADS"]);
+    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link"]);
+
+    db.leads.forEach(l=>{
+        let c = getCustomer(l.customerId);
+        let leadAge = l.leadDate ? Math.max(0, Math.floor((new Date() - new Date(l.leadDate)) / 86400000)) : "";
+        let expectedRevenue = Number(l.expectedDealValue || 0) * Number(l.closingProbability || 0) / 100;
+        let alert = "";
+        if(l.nextFollowupDate){
+            if(l.nextFollowupDate < today()) alert = "OVERDUE";
+            else if(l.nextFollowupDate === today()) alert = "TODAY";
+            else alert = "UPCOMING";
+        }
+        rows.push([
+            l.leadId,
+            l.leadDate,
+            c.companyName,
+            c.contactPerson,
+            c.mobile,
+            c.email,
+            l.leadSource,
+            l.productService,
+            l.requirementNotes,
+            l.priority,
+            l.status,
+            l.lastFollowupDate,
+            l.nextFollowupDate,
+            alert,
+            leadAge,
+            l.expectedDealValue,
+            l.closingProbability,
+            expectedRevenue,
+            l.expectedClosingDate,
+            l.remarks,
+            l.documentLink
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(["SERVICE TICKETS"]);
+    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
+
+    db.service.forEach(t=>{
+        let c = getCustomer(t.customerId);
+        rows.push([
+            t.ticketNo,
+            t.ticketDate,
+            c.contactPerson,
+            c.companyName,
+            c.mobile,
+            c.email,
+            t.location,
+            t.productService,
+            t.issueReported,
+            t.priority,
+            t.assignedEngineer,
+            t.startTime,
+            t.endTime,
+            t.solutionProvided,
+            t.serviceStatus,
+            t.serviceCharges,
+            t.paymentStatus,
+            t.nextServiceReminder,
+            t.amcAvailable,
+            t.remarks
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(["FOLLOW-UPS"]);
+    rows.push(["Follow-Up Date","Lead ID / Service Ticket","Company Name","Follow-Up Type","Discussion / Action Taken","Next Follow-Up Date","Status Update","Updated By","Follow-Up Count","Remarks"]);
+
+    db.followups.forEach(f=>{
+        rows.push([
+            f.followupDate,
+            f.referenceId,
+            f.companyName,
+            f.followupType,
+            f.discussion,
+            f.nextFollowupDate,
+            f.statusUpdate,
+            f.updatedBy,
+            f.followupCount,
+            f.remarks
+        ]);
+    });
+
+    rows.push([]);
+    rows.push(["TAX INVOICES"]);
+    rows.push(["Tax Invoice Number","Invoice Date","Quotation Number","Customer","Service / Product Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Payment Status","Remarks"]);
+
+    db.invoices.forEach(i=>{
+        let c = getCustomer(i.customerId);
+        rows.push([
+            i.invoiceNo,
+            i.invoiceDate,
+            i.quotationNo,
+            c.companyName,
+            i.itemDetails,
+            i.qty,
+            i.rate,
+            i.amount,
+            i.vatPercent,
+            i.vatAmount,
+            i.totalInclVat,
+            i.paymentStatus,
+            i.remarks
+        ]);
+    });
+
+    let csvContent = rows.map(row =>
+        row.map(value => `"${String(value ?? "").replace(/"/g,'""')}"`).join(",")
+    ).join("\n");
+
+    let blob = new Blob([csvContent], {type:"text/csv;charset=utf-8;"});
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "veltrox-crm-export.csv";
+    link.click();
+}
+
 function exportBackup(){
     const blob = new Blob([JSON.stringify(db,null,2)], {type:"application/json"});
     const a = document.createElement("a");
