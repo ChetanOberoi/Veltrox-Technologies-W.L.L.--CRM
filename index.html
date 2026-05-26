@@ -6,253 +6,147 @@
 
 <style>
 *{box-sizing:border-box}
-body{
-    margin:0;
-    font-family:Inter, Segoe UI, Arial, sans-serif;
-    background:#f6f7fb;
-    color:#111827;
-}
-.app{
-    display:flex;
-    min-height:100vh;
-}
-.sidebar{
-    width:260px;
-    background:#111827;
-    color:white;
-    padding:22px;
-}
-.logo{
-    font-size:22px;
-    font-weight:700;
-    margin-bottom:28px;
-}
-.nav a{
-    display:block;
-    padding:13px 14px;
-    margin-bottom:7px;
-    color:#d1d5db;
-    text-decoration:none;
-    border-radius:10px;
-}
-.nav a.active,.nav a:hover{
-    background:#2563eb;
-    color:white;
-}
-.main{
-    flex:1;
-}
-.topbar{
-    height:72px;
-    background:white;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:0 28px;
-    border-bottom:1px solid #e5e7eb;
-}
-.search{
-    width:360px;
-    padding:12px 16px;
-    border:1px solid #d1d5db;
-    border-radius:10px;
-}
-.user{
-    background:#eef2ff;
-    color:#1d4ed8;
-    padding:10px 14px;
-    border-radius:25px;
-    font-weight:600;
-}
-.content{
-    padding:28px;
-}
-.header-row{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:22px;
-}
-.btn{
-    background:#2563eb;
-    color:white;
-    border:none;
-    padding:12px 18px;
-    border-radius:10px;
-    font-weight:600;
-    cursor:pointer;
-}
-.stats{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-    gap:18px;
-    margin-bottom:24px;
-}
-.stat{
-    background:white;
-    padding:20px;
-    border-radius:16px;
-    border:1px solid #e5e7eb;
-}
-.stat span{
-    color:#6b7280;
-    font-size:14px;
-}
-.stat h2{
-    margin:10px 0 0;
-    font-size:32px;
-}
-.pipeline{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:18px;
-}
-.column{
-    background:#eef2f7;
-    padding:14px;
-    border-radius:16px;
-    min-height:360px;
-}
-.column h3{
-    margin-top:0;
-    font-size:16px;
-}
-.lead-card{
-    background:white;
-    padding:15px;
-    border-radius:14px;
-    margin-bottom:14px;
-    border:1px solid #e5e7eb;
-}
-.lead-card h4{
-    margin:0 0 8px;
-}
-.badge{
-    display:inline-block;
-    padding:5px 10px;
-    border-radius:20px;
-    background:#dbeafe;
-    color:#1d4ed8;
-    font-size:12px;
-    margin-top:8px;
-}
-.amount{
-    font-weight:700;
-    margin-top:8px;
-}
-@media(max-width:900px){
-    .app{display:block}
-    .sidebar{width:100%;height:auto}
-    .pipeline{grid-template-columns:1fr}
-    .topbar{display:block;height:auto;padding:18px}
-    .search{width:100%;margin-bottom:10px}
-}
+body{margin:0;font-family:Segoe UI,Arial;background:#eef2f7;color:#111827}
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;background:#111827;color:white;padding:25px}
+.sidebar h2{margin-bottom:40px}
+.sidebar a{display:block;color:#cbd5e1;text-decoration:none;padding:14px;margin-bottom:10px;border-radius:10px}
+.sidebar a:hover{background:#1f2937}
+.main{flex:1;padding:35px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.search{padding:14px;border-radius:12px;border:1px solid #ccc;width:360px}
+.btn{background:#2563eb;color:white;border:none;padding:14px 22px;border-radius:12px;font-weight:700;cursor:pointer}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:35px}
+.card{background:white;padding:28px;border-radius:20px;box-shadow:0 10px 25px #d7dde8}
+.table-box{background:white;margin-top:30px;padding:28px;border-radius:20px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:14px;border-bottom:1px solid #e5e7eb;text-align:left}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
+.modal-content{background:white;width:520px;padding:28px;border-radius:20px}
+input,select,textarea{width:100%;padding:12px;margin:8px 0 15px;border:1px solid #ccc;border-radius:10px}
+.actions{display:flex;gap:10px;justify-content:flex-end}
+.close{background:#6b7280}
 </style>
 </head>
 
 <body>
 
 <div class="app">
-
-    <aside class="sidebar">
-        <div class="logo">Veltrox CRM</div>
-        <div class="nav">
-            <a class="active" href="#">Dashboard</a>
-            <a href="#">Leads</a>
-            <a href="#">Follow-ups</a>
-            <a href="#">Service Tickets</a>
-            <a href="#">AMC / TSS Renewal</a>
-            <a href="#">Payments</a>
-            <a href="#">Reports</a>
-            <a href="#">Settings</a>
-        </div>
-    </aside>
-
-    <main class="main">
-
-        <div class="topbar">
-            <input class="search" placeholder="Search customers, leads, tickets...">
-            <div class="user">Chetan Oberoi</div>
-        </div>
-
-        <div class="content">
-
-            <div class="header-row">
-                <div>
-                    <h1>Sales Pipeline</h1>
-                    <p>Manage leads, service follow-ups and customer reminders</p>
-                </div>
-                <button class="btn">+ Add New Lead</button>
-            </div>
-
-            <div class="stats">
-                <div class="stat">
-                    <span>Total Leads</span>
-                    <h2>0</h2>
-                </div>
-                <div class="stat">
-                    <span>Pending Follow-ups</span>
-                    <h2>0</h2>
-                </div>
-                <div class="stat">
-                    <span>Open Tickets</span>
-                    <h2>0</h2>
-                </div>
-                <div class="stat">
-                    <span>Payment Pending</span>
-                    <h2>0 BHD</h2>
-                </div>
-            </div>
-
-            <div class="pipeline">
-
-                <div class="column">
-                    <h3>New Lead</h3>
-                    <div class="lead-card">
-                        <h4>ABC Trading W.L.L.</h4>
-                        <p>TallyPrime enquiry</p>
-                        <div class="amount">BD 240.000</div>
-                        <span class="badge">Call Today</span>
-                    </div>
-                </div>
-
-                <div class="column">
-                    <h3>Quotation Sent</h3>
-                    <div class="lead-card">
-                        <h4>Gulf Services</h4>
-                        <p>Tally on Cloud proposal</p>
-                        <div class="amount">BD 198.000</div>
-                        <span class="badge">Follow-up</span>
-                    </div>
-                </div>
-
-                <div class="column">
-                    <h3>Negotiation</h3>
-                    <div class="lead-card">
-                        <h4>Future Tech</h4>
-                        <p>Customization discussion</p>
-                        <div class="amount">BD 450.000</div>
-                        <span class="badge">Meeting Pending</span>
-                    </div>
-                </div>
-
-                <div class="column">
-                    <h3>Won / Closed</h3>
-                    <div class="lead-card">
-                        <h4>Royal Contracting</h4>
-                        <p>TSS Renewal completed</p>
-                        <div class="amount">BD 198.000</div>
-                        <span class="badge">Closed</span>
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-
-    </main>
-
+<div class="sidebar">
+<h2>Veltrox CRM</h2>
+<a>Dashboard</a>
+<a>Sales Leads</a>
+<a>Service Tickets</a>
+<a>Follow-ups</a>
+<a>AMC / TSS Renewal</a>
+<a>Payments</a>
+<a>Reports</a>
 </div>
+
+<div class="main">
+<div class="top">
+<div>
+<h1>CRM Dashboard</h1>
+<p>Sales, Service, Follow-up and Reminder Management</p>
+</div>
+<div>
+<input class="search" placeholder="Search customer, lead, ticket...">
+<button class="btn" onclick="openLeadForm()">+ Add Lead</button>
+</div>
+</div>
+
+<div class="cards">
+<div class="card"><h3>Total Leads</h3><h1 id="totalLeads">0</h1><p>All sales enquiries</p></div>
+<div class="card"><h3>Pending Follow-ups</h3><h1>0</h1><p>Calls / WhatsApp / Visits</p></div>
+<div class="card"><h3>Open Tickets</h3><h1>0</h1><p>Service support cases</p></div>
+<div class="card"><h3>Payment Pending</h3><h1>0 BHD</h1><p>Outstanding payments</p></div>
+</div>
+
+<div class="table-box">
+<h2>Recent Leads</h2>
+<table id="leadTable">
+<tr>
+<th>Date</th>
+<th>Customer</th>
+<th>Mobile</th>
+<th>Requirement</th>
+<th>Status</th>
+<th>Next Follow-up</th>
+</tr>
+</table>
+</div>
+</div>
+</div>
+
+<div class="modal" id="leadModal">
+<div class="modal-content">
+<h2>Add New Lead</h2>
+
+<input id="customerName" placeholder="Customer Name">
+<input id="mobile" placeholder="Mobile Number">
+<input id="email" placeholder="Email ID">
+<input id="company" placeholder="Company Name">
+<textarea id="requirement" placeholder="Requirement"></textarea>
+
+<select id="status">
+<option>New</option>
+<option>Follow-up</option>
+<option>Quotation Sent</option>
+<option>Won</option>
+<option>Lost</option>
+</select>
+
+<input id="followupDate" type="date">
+
+<div class="actions">
+<button class="btn close" onclick="closeLeadForm()">Cancel</button>
+<button class="btn" onclick="saveLead()">Save Lead</button>
+</div>
+</div>
+</div>
+
+<script>
+let leads = [];
+
+function openLeadForm(){
+    document.getElementById("leadModal").style.display="flex";
+}
+
+function closeLeadForm(){
+    document.getElementById("leadModal").style.display="none";
+}
+
+function saveLead(){
+    let name = document.getElementById("customerName").value;
+    let mobile = document.getElementById("mobile").value;
+    let requirement = document.getElementById("requirement").value;
+    let status = document.getElementById("status").value;
+    let followup = document.getElementById("followupDate").value;
+
+    if(name === ""){
+        alert("Please enter customer name");
+        return;
+    }
+
+    leads.push({name,mobile,requirement,status,followup});
+
+    let table = document.getElementById("leadTable");
+    let row = table.insertRow(-1);
+
+    row.innerHTML = `
+        <td>${new Date().toLocaleDateString()}</td>
+        <td>${name}</td>
+        <td>${mobile}</td>
+        <td>${requirement}</td>
+        <td>${status}</td>
+        <td>${followup}</td>
+    `;
+
+    document.getElementById("totalLeads").innerText = leads.length;
+
+    closeLeadForm();
+}
+</script>
 
 </body>
 </html>
