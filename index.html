@@ -9,23 +9,29 @@
 body{margin:0;font-family:Segoe UI,Arial;background:#eef2f7;color:#111827}
 .app{display:flex;min-height:100vh}
 .sidebar{width:260px;background:#111827;color:white;padding:25px}
-.sidebar h2{margin-bottom:40px}
-.sidebar a{display:block;color:#cbd5e1;text-decoration:none;padding:14px;margin-bottom:10px;border-radius:10px}
+.sidebar h2{margin-bottom:35px}
+.sidebar a{display:block;color:#cbd5e1;text-decoration:none;padding:14px;margin-bottom:8px;border-radius:10px;cursor:pointer}
 .sidebar a:hover{background:#1f2937}
 .main{flex:1;padding:35px}
-.top{display:flex;justify-content:space-between;align-items:center}
+.top{display:flex;justify-content:space-between;align-items:center;gap:15px}
 .search{padding:14px;border-radius:12px;border:1px solid #ccc;width:360px}
-.btn{background:#2563eb;color:white;border:none;padding:14px 22px;border-radius:12px;font-weight:700;cursor:pointer}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:35px}
-.card{background:white;padding:28px;border-radius:20px;box-shadow:0 10px 25px #d7dde8}
-.table-box{background:white;margin-top:30px;padding:28px;border-radius:20px}
+.btn{background:#2563eb;color:white;border:none;padding:10px 15px;border-radius:10px;font-weight:700;cursor:pointer}
+.btn.gray{background:#6b7280}
+.btn.red{background:#dc2626}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-top:30px}
+.card{background:white;padding:22px;border-radius:18px;box-shadow:0 8px 20px #d7dde8}
+.table-box,.profile-box{background:white;margin-top:30px;padding:25px;border-radius:18px}
 table{width:100%;border-collapse:collapse}
-th,td{padding:14px;border-bottom:1px solid #e5e7eb;text-align:left}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
-.modal-content{background:white;width:520px;padding:28px;border-radius:20px}
-input,select,textarea{width:100%;padding:12px;margin:8px 0 15px;border:1px solid #ccc;border-radius:10px}
+th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;z-index:10}
+.modal-content{background:white;width:540px;padding:25px;border-radius:18px;max-height:90vh;overflow:auto}
+input,select,textarea{width:100%;padding:12px;margin:8px 0 14px;border:1px solid #ccc;border-radius:10px}
 .actions{display:flex;gap:10px;justify-content:flex-end}
-.close{background:#6b7280}
+.hidden{display:none}
+@media(max-width:900px){
+.app{display:block}.sidebar{width:100%}.cards{grid-template-columns:1fr}
+.top{display:block}.search{width:100%;margin-bottom:10px}
+}
 </style>
 </head>
 
@@ -34,59 +40,61 @@ input,select,textarea{width:100%;padding:12px;margin:8px 0 15px;border:1px solid
 <div class="app">
 <div class="sidebar">
 <h2>Veltrox CRM</h2>
-<a>Dashboard</a>
-<a>Sales Leads</a>
-<a>Service Tickets</a>
-<a>Follow-ups</a>
-<a>AMC / TSS Renewal</a>
-<a>Payments</a>
-<a>Reports</a>
+<a onclick="showSection('dashboard')">Dashboard</a>
+<a onclick="showSection('customers')">Customer Master</a>
+<a onclick="showSection('leads')">Sales Leads</a>
+<a onclick="showSection('service')">Service Tickets</a>
+<a onclick="showSection('followup')">Follow-ups</a>
+<a onclick="showSection('payments')">Payments</a>
 </div>
 
 <div class="main">
+
 <div class="top">
 <div>
-<h1>CRM Dashboard</h1>
+<h1 id="pageTitle">CRM Dashboard</h1>
 <p>Sales, Service, Follow-up and Reminder Management</p>
 </div>
 <div>
-<input class="search" placeholder="Search customer, lead, ticket...">
-<button class="btn" onclick="openLeadForm()">+ Add Lead</button>
+<input class="search" id="searchBox" onkeyup="render()" placeholder="Search customer, mobile, company...">
+<button class="btn" id="addBtn" onclick="openForm()">+ Add Record</button>
 </div>
 </div>
 
 <div class="cards">
-<div class="card"><h3>Total Leads</h3><h1 id="totalLeads">0</h1><p>All sales enquiries</p></div>
-<div class="card"><h3>Pending Follow-ups</h3><h1>0</h1><p>Calls / WhatsApp / Visits</p></div>
-<div class="card"><h3>Open Tickets</h3><h1>0</h1><p>Service support cases</p></div>
-<div class="card"><h3>Payment Pending</h3><h1>0 BHD</h1><p>Outstanding payments</p></div>
+<div class="card"><h3>Total Customers</h3><h1 id="totalCustomers">0</h1></div>
+<div class="card"><h3>Total Leads</h3><h1 id="totalLeads">0</h1></div>
+<div class="card"><h3>Follow-ups</h3><h1 id="totalFollowups">0</h1></div>
+<div class="card"><h3>Open Tickets</h3><h1 id="openTickets">0</h1></div>
+<div class="card"><h3>Payment Records</h3><h1 id="totalPayments">0</h1></div>
 </div>
 
 <div class="table-box">
-<h2>Recent Leads</h2>
-<table id="leadTable">
-<tr>
-<th>Date</th>
-<th>Customer</th>
-<th>Mobile</th>
-<th>Requirement</th>
-<th>Status</th>
-<th>Next Follow-up</th>
-</tr>
+<h2 id="tableTitle">Records</h2>
+<table>
+<thead id="tableHead"></thead>
+<tbody id="tableBody"></tbody>
 </table>
 </div>
+
+<div class="profile-box hidden" id="customerProfile">
+<h2 id="profileTitle">Customer Profile</h2>
+<div id="profileContent"></div>
+</div>
+
 </div>
 </div>
 
-<div class="modal" id="leadModal">
+<div class="modal" id="modal">
 <div class="modal-content">
-<h2>Add New Lead</h2>
+<h2 id="formTitle">Add Record</h2>
+<input type="hidden" id="editIndex">
 
-<input id="customerName" placeholder="Customer Name">
+<input id="customer" placeholder="Customer Name">
 <input id="mobile" placeholder="Mobile Number">
 <input id="email" placeholder="Email ID">
 <input id="company" placeholder="Company Name">
-<textarea id="requirement" placeholder="Requirement"></textarea>
+<textarea id="details" placeholder="Requirement / Issue / Payment / Notes"></textarea>
 
 <select id="status">
 <option>New</option>
@@ -94,58 +102,278 @@ input,select,textarea{width:100%;padding:12px;margin:8px 0 15px;border:1px solid
 <option>Quotation Sent</option>
 <option>Won</option>
 <option>Lost</option>
+<option>Open</option>
+<option>Closed</option>
+<option>Pending</option>
+<option>Paid</option>
+<option>Partial</option>
 </select>
 
-<input id="followupDate" type="date">
+<input id="nextDate" type="date">
 
 <div class="actions">
-<button class="btn close" onclick="closeLeadForm()">Cancel</button>
-<button class="btn" onclick="saveLead()">Save Lead</button>
+<button class="btn gray" onclick="closeForm()">Cancel</button>
+<button class="btn" onclick="saveRecord()">Save</button>
 </div>
 </div>
 </div>
 
 <script>
-let leads = [];
+let currentSection = "dashboard";
 
-function openLeadForm(){
-    document.getElementById("leadModal").style.display="flex";
+let records = JSON.parse(localStorage.getItem("veltroxCRM")) || {
+    leads: [],
+    service: [],
+    followup: [],
+    payments: []
+};
+
+function saveLocal(){
+    localStorage.setItem("veltroxCRM", JSON.stringify(records));
 }
 
-function closeLeadForm(){
-    document.getElementById("leadModal").style.display="none";
+function allRecords(){
+    return [
+        ...records.leads.map(r=>({...r,type:"Sales Lead"})),
+        ...records.service.map(r=>({...r,type:"Service Ticket"})),
+        ...records.followup.map(r=>({...r,type:"Follow-up"})),
+        ...records.payments.map(r=>({...r,type:"Payment"}))
+    ];
 }
 
-function saveLead(){
-    let name = document.getElementById("customerName").value;
-    let mobile = document.getElementById("mobile").value;
-    let requirement = document.getElementById("requirement").value;
-    let status = document.getElementById("status").value;
-    let followup = document.getElementById("followupDate").value;
+function getCustomers(){
+    let map = {};
+    allRecords().forEach(r=>{
+        let key = (r.mobile || r.customer || "").toLowerCase();
+        if(!key) return;
+        if(!map[key]){
+            map[key] = {
+                customer:r.customer,
+                mobile:r.mobile,
+                email:r.email,
+                company:r.company,
+                count:0
+            };
+        }
+        map[key].count++;
+    });
+    return Object.values(map);
+}
 
-    if(name === ""){
+function showSection(section){
+    currentSection = section;
+    document.getElementById("customerProfile").classList.add("hidden");
+
+    let title = {
+        dashboard:"CRM Dashboard",
+        customers:"Customer Master",
+        leads:"Sales Leads",
+        service:"Service Tickets",
+        followup:"Follow-ups",
+        payments:"Payments"
+    };
+
+    document.getElementById("pageTitle").innerText = title[section];
+
+    document.getElementById("addBtn").style.display =
+        section === "dashboard" || section === "customers" ? "none" : "inline-block";
+
+    document.getElementById("addBtn").innerText =
+        section === "leads" ? "+ Add Lead" :
+        section === "service" ? "+ Add Ticket" :
+        section === "followup" ? "+ Add Follow-up" :
+        section === "payments" ? "+ Add Payment" : "+ Add Record";
+
+    render();
+}
+
+function openForm(index=null){
+    document.getElementById("modal").style.display="flex";
+    document.getElementById("editIndex").value = index !== null ? index : "";
+    document.getElementById("formTitle").innerText = index !== null ? "Edit Record" : "Add Record";
+
+    if(index !== null){
+        let r = records[currentSection][index];
+        customer.value = r.customer;
+        mobile.value = r.mobile;
+        email.value = r.email;
+        company.value = r.company;
+        details.value = r.details;
+        status.value = r.status;
+        nextDate.value = r.nextDate;
+    }else{
+        customer.value = mobile.value = email.value = company.value = details.value = nextDate.value = "";
+        status.value = "New";
+    }
+}
+
+function closeForm(){
+    document.getElementById("modal").style.display="none";
+}
+
+function saveRecord(){
+    let data = {
+        date:new Date().toLocaleDateString(),
+        customer:customer.value,
+        mobile:mobile.value,
+        email:email.value,
+        company:company.value,
+        details:details.value,
+        status:status.value,
+        nextDate:nextDate.value
+    };
+
+    if(!data.customer){
         alert("Please enter customer name");
         return;
     }
 
-    leads.push({name,mobile,requirement,status,followup});
+    let editIndex = document.getElementById("editIndex").value;
 
-    let table = document.getElementById("leadTable");
-    let row = table.insertRow(-1);
+    if(editIndex === ""){
+        records[currentSection].push(data);
+    }else{
+        records[currentSection][editIndex] = data;
+    }
 
-    row.innerHTML = `
-        <td>${new Date().toLocaleDateString()}</td>
-        <td>${name}</td>
-        <td>${mobile}</td>
-        <td>${requirement}</td>
-        <td>${status}</td>
-        <td>${followup}</td>
-    `;
-
-    document.getElementById("totalLeads").innerText = leads.length;
-
-    closeLeadForm();
+    saveLocal();
+    closeForm();
+    render();
 }
+
+function deleteRecord(index){
+    if(confirm("Delete this record?")){
+        records[currentSection].splice(index,1);
+        saveLocal();
+        render();
+    }
+}
+
+function render(){
+    updateCards();
+
+    if(currentSection === "dashboard"){
+        renderDashboard();
+    }else if(currentSection === "customers"){
+        renderCustomers();
+    }else{
+        renderSectionRecords();
+    }
+}
+
+function updateCards(){
+    document.getElementById("totalCustomers").innerText = getCustomers().length;
+    document.getElementById("totalLeads").innerText = records.leads.length;
+    document.getElementById("totalFollowups").innerText = records.followup.length;
+    document.getElementById("openTickets").innerText = records.service.filter(r=>r.status !== "Closed").length;
+    document.getElementById("totalPayments").innerText = records.payments.length;
+}
+
+function renderDashboard(){
+    document.getElementById("tableTitle").innerText = "Recent Activities";
+    tableHead.innerHTML = `
+    <tr>
+    <th>Date</th><th>Type</th><th>Customer</th><th>Mobile</th><th>Company</th><th>Status</th><th>Next Date</th>
+    </tr>`;
+
+    tableBody.innerHTML = "";
+    allRecords().slice(-10).reverse().forEach(r=>{
+        tableBody.innerHTML += `
+        <tr>
+        <td>${r.date}</td><td>${r.type}</td><td>${r.customer}</td><td>${r.mobile}</td>
+        <td>${r.company}</td><td>${r.status}</td><td>${r.nextDate}</td>
+        </tr>`;
+    });
+}
+
+function renderSectionRecords(){
+    let search = searchBox.value.toLowerCase();
+    let data = records[currentSection].filter(r =>
+        (r.customer||"").toLowerCase().includes(search) ||
+        (r.mobile||"").toLowerCase().includes(search) ||
+        (r.company||"").toLowerCase().includes(search) ||
+        (r.details||"").toLowerCase().includes(search)
+    );
+
+    document.getElementById("tableTitle").innerText = document.getElementById("pageTitle").innerText;
+
+    tableHead.innerHTML = `
+    <tr>
+    <th>Date</th><th>Customer</th><th>Mobile</th><th>Email</th><th>Company</th>
+    <th>Details</th><th>Status</th><th>Next Date</th><th>Action</th>
+    </tr>`;
+
+    tableBody.innerHTML = "";
+    data.forEach((r,i)=>{
+        tableBody.innerHTML += `
+        <tr>
+        <td>${r.date}</td><td>${r.customer}</td><td>${r.mobile}</td><td>${r.email}</td>
+        <td>${r.company}</td><td>${r.details}</td><td>${r.status}</td><td>${r.nextDate}</td>
+        <td>
+        <button class="btn" onclick="openForm(${i})">Edit</button>
+        <button class="btn red" onclick="deleteRecord(${i})">Delete</button>
+        </td>
+        </tr>`;
+    });
+}
+
+function renderCustomers(){
+    let search = searchBox.value.toLowerCase();
+    let customers = getCustomers().filter(c =>
+        (c.customer||"").toLowerCase().includes(search) ||
+        (c.mobile||"").toLowerCase().includes(search) ||
+        (c.company||"").toLowerCase().includes(search)
+    );
+
+    document.getElementById("tableTitle").innerText = "Customer Master";
+
+    tableHead.innerHTML = `
+    <tr>
+    <th>Customer</th><th>Mobile</th><th>Email</th><th>Company</th><th>Total Records</th><th>Action</th>
+    </tr>`;
+
+    tableBody.innerHTML = "";
+    customers.forEach(c=>{
+        tableBody.innerHTML += `
+        <tr>
+        <td>${c.customer}</td><td>${c.mobile}</td><td>${c.email}</td><td>${c.company}</td>
+        <td>${c.count}</td>
+        <td><button class="btn" onclick="viewCustomer('${c.mobile}')">View Details</button></td>
+        </tr>`;
+    });
+}
+
+function viewCustomer(mobileNo){
+    let history = allRecords().filter(r => r.mobile === mobileNo);
+    let c = history[0];
+
+    document.getElementById("customerProfile").classList.remove("hidden");
+    document.getElementById("profileTitle").innerText = "Customer Full Details - " + c.customer;
+
+    let html = `
+    <p><b>Customer:</b> ${c.customer}</p>
+    <p><b>Mobile:</b> ${c.mobile}</p>
+    <p><b>Email:</b> ${c.email}</p>
+    <p><b>Company:</b> ${c.company}</p>
+
+    <h3>Complete Activity History</h3>
+    <table>
+    <tr>
+    <th>Date</th><th>Type</th><th>Details</th><th>Status</th><th>Next Date</th>
+    </tr>`;
+
+    history.forEach(r=>{
+        html += `
+        <tr>
+        <td>${r.date}</td><td>${r.type}</td><td>${r.details}</td><td>${r.status}</td><td>${r.nextDate}</td>
+        </tr>`;
+    });
+
+    html += `</table>`;
+    document.getElementById("profileContent").innerHTML = html;
+}
+
+render();
 </script>
 
 </body>
