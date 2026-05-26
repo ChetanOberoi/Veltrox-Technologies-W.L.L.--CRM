@@ -9,247 +9,173 @@
 :root{
     --primary:#2563eb;
     --primary-dark:#1d4ed8;
-    --accent:#0ea5e9;
-    --dark:#0f172a;
-    --dark-2:#1e293b;
-    --bg:#f6f8fc;
+    --dark:#111827;
+    --dark-2:#1f2937;
+    --bg:#f3f6fb;
     --white:#ffffff;
-    --border:#e6edf5;
-    --text:#172033;
-    --muted:#64748b;
-    --danger:#ef4444;
-    --success:#10b981;
+    --border:#e5e7eb;
+    --text:#111827;
+    --muted:#6b7280;
+    --danger:#dc2626;
+    --success:#16a34a;
     --warning:#f59e0b;
     --purple:#7c3aed;
-    --shadow:0 10px 30px rgba(15,23,42,.08);
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
 body{
     margin:0;
-    font-family:"Segoe UI",Inter,Arial,sans-serif;
-    background:linear-gradient(180deg,#f8fbff 0%,#eef4fb 100%);
+    font-family:Segoe UI,Arial,sans-serif;
+    background:var(--bg);
     color:var(--text);
 }
 .app{display:flex;min-height:100vh}
 .sidebar{
-    width:282px;
-    background:linear-gradient(180deg,#0f172a 0%,#111c33 100%);
+    width:280px;
+    background:var(--dark);
     color:white;
-    padding:28px 18px;
+    padding:24px 18px;
     position:fixed;
     left:0;
     top:0;
     bottom:0;
     overflow-y:auto;
-    box-shadow:8px 0 28px rgba(15,23,42,.18);
 }
 .logo{
-    font-size:28px;
+    font-size:25px;
     font-weight:900;
-    letter-spacing:.2px;
     margin:0 0 6px;
 }
-.logo::before{
-    content:"";
-    display:inline-block;
-    width:12px;
-    height:12px;
-    background:#38bdf8;
-    border-radius:50%;
-    margin-right:10px;
-    box-shadow:0 0 0 6px rgba(56,189,248,.16);
-}
 .logo-sub{
-    color:#a7b4c8;
+    color:#cbd5e1;
     font-size:13px;
-    line-height:1.4;
-    margin-bottom:28px;
-    padding-left:23px;
+    margin-bottom:24px;
 }
 .nav-btn{
-    display:flex;
-    align-items:center;
+    display:block;
     width:100%;
-    padding:14px 15px;
-    margin:7px 0;
-    color:#cbd5e1;
+    padding:13px 14px;
+    margin:6px 0;
+    color:#d1d5db;
     background:transparent;
     border:0;
-    border-radius:14px;
+    border-radius:10px;
     text-align:left;
     cursor:pointer;
-    font-weight:700;
-    font-size:14px;
-    transition:.18s ease;
+    font-weight:600;
 }
-.nav-btn:hover{
-    background:rgba(37,99,235,.16);
-    color:#fff;
-    transform:translateX(2px);
-}
-.nav-btn.active{
-    background:linear-gradient(135deg,#2563eb,#0ea5e9);
+.nav-btn:hover,.nav-btn.active{
+    background:var(--primary);
     color:white;
-    box-shadow:0 10px 24px rgba(37,99,235,.32);
 }
 .main{
-    margin-left:282px;
-    width:calc(100% - 282px);
-    padding:30px;
+    margin-left:280px;
+    width:calc(100% - 280px);
+    padding:26px;
 }
 .topbar{
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
-    gap:22px;
-    margin-bottom:24px;
-    background:rgba(255,255,255,.82);
-    border:1px solid rgba(226,232,240,.9);
-    padding:22px;
-    border-radius:22px;
-    box-shadow:var(--shadow);
-    backdrop-filter:blur(10px);
+    gap:18px;
+    margin-bottom:20px;
 }
-.topbar h1{
-    margin:0 0 7px;
-    font-size:34px;
-    letter-spacing:-.6px;
-    color:#0f172a;
-}
-.topbar p{margin:0;color:var(--muted);font-size:14px}
+.topbar h1{margin:0 0 6px;font-size:30px}
+.topbar p{margin:0;color:var(--muted)}
 .top-actions{
     display:flex;
-    gap:9px;
+    gap:8px;
     flex-wrap:wrap;
     justify-content:flex-end;
-    align-items:center;
 }
 .search{
-    width:360px;
+    width:330px;
     max-width:100%;
-    padding:13px 16px;
-    border:1px solid #dbe5ef;
-    border-radius:14px;
+    padding:12px 14px;
+    border:1px solid #d1d5db;
+    border-radius:12px;
     outline:none;
-    background:#fff;
-    color:#172033;
-    box-shadow:0 4px 14px rgba(15,23,42,.04);
-}
-.search:focus{
-    border-color:#60a5fa;
-    box-shadow:0 0 0 4px rgba(37,99,235,.12);
 }
 .btn{
     border:0;
-    border-radius:13px;
-    padding:11px 16px;
-    background:linear-gradient(135deg,var(--primary),var(--accent));
+    border-radius:10px;
+    padding:10px 14px;
+    background:var(--primary);
     color:white;
-    font-weight:800;
+    font-weight:700;
     cursor:pointer;
     display:inline-block;
     margin:2px;
-    box-shadow:0 8px 20px rgba(37,99,235,.20);
-    transition:.16s ease;
 }
-.btn:hover{transform:translateY(-1px);filter:brightness(.98)}
-.btn.small{padding:7px 10px;font-size:12px;border-radius:10px;box-shadow:none}
-.btn.gray{background:#64748b;box-shadow:none}
-.btn.red{background:var(--danger);box-shadow:none}
-.btn.green{background:var(--success);box-shadow:none}
-.btn.orange{background:var(--warning);box-shadow:none}
-.btn.purple{background:var(--purple);box-shadow:none}
+.btn:hover{opacity:.9}
+.btn.small{padding:7px 10px;font-size:12px}
+.btn.gray{background:#6b7280}
+.btn.red{background:var(--danger)}
+.btn.green{background:var(--success)}
+.btn.orange{background:var(--warning)}
+.btn.purple{background:var(--purple)}
 .cards{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
-    gap:18px;
-    margin-bottom:24px;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:15px;
+    margin-bottom:20px;
 }
 .card{
-    background:var(--white);
-    padding:21px;
-    border-radius:22px;
-    box-shadow:var(--shadow);
-    border:1px solid rgba(226,232,240,.9);
-    position:relative;
-    overflow:hidden;
-}
-.card::after{
-    content:"";
-    position:absolute;
-    right:-28px;
-    top:-28px;
-    width:82px;
-    height:82px;
-    border-radius:50%;
-    background:rgba(37,99,235,.08);
+    background:white;
+    padding:18px;
+    border-radius:18px;
+    box-shadow:0 8px 22px rgba(0,0,0,.07);
 }
 .card-title{
     color:var(--muted);
-    font-weight:800;
+    font-weight:700;
     font-size:13px;
-    text-transform:uppercase;
-    letter-spacing:.4px;
 }
 .card-value{
-    font-size:31px;
-    font-weight:950;
-    margin-top:10px;
-    color:#0f172a;
+    font-size:29px;
+    font-weight:900;
+    margin-top:8px;
 }
 .panel{
-    background:var(--white);
-    padding:22px;
-    border-radius:22px;
-    box-shadow:var(--shadow);
-    border:1px solid rgba(226,232,240,.9);
+    background:white;
+    padding:20px;
+    border-radius:18px;
+    box-shadow:0 8px 22px rgba(0,0,0,.07);
 }
 .panel-head{
     display:flex;
     justify-content:space-between;
     align-items:center;
     gap:12px;
-    margin-bottom:16px;
-    border-bottom:1px solid var(--border);
-    padding-bottom:14px;
+    margin-bottom:15px;
 }
-.panel-head h2{margin:0;color:#0f172a;font-size:22px}
-.table-wrap{overflow:auto;border-radius:16px;border:1px solid var(--border)}
+.panel-head h2{margin:0}
+.table-wrap{overflow:auto}
 table{
     width:100%;
-    border-collapse:separate;
-    border-spacing:0;
+    border-collapse:collapse;
     min-width:1200px;
-    background:#fff;
 }
 th,td{
-    padding:12px 11px;
+    padding:10px;
     border-bottom:1px solid var(--border);
     text-align:left;
     font-size:13px;
     vertical-align:top;
 }
 th{
-    background:#f8fafc;
-    color:#475569;
+    background:#f9fafb;
+    color:#374151;
     white-space:nowrap;
-    font-weight:900;
-    position:sticky;
-    top:0;
-    z-index:1;
 }
-tbody tr:hover td{background:#f8fbff}
-tbody tr:last-child td{border-bottom:0}
+tr:hover td{background:#fafafa}
 .badge{
-    padding:6px 10px;
+    padding:5px 9px;
     border-radius:999px;
     font-size:12px;
-    font-weight:900;
+    font-weight:800;
     display:inline-block;
     background:#dbeafe;
     color:#1d4ed8;
-    white-space:nowrap;
 }
 .badge.red{background:#fee2e2;color:#b91c1c}
 .badge.green{background:#dcfce7;color:#166534}
@@ -259,76 +185,63 @@ tbody tr:last-child td{border-bottom:0}
     display:none;
     position:fixed;
     inset:0;
-    background:rgba(15,23,42,.58);
+    background:rgba(0,0,0,.48);
     z-index:999;
     align-items:center;
     justify-content:center;
-    padding:16px;
-    backdrop-filter:blur(4px);
+    padding:14px;
 }
 .modal-content{
     background:white;
-    width:980px;
+    width:960px;
     max-width:100%;
     max-height:92vh;
     overflow:auto;
-    border-radius:24px;
-    padding:26px;
-    box-shadow:0 30px 90px rgba(15,23,42,.28);
-    border:1px solid rgba(226,232,240,.9);
+    border-radius:18px;
+    padding:24px;
 }
 .modal-head{
     display:flex;
     justify-content:space-between;
     align-items:center;
     gap:12px;
-    margin-bottom:18px;
-    border-bottom:1px solid var(--border);
-    padding-bottom:14px;
+    margin-bottom:15px;
 }
-.modal-head h2{margin:0;color:#0f172a;font-size:24px}
+.modal-head h2{margin:0}
 .form-grid{
     display:grid;
     grid-template-columns:repeat(2,1fr);
-    gap:15px;
+    gap:13px;
 }
 .full{grid-column:1/-1}
 label{
     display:block;
     font-size:13px;
-    color:#334155;
-    font-weight:900;
-    margin-bottom:6px;
+    color:#374151;
+    font-weight:800;
+    margin-bottom:5px;
 }
 input,select,textarea{
     width:100%;
-    padding:12px 12px;
-    border:1px solid #dbe5ef;
-    border-radius:13px;
+    padding:10px 11px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
     font-family:inherit;
-    background:#fff;
-    color:#172033;
-    outline:none;
 }
-input:focus,select:focus,textarea:focus{
-    border-color:#60a5fa;
-    box-shadow:0 0 0 4px rgba(37,99,235,.10);
-}
-textarea{min-height:90px;resize:vertical}
+textarea{min-height:78px;resize:vertical}
 .form-actions{
     display:flex;
     justify-content:flex-end;
-    gap:9px;
-    margin-top:20px;
+    gap:8px;
+    margin-top:18px;
 }
 .notice{
     background:#eff6ff;
     border:1px solid #bfdbfe;
-    padding:13px;
-    border-radius:14px;
+    padding:12px;
+    border-radius:12px;
     color:#1e40af;
     margin-bottom:14px;
-    font-weight:700;
 }
 .invoice-print{
     background:white;
@@ -356,8 +269,8 @@ textarea{min-height:90px;resize:vertical}
 }
 .invoice-box{
     border:1px solid #d1d5db;
-    padding:14px;
-    border-radius:14px;
+    padding:12px;
+    border-radius:10px;
 }
 .right{text-align:right}
 .small-text{font-size:12px;color:var(--muted)}
@@ -372,7 +285,13 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
 @media print{
     body *{visibility:hidden!important}
     #printArea,#printArea *{visibility:visible!important}
-    #printArea{position:absolute;left:0;top:0;width:100%;padding:0}
+    #printArea{
+        position:absolute;
+        left:0;
+        top:0;
+        width:100%;
+        padding:0;
+    }
     .no-print{display:none!important}
 }
 @media(max-width:900px){
@@ -380,7 +299,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
     .sidebar{position:relative;width:100%;height:auto}
     .main{margin-left:0;width:100%;padding:16px}
     .topbar{display:block}
-    .top-actions{justify-content:flex-start;margin-top:14px}
+    .top-actions{justify-content:flex-start;margin-top:12px}
     .search{width:100%}
     .form-grid{grid-template-columns:1fr}
     .invoice-header,.invoice-grid{display:block}
@@ -471,7 +390,22 @@ let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
         supplierCR:"",
         supplierVAT:"",
         invoicePrefix:"INV",
-        vatPercent:10
+        vatPercent:10,
+        productServices:[
+            "TallyPrime Silver",
+            "TallyPrime Gold",
+            "TSS Renewal",
+            "Tally on Cloud",
+            "Tally Customization",
+            "Tally AMC Support",
+            "Tally Training",
+            "VAT Filing",
+            "Web Designing",
+            "Mobile App Development",
+            "CCTV Service",
+            "IT Support",
+            "Other"
+        ]
     },
     customers:[],
     leads:[],
@@ -484,7 +418,17 @@ function saveDB(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
 function uid(prefix){
-    return prefix + "-" + Date.now().toString().slice(-7);
+    const year = new Date().getFullYear();
+    let count = 1;
+
+    if(prefix === "CUS") count = db.customers.length + 1;
+    if(prefix === "LEAD") count = db.leads.length + 1;
+    if(prefix === "TKT") count = db.service.length + 1;
+    if(prefix === "FUP" || prefix === "FU") count = db.followups.length + 1;
+    if(prefix === "INV") count = db.invoices.length + 1;
+
+    const number = String(count).padStart(4,"0");
+    return `${prefix}-${number}/${year}`;
 }
 function today(){
     return new Date().toISOString().slice(0,10);
@@ -622,12 +566,51 @@ function customerSelect(value=""){
     return `
     <div>
         <label>Customer</label>
-        <select id="customerId" onchange="fillCustomerDependentFields()">
+        <select id="customerId" onchange="handleCustomerSelection()">
             <option value="">Select Customer</option>
             ${db.customers.map(c => `<option value="${c.customerId}" ${c.customerId === value ? "selected" : ""}>${escapeHtml(c.companyName)} - ${escapeHtml(c.contactPerson)}</option>`).join("")}
+            <option value="__NEW_CUSTOMER__">+ Add New Customer</option>
         </select>
     </div>`;
 }
+
+function handleCustomerSelection(){
+    const field = document.getElementById("customerId");
+    if(field && field.value === "__NEW_CUSTOMER__"){
+        const companyName = prompt("Enter Company Name:");
+        if(!companyName || !companyName.trim()){
+            field.value = "";
+            return;
+        }
+        const contactPerson = prompt("Enter Contact Person:") || "";
+        const mobile = prompt("Enter Mobile Number:") || "";
+        const email = prompt("Enter Email ID:") || "";
+
+        const newCustomer = {
+            customerId:uid("CUS"),
+            companyName:companyName.trim(),
+            contactPerson:contactPerson.trim(),
+            mobile:mobile.trim(),
+            email:email.trim(),
+            crNo:"",
+            vatNo:"",
+            location:"",
+            documentLink:"",
+            address:"",
+            remarks:"Created from form"
+        };
+
+        db.customers.push(newCustomer);
+        saveDB();
+
+        field.innerHTML = `<option value="">Select Customer</option>` +
+            db.customers.map(c => `<option value="${c.customerId}">${escapeHtml(c.companyName)} - ${escapeHtml(c.contactPerson)}</option>`).join("") +
+            `<option value="__NEW_CUSTOMER__">+ Add New Customer</option>`;
+        field.value = newCustomer.customerId;
+    }
+    fillCustomerDependentFields();
+}
+
 function statusBadge(status){
     let cls = "badge";
     const s = String(status || "").toLowerCase();
@@ -945,6 +928,18 @@ function renderSettings(){
 
         <hr>
 
+        <h3>Product / Service Master</h3>
+        <div class="form-grid">
+            <div class="full">
+                <label>Product / Service List - one item per line</label>
+                <textarea id="productServiceList" style="min-height:180px;">${(db.settings.productServices || []).join("\n")}</textarea>
+            </div>
+        </div>
+        <br>
+        <button class="btn green" onclick="saveProductServices()">Save Product / Service List</button>
+
+        <hr>
+
         <h3>Backup / Restore</h3>
         <div class="import-box">
             <button class="btn gray" onclick="exportBackup()">Export JSON Backup</button>
@@ -953,6 +948,13 @@ function renderSettings(){
             <button class="btn red" onclick="clearAllData()">Clear All Data</button>
         </div>
     `;
+}
+
+function saveProductServices(){
+    const text = document.getElementById("productServiceList").value;
+    db.settings.productServices = text.split("\n").map(x => x.trim()).filter(x => x !== "");
+    saveDB();
+    alert("Product / Service list updated successfully.");
 }
 
 function saveSettings(){
@@ -1024,7 +1026,7 @@ const list = [
 
 return `
 
-<select id="productService">
+<select id="productService" onchange="handleProductSelection()">
 
 ${list.map(item => `
 <option value="${item}" ${item===selected ? "selected" : ""}>
@@ -1032,6 +1034,7 @@ ${item}
 </option>
 `).join("")}
 
+<option value="__NEW_PRODUCT__">+ Add New Product / Service</option>
 </select>
 
 `;
@@ -1120,7 +1123,7 @@ function followupForm(id){
 
     document.getElementById("formArea").innerHTML = `
         <div class="form-grid">
-            ${input("followupId","Follow-up ID",r.followupId || uid("FU"),"text",true)}
+            ${input("followupId","Follow-up ID",r.followupId || uid("FUP"),"text",true)}
             ${input("followupDate","Follow-Up Date",r.followupDate || today(),"date")}
             ${select("referenceType","Reference Type",["Lead","Service"],r.referenceType || "Lead")}
             ${input("referenceId","Lead ID / Service Ticket",r.referenceId || "")}
@@ -1499,139 +1502,44 @@ function exportExcel(){
 
     rows.push(["CUSTOMER MASTER"]);
     rows.push(["Customer ID","Company Name","Contact Person","Mobile","Email","CR No","VAT No","Location","Address","Remarks"]);
-
     db.customers.forEach(c=>{
-        rows.push([
-            c.customerId,
-            c.companyName,
-            c.contactPerson,
-            c.mobile,
-            c.email,
-            c.crNo,
-            c.vatNo,
-            c.location,
-            c.address,
-            c.remarks
-        ]);
+        rows.push([c.customerId,c.companyName,c.contactPerson,c.mobile,c.email,c.crNo,c.vatNo,c.location,c.address,c.remarks]);
     });
 
     rows.push([]);
     rows.push(["SALES LEADS"]);
-    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link"]);
-
+    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile","Email","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Expected Deal Value","Closing Probability","Expected Closing Date","Remarks","Document Link"]);
     db.leads.forEach(l=>{
         let c = getCustomer(l.customerId);
-        let leadAge = l.leadDate ? Math.max(0, Math.floor((new Date() - new Date(l.leadDate)) / 86400000)) : "";
-        let expectedRevenue = Number(l.expectedDealValue || 0) * Number(l.closingProbability || 0) / 100;
-        let alert = "";
-        if(l.nextFollowupDate){
-            if(l.nextFollowupDate < today()) alert = "OVERDUE";
-            else if(l.nextFollowupDate === today()) alert = "TODAY";
-            else alert = "UPCOMING";
-        }
-        rows.push([
-            l.leadId,
-            l.leadDate,
-            c.companyName,
-            c.contactPerson,
-            c.mobile,
-            c.email,
-            l.leadSource,
-            l.productService,
-            l.requirementNotes,
-            l.priority,
-            l.status,
-            l.lastFollowupDate,
-            l.nextFollowupDate,
-            alert,
-            leadAge,
-            l.expectedDealValue,
-            l.closingProbability,
-            expectedRevenue,
-            l.expectedClosingDate,
-            l.remarks,
-            l.documentLink
-        ]);
+        rows.push([l.leadId,l.leadDate,c.companyName,c.contactPerson,c.mobile,c.email,l.leadSource,l.productService,l.requirementNotes,l.priority,l.status,l.lastFollowupDate,l.nextFollowupDate,l.expectedDealValue,l.closingProbability,l.expectedClosingDate,l.remarks,l.documentLink]);
     });
 
     rows.push([]);
     rows.push(["SERVICE TICKETS"]);
-    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
-
-    db.service.forEach(t=>{
-        let c = getCustomer(t.customerId);
-        rows.push([
-            t.ticketNo,
-            t.ticketDate,
-            c.contactPerson,
-            c.companyName,
-            c.mobile,
-            c.email,
-            t.location,
-            t.productService,
-            t.issueReported,
-            t.priority,
-            t.assignedEngineer,
-            t.startTime,
-            t.endTime,
-            t.solutionProvided,
-            t.serviceStatus,
-            t.serviceCharges,
-            t.paymentStatus,
-            t.nextServiceReminder,
-            t.amcAvailable,
-            t.remarks
-        ]);
+    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
+    db.service.forEach(s=>{
+        let c = getCustomer(s.customerId);
+        rows.push([s.ticketNo,s.ticketDate,c.contactPerson,c.companyName,c.mobile,c.email,s.location,s.productService,s.issueReported,s.priority,s.assignedEngineer,s.startTime,s.endTime,s.solutionProvided,s.serviceStatus,s.serviceCharges,s.paymentStatus,s.nextServiceReminder,s.amcAvailable,s.remarks]);
     });
 
     rows.push([]);
     rows.push(["FOLLOW-UPS"]);
     rows.push(["Follow-Up Date","Lead ID / Service Ticket","Company Name","Follow-Up Type","Discussion / Action Taken","Next Follow-Up Date","Status Update","Updated By","Follow-Up Count","Remarks"]);
-
     db.followups.forEach(f=>{
-        rows.push([
-            f.followupDate,
-            f.referenceId,
-            f.companyName,
-            f.followupType,
-            f.discussion,
-            f.nextFollowupDate,
-            f.statusUpdate,
-            f.updatedBy,
-            f.followupCount,
-            f.remarks
-        ]);
+        rows.push([f.followupDate,f.referenceId,f.companyName,f.followupType,f.discussion,f.nextFollowupDate,f.statusUpdate,f.updatedBy,f.followupCount,f.remarks]);
     });
 
     rows.push([]);
     rows.push(["TAX INVOICES"]);
     rows.push(["Tax Invoice Number","Invoice Date","Quotation Number","Customer","Service / Product Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Payment Status","Remarks"]);
-
     db.invoices.forEach(i=>{
         let c = getCustomer(i.customerId);
-        rows.push([
-            i.invoiceNo,
-            i.invoiceDate,
-            i.quotationNo,
-            c.companyName,
-            i.itemDetails,
-            i.qty,
-            i.rate,
-            i.amount,
-            i.vatPercent,
-            i.vatAmount,
-            i.totalInclVat,
-            i.paymentStatus,
-            i.remarks
-        ]);
+        rows.push([i.invoiceNo,i.invoiceDate,i.quotationNo,c.companyName,i.itemDetails,i.qty,i.rate,i.amount,i.vatPercent,i.vatAmount,i.totalInclVat,i.paymentStatus,i.remarks]);
     });
 
-    let csvContent = rows.map(row =>
-        row.map(value => `"${String(value ?? "").replace(/"/g,'""')}"`).join(",")
-    ).join("\n");
-
-    let blob = new Blob([csvContent], {type:"text/csv;charset=utf-8;"});
-    let link = document.createElement("a");
+    const csvContent = rows.map(row => row.map(value => `"${String(value ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], {type:"text/csv;charset=utf-8;"});
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "veltrox-crm-export.csv";
     link.click();
