@@ -2,95 +2,88 @@
 <html>
 <head>
 <title>Veltrox CRM</title>
+
 <style>
+
 body{
     margin:0;
-    font-family:Arial, sans-serif;
+    font-family:Arial;
     background:#f3f6fb;
 }
+
 .header{
     background:#0b3d91;
     color:white;
     padding:25px;
 }
+
 .container{
     padding:25px;
 }
+
 .cards{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
     gap:20px;
 }
+
 .card{
     background:white;
     padding:25px;
     border-radius:15px;
-    box-shadow:0 4px 12px #d0d7e2;
+    box-shadow:0px 0px 10px #ccc;
 }
-.card h2{
-    margin-top:0;
-    color:#0b3d91;
-}
+
 button{
     background:#0b3d91;
     color:white;
     border:none;
     padding:12px 18px;
     border-radius:8px;
+    margin-right:10px;
     cursor:pointer;
 }
-.menu{
-    margin-top:15px;
-}
-.menu button{
-    margin-right:10px;
-}
+
 </style>
+
 </head>
 
 <body>
 
 <div class="header">
-    <h1>Veltrox Technologies CRM</h1>
-    <p>Sales | Service | Follow-up | Reminder Dashboard</p>
+<h1>Veltrox Technologies CRM</h1>
+<p>Sales | Service | Reminder Dashboard</p>
 </div>
 
 <div class="container">
 
-    <div class="menu">
-        <button>Add Lead</button>
-        <button>Create Service Ticket</button>
-        <button>View Follow-ups</button>
-        <button>Payment Reminder</button>
-    </div>
+<button>Add Lead</button>
+<button>Create Ticket</button>
+<button>View Follow-ups</button>
 
-    <br>
+<br><br>
 
-    <div class="cards">
-        <div class="card">
-            <h2>Total Leads</h2>
-            <h1>0</h1>
-            <p>All sales enquiries</p>
-        </div>
+<div class="cards">
 
-        <div class="card">
-            <h2>Pending Follow-ups</h2>
-            <h1>0</h1>
-            <p>Calls / WhatsApp / Visits</p>
-        </div>
+<div class="card">
+<h2>Total Leads</h2>
+<h1>0</h1>
+<p>Sales enquiries</p>
+</div>
 
-        <div class="card">
-            <h2>Open Service Tickets</h2>
-            <h1>0</h1>
-            <p>Pending support cases</p>
-        </div>
+<div class="card">
+<h2>Pending Follow-ups</h2>
+<h1>0</h1>
+<p>Customer follow-ups</p>
+</div>
 
-        <div class="card">
-            <h2>Payment Pending</h2>
-            <h1>0 BHD</h1>
-            <p>Outstanding customer payments</p>
-        </div>
-    </div>
+<div class="card">
+<h2>Open Tickets</h2>
+<h1>0</h1>
+<p>Service support</p>
+</div>
+
+</div>
 
 </div>
 
