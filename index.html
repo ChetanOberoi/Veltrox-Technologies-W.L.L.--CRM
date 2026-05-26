@@ -920,7 +920,41 @@ function customerForm(id){
             ${textarea("customerRemarks","Remarks",r.remarks || "")}
         </div>`;
 }
+function productServiceOptions(selected=""){
 
+const list = [
+
+"TallyPrime Silver",
+"TallyPrime Gold",
+"TSS Renewal",
+"Tally on Cloud",
+"Tally Customization",
+"Tally AMC Support",
+"Tally Training",
+"VAT Filing",
+"Web Designing",
+"Mobile App Development",
+"CCTV Service",
+"IT Support",
+"Other"
+
+];
+
+return `
+
+<select id="productService">
+
+${list.map(item => `
+<option value="${item}" ${item===selected ? "selected" : ""}>
+${item}
+</option>
+`).join("")}
+
+</select>
+
+`;
+
+}
 function leadForm(id){
     const r = db.leads.find(x => x.leadId === id) || {};
     document.getElementById("formTitle").innerText = id ? "Edit Sales Lead" : "Add Sales Lead";
