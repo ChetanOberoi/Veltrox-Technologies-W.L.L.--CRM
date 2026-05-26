@@ -930,7 +930,28 @@ function leadForm(id){
             ${input("leadId","Lead ID",r.leadId || uid("LEAD"),"text",true)}
             ${input("leadDate","Lead Date",r.leadDate || today(),"date")}
             ${customerSelect(r.customerId)}
-            ${input("leadSource","Lead Source",r.leadSource || "")}
+            ${select("leadSource","Lead Source",[
+    "Cold Call",
+    "WhatsApp Campaign",
+    "Facebook",
+    "Instagram",
+    "Reference",
+    "Existing Customer",
+    "Website Enquiry",
+    "Walk-In",
+    "Google Search",
+    "Email Campaign",
+    "AMC Renewal",
+    "TSS Renewal",
+    "Cloud Renewal",
+    "Sales Visit",
+    "Exhibition",
+    "LinkedIn",
+    "YouTube",
+    "Partner Reference",
+    "Support Conversion",
+    "Other"
+],r.leadSource || "Cold Call")}
             ${input("productService","Product / Service",r.productService || "")}
             ${textarea("requirementNotes","Requirement / Notes",r.requirementNotes || "")}
             ${select("priority","Priority",["High","Medium","Low"],r.priority || "Medium")}
