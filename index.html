@@ -316,6 +316,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
         <button class="nav-btn" id="nav-dashboard" onclick="setModule('dashboard')">Dashboard</button>
         <button class="nav-btn" id="nav-customers" onclick="setModule('customers')">Customer Master</button>
         <button class="nav-btn" id="nav-leads" onclick="setModule('leads')">Sales Leads</button>
+        <button class="nav-btn" id="nav-quotations" onclick="setModule('quotations')">Quotations</button>
         <button class="nav-btn" id="nav-service" onclick="setModule('service')">Service Tickets</button>
         <button class="nav-btn" id="nav-followups" onclick="setModule('followups')">Follow-ups</button>
         <button class="nav-btn" id="nav-invoices" onclick="setModule('invoices')">Tax Invoices</button>
@@ -342,6 +343,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
         <div class="cards">
             <div class="card"><div class="card-title">Total Customers</div><div class="card-value" id="cntCustomers">0</div></div>
             <div class="card"><div class="card-title">Total Leads</div><div class="card-value" id="cntLeads">0</div></div>
+            <div class="card"><div class="card-title">Quotations</div><div class="card-value" id="cntQuotations">0</div></div>
             <div class="card"><div class="card-title">Open Tickets</div><div class="card-value" id="cntTickets">0</div></div>
             <div class="card"><div class="card-title">Pending Follow-ups</div><div class="card-value" id="cntFollowups">0</div></div>
             <div class="card"><div class="card-title">Tax Invoices</div><div class="card-value" id="cntInvoices">0</div></div>
@@ -411,6 +413,7 @@ let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
     },
     customers:[],
     leads:[],
+    quotations:[],
     service:[],
     followups:[],
     invoices:[],
@@ -426,6 +429,7 @@ function uid(prefix){
 
     if(prefix === "CUS") count = db.customers.length + 1;
     if(prefix === "LEAD") count = db.leads.length + 1;
+    if(prefix === "QT") count = (db.quotations || []).length + 1;
     if(prefix === "TKT") count = db.service.length + 1;
     if(prefix === "FUP" || prefix === "FU") count = db.followups.length + 1;
     if(prefix === "INV") count = db.invoices.length + 1;
@@ -481,6 +485,7 @@ function setModule(moduleName){
         dashboard:"Dashboard",
         customers:"Customer Master",
         leads:"Sales Leads",
+        quotations:"Quotations",
         service:"Service Tickets",
         followups:"Follow-ups",
         invoices:"Tax Invoices",
@@ -495,6 +500,7 @@ function setModule(moduleName){
     const addText = {
         customers:"+ Add Customer",
         leads:"+ Add Lead",
+        quotations:"+ Add Quotation",
         service:"+ Add Ticket",
         followups:"+ Add Follow-up",
         invoices:"+ Add Invoice",
@@ -508,6 +514,7 @@ function setModule(moduleName){
 function updateCounts(){
     document.getElementById("cntCustomers").innerText = db.customers.length;
     document.getElementById("cntLeads").innerText = db.leads.length;
+    if(document.getElementById("cntQuotations")) document.getElementById("cntQuotations").innerText = (db.quotations || []).length;
     document.getElementById("cntTickets").innerText = db.service.filter(x => x.serviceStatus !== "Closed").length;
     document.getElementById("cntFollowups").innerText = db.followups.filter(x => x.statusUpdate !== "Closed" && x.statusUpdate !== "Done").length;
     document.getElementById("cntInvoices").innerText = db.invoices.length;
@@ -526,6 +533,7 @@ function render(){
     if(currentModule === "dashboard") renderDashboard();
     if(currentModule === "customers") renderCustomers();
     if(currentModule === "leads") renderLeads();
+    if(currentModule === "quotations") renderQuotations();
     if(currentModule === "service") renderService();
     if(currentModule === "followups") renderFollowups();
     if(currentModule === "invoices") renderInvoices();
@@ -641,6 +649,7 @@ function renderDashboard(){
 
     const activities = [
         ...db.leads.map(x => ({type:"Sales Lead",date:x.leadDate,ref:x.leadId,customerId:x.customerId,status:x.status,details:x.productService})),
+        ...(db.quotations || []).map(x => ({type:"Quotation",date:x.quotationDate,ref:x.quotationNo,customerId:x.customerId,status:x.quotationStatus,details:x.itemDetails})),
         ...db.service.map(x => ({type:"Service Ticket",date:x.ticketDate,ref:x.ticketNo,customerId:x.customerId,status:x.serviceStatus,details:x.issueReported})),
         ...db.followups.map(x => ({type:"Follow-up",date:x.followupDate,ref:x.referenceId,customerId:x.customerId,status:x.statusUpdate,details:x.discussion})),
         ...db.invoices.map(x => ({type:"Tax Invoice",date:x.invoiceDate,ref:x.invoiceNo,customerId:x.customerId,status:x.paymentStatus,details:x.itemDetails})),
@@ -674,6 +683,7 @@ function renderCustomers(){
     const rows = data.map(c => {
         const recordCount =
             db.leads.filter(x => x.customerId === c.customerId).length +
+            (db.quotations || []).filter(x => x.customerId === c.customerId).length +
             db.service.filter(x => x.customerId === c.customerId).length +
             db.followups.filter(x => x.customerId === c.customerId).length +
             db.invoices.filter(x => x.customerId === c.customerId).length +
@@ -756,6 +766,47 @@ function renderLeads(){
 
     document.getElementById("content").innerHTML = table(
         ["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link","Action"],
+        rows
+    );
+}
+
+
+/* ==============================
+   QUOTATIONS
+================================= */
+function renderQuotations(){
+    document.getElementById("sectionTitle").innerText = "Quotation Details";
+
+    const data = (db.quotations || []).filter(matchObject);
+    const rows = data.map(q => {
+        const c = getCustomer(q.customerId);
+        return `
+        <tr>
+            <td>${escapeHtml(q.quotationNo)}</td>
+            <td>${escapeHtml(q.quotationDate)}</td>
+            <td>${escapeHtml(q.leadId)}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(q.itemDetails)}</td>
+            <td>${escapeHtml(q.qty)}</td>
+            <td>${money(q.rate)}</td>
+            <td>${money(q.amount)}</td>
+            <td>${escapeHtml(q.vatPercent)}%</td>
+            <td>${money(q.vatAmount)}</td>
+            <td><b>${money(q.totalInclVat)}</b></td>
+            <td>${statusBadge(q.quotationStatus)}</td>
+            <td>${escapeHtml(q.validTill)}</td>
+            <td>${escapeHtml(q.remarks)}</td>
+            <td>
+                <button class="btn small green" onclick="printQuotation('${q.quotationNo}')">Print</button>
+                <button class="btn small purple" onclick="createInvoiceFromQuotation('${q.quotationNo}')">Create Invoice</button>
+                <button class="btn small orange" onclick="openForm('${q.quotationNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('quotations','${q.quotationNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Quotation No","Quotation Date","Lead ID","Customer","Product / Service Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks","Action"],
         rows
     );
 }
@@ -922,6 +973,7 @@ function renderReports(){
 
     const totalDeal = db.leads.reduce((s,x) => s + Number(x.expectedDealValue || 0), 0);
     const expectedRevenue = db.leads.reduce((s,x) => s + (Number(x.expectedDealValue || 0) * Number(x.closingProbability || 0) / 100), 0);
+    const quotationValue = (db.quotations || []).reduce((s,x) => s + Number(x.totalInclVat || 0), 0);
     const invoiceValue = db.invoices.reduce((s,x) => s + Number(x.totalInclVat || 0), 0);
     const pendingInvoice = db.invoices.filter(x => x.paymentStatus !== "Paid").reduce((s,x) => s + Number(x.totalInclVat || 0), 0);
     const receivedAmount = (db.payments || []).reduce((s,x) => s + Number(x.receivedAmount || 0), 0);
@@ -930,6 +982,7 @@ function renderReports(){
         <div class="cards">
             <div class="card"><div class="card-title">Total Deal Value</div><div class="card-value">${money(totalDeal)} BHD</div></div>
             <div class="card"><div class="card-title">Expected Revenue</div><div class="card-value">${money(expectedRevenue)} BHD</div></div>
+            <div class="card"><div class="card-title">Quotation Value</div><div class="card-value">${money(quotationValue)} BHD</div></div>
             <div class="card"><div class="card-title">Total Invoice Value</div><div class="card-value">${money(invoiceValue)} BHD</div></div>
             <div class="card"><div class="card-title">Pending Invoice Value</div><div class="card-value">${money(pendingInvoice)} BHD</div></div>
             <div class="card"><div class="card-title">Received Amount</div><div class="card-value">${money(receivedAmount)} BHD</div></div>
@@ -1031,6 +1084,7 @@ function openForm(id=null){
 
     if(currentModule === "customers") customerForm(id);
     if(currentModule === "leads") leadForm(id);
+    if(currentModule === "quotations") quotationForm(id);
     if(currentModule === "service") serviceForm(id);
     if(currentModule === "followups") followupForm(id);
     if(currentModule === "invoices") invoiceForm(id);
@@ -1142,6 +1196,46 @@ function leadForm(id){
             ${input("leadDocumentLink","Document Link",r.documentLink || "")}
             ${textarea("leadRemarks","Remarks",r.remarks || "")}
         </div>`;
+}
+
+
+function quotationForm(id){
+    const r = (db.quotations || []).find(x => x.quotationNo === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Quotation" : "Add Quotation";
+
+    document.getElementById("formArea").innerHTML = `
+        <div class="notice">Amount, VAT Amount and Total Including VAT will calculate automatically.</div>
+        <div class="form-grid">
+            ${input("quotationNo","Quotation Number",r.quotationNo || uid("QT"),"text",true)}
+            ${input("quotationDate","Quotation Date",r.quotationDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${leadSelect(r.leadId || "")}
+            <div>
+                <label>Product / Service</label>
+                ${productServiceOptions(r.itemDetails || "")}
+            </div>
+            ${input("quotationQty","Qty",r.qty || 1,"number")}
+            ${input("quotationRate","Rate",r.rate || 0,"number")}
+            ${input("quotationVatPercent","VAT %",r.vatPercent || db.settings.vatPercent || 10,"number")}
+            ${input("validTill","Valid Till",r.validTill || "","date")}
+            ${select("quotationStatus","Quotation Status",["Draft","Sent","Accepted","Rejected","Expired","Converted to Invoice"],r.quotationStatus || "Draft")}
+            ${textarea("quotationTerms","Terms & Conditions",r.terms || "60% advance on confirmation, 40% on delivery. Prices are subject to final scope confirmation.")}
+            ${textarea("quotationRemarks","Remarks",r.remarks || "")}
+        </div>`;
+}
+
+function leadSelect(selected=""){
+    return `
+    <div>
+        <label>Lead ID</label>
+        <select id="quotationLeadId">
+            <option value="">Select Lead</option>
+            ${db.leads.map(l => {
+                const c = getCustomer(l.customerId);
+                return `<option value="${l.leadId}" ${l.leadId === selected ? "selected" : ""}>${escapeHtml(l.leadId)} - ${escapeHtml(c.companyName || "")}</option>`;
+            }).join("")}
+        </select>
+    </div>`;
 }
 
 function serviceForm(id){
@@ -1268,6 +1362,7 @@ function saveForm(){
     try{
         if(currentModule === "customers") saveCustomer();
         if(currentModule === "leads") saveLead();
+        if(currentModule === "quotations") saveQuotation();
         if(currentModule === "service") saveService();
         if(currentModule === "followups") saveFollowup();
         if(currentModule === "invoices") saveInvoice();
@@ -1326,6 +1421,42 @@ function saveLead(){
         expectedClosingDate:document.getElementById("expectedClosingDate").value,
         remarks:document.getElementById("leadRemarks").value,
         documentLink:document.getElementById("leadDocumentLink").value
+    });
+}
+
+
+function saveQuotation(){
+    const cid = document.getElementById("customerId").value;
+    if(!cid){
+        alert("Please create/select customer first.");
+        throw new Error("Customer missing");
+    }
+
+    if(!db.quotations) db.quotations = [];
+
+    const qty = Number(document.getElementById("quotationQty").value || 0);
+    const rate = Number(document.getElementById("quotationRate").value || 0);
+    const vatPercent = Number(document.getElementById("quotationVatPercent").value || 0);
+    const amount = qty * rate;
+    const vatAmount = amount * vatPercent / 100;
+    const totalInclVat = amount + vatAmount;
+
+    upsert(db.quotations,"quotationNo",{
+        quotationNo:document.getElementById("quotationNo").value,
+        quotationDate:document.getElementById("quotationDate").value,
+        customerId:cid,
+        leadId:document.getElementById("quotationLeadId").value,
+        itemDetails:document.getElementById("productService").value,
+        qty:qty,
+        rate:rate,
+        amount:amount,
+        vatPercent:vatPercent,
+        vatAmount:vatAmount,
+        totalInclVat:totalInclVat,
+        validTill:document.getElementById("validTill").value,
+        quotationStatus:document.getElementById("quotationStatus").value,
+        terms:document.getElementById("quotationTerms").value,
+        remarks:document.getElementById("quotationRemarks").value
     });
 }
 
@@ -1449,6 +1580,7 @@ function deleteRecord(module,id){
     const keyMap = {
         customers:"customerId",
         leads:"leadId",
+        quotations:"quotationNo",
         service:"ticketNo",
         followups:"followupId",
         invoices:"invoiceNo",
@@ -1487,6 +1619,7 @@ function viewCustomer(customerId){
     }
 
     const leads = db.leads.filter(x => x.customerId === customerId);
+    const quotations = (db.quotations || []).filter(x => x.customerId === customerId);
     const service = db.service.filter(x => x.customerId === customerId);
     const followups = db.followups.filter(x => x.customerId === customerId);
     const invoices = db.invoices.filter(x => x.customerId === customerId);
@@ -1510,6 +1643,9 @@ function viewCustomer(customerId){
         <hr>
         <h3>Sales Leads</h3>
         ${miniTable(["Lead ID","Date","Product / Service","Status","Deal Value"], leads.map(x => [x.leadId,x.leadDate,x.productService,x.status,money(x.expectedDealValue)]))}
+
+        <h3>Quotations</h3>
+        ${miniTable(["Quotation No","Date","Details","Total Incl. VAT","Status"], quotations.map(x => [x.quotationNo,x.quotationDate,x.itemDetails,money(x.totalInclVat),x.quotationStatus]))}
 
         <h3>Service Tickets</h3>
         ${miniTable(["Ticket No","Date","Issue","Status","Charges"], service.map(x => [x.ticketNo,x.ticketDate,x.issueReported,x.serviceStatus,money(x.serviceCharges)]))}
@@ -1538,6 +1674,129 @@ function miniTable(headers, rows){
 /* ==============================
    TAX INVOICE PRINT
 ================================= */
+
+function printQuotation(quotationNo){
+    const q = (db.quotations || []).find(x => x.quotationNo === quotationNo);
+    if(!q){
+        alert("Quotation not found.");
+        return;
+    }
+
+    const c = getCustomer(q.customerId);
+
+    document.getElementById("viewArea").innerHTML = `
+        <div id="printArea" class="invoice-print">
+            <div class="invoice-header">
+                <div>
+                    <h2>${escapeHtml(db.settings.supplierName)}</h2>
+                    <p>${escapeHtml(db.settings.supplierAddress)}</p>
+                    <p><b>CR No:</b> ${escapeHtml(db.settings.supplierCR)}</p>
+                    <p><b>VAT No:</b> ${escapeHtml(db.settings.supplierVAT)}</p>
+                </div>
+                <div>
+                    <div class="invoice-title">QUOTATION</div>
+                    <p><b>Quotation No:</b> ${escapeHtml(q.quotationNo)}</p>
+                    <p><b>Quotation Date:</b> ${escapeHtml(q.quotationDate)}</p>
+                    <p><b>Valid Till:</b> ${escapeHtml(q.validTill)}</p>
+                </div>
+            </div>
+
+            <div class="invoice-grid">
+                <div class="invoice-box">
+                    <h3>Supplier Details</h3>
+                    <p><b>Name:</b> ${escapeHtml(db.settings.supplierName)}</p>
+                    <p><b>Address:</b> ${escapeHtml(db.settings.supplierAddress)}</p>
+                    <p><b>CR No:</b> ${escapeHtml(db.settings.supplierCR)}</p>
+                    <p><b>VAT No:</b> ${escapeHtml(db.settings.supplierVAT)}</p>
+                </div>
+
+                <div class="invoice-box">
+                    <h3>Customer Details</h3>
+                    <p><b>Company:</b> ${escapeHtml(c.companyName)}</p>
+                    <p><b>Contact:</b> ${escapeHtml(c.contactPerson)}</p>
+                    <p><b>Mobile:</b> ${escapeHtml(c.mobile)}</p>
+                    <p><b>Email:</b> ${escapeHtml(c.email)}</p>
+                    <p><b>CR No:</b> ${escapeHtml(c.crNo)}</p>
+                    <p><b>VAT No:</b> ${escapeHtml(c.vatNo)}</p>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Rate</th>
+                        <th>Amount</th>
+                        <th>VAT %</th>
+                        <th>VAT Amount</th>
+                        <th>Total Including VAT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${escapeHtml(q.itemDetails)}</td>
+                        <td>${escapeHtml(q.qty)}</td>
+                        <td>${money(q.rate)}</td>
+                        <td>${money(q.amount)}</td>
+                        <td>${escapeHtml(q.vatPercent)}%</td>
+                        <td>${money(q.vatAmount)}</td>
+                        <td><b>${money(q.totalInclVat)}</b></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 class="right">Grand Total Including VAT: BHD ${money(q.totalInclVat)}</h2>
+
+            <p><b>Status:</b> ${escapeHtml(q.quotationStatus)}</p>
+            <p><b>Terms:</b> ${escapeHtml(q.terms)}</p>
+            <p><b>Remarks:</b> ${escapeHtml(q.remarks)}</p>
+
+            <br><br>
+            <p>Authorized Signature: ___________________________</p>
+        </div>
+
+        <div class="form-actions no-print">
+            <button class="btn gray" onclick="closeView()">Close</button>
+            <button class="btn green" onclick="window.print()">Print / Save PDF</button>
+        </div>
+    `;
+
+    document.getElementById("viewModal").style.display = "flex";
+}
+
+function createInvoiceFromQuotation(quotationNo){
+    const q = (db.quotations || []).find(x => x.quotationNo === quotationNo);
+    if(!q){
+        alert("Quotation not found.");
+        return;
+    }
+
+    if(!db.invoices) db.invoices = [];
+
+    const newInvoice = {
+        invoiceNo:uid("INV"),
+        invoiceDate:today(),
+        customerId:q.customerId,
+        quotationNo:q.quotationNo,
+        itemDetails:q.itemDetails,
+        qty:q.qty,
+        rate:q.rate,
+        amount:q.amount,
+        vatPercent:q.vatPercent,
+        vatAmount:q.vatAmount,
+        totalInclVat:q.totalInclVat,
+        paymentStatus:"Pending",
+        remarks:"Created from quotation " + q.quotationNo
+    };
+
+    db.invoices.push(newInvoice);
+    q.quotationStatus = "Converted to Invoice";
+    saveDB();
+    alert("Invoice created: " + newInvoice.invoiceNo);
+    setModule("invoices");
+}
+
 function printInvoice(invoiceNo){
     const inv = db.invoices.find(x => x.invoiceNo === invoiceNo);
     if(!inv){
@@ -1646,6 +1905,14 @@ function exportExcel(){
     db.leads.forEach(l=>{
         let c = getCustomer(l.customerId);
         rows.push([l.leadId,l.leadDate,c.companyName,c.contactPerson,c.mobile,c.email,l.leadSource,l.productService,l.requirementNotes,l.priority,l.status,l.lastFollowupDate,l.nextFollowupDate,l.expectedDealValue,l.closingProbability,l.expectedClosingDate,l.remarks,l.documentLink]);
+    });
+
+    rows.push([]);
+    rows.push(["QUOTATIONS"]);
+    rows.push(["Quotation No","Quotation Date","Lead ID","Company","Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks"]);
+    (db.quotations || []).forEach(q=>{
+        let c = getCustomer(q.customerId);
+        rows.push([q.quotationNo,q.quotationDate,q.leadId,c.companyName,q.itemDetails,q.qty,q.rate,q.amount,q.vatPercent,q.vatAmount,q.totalInclVat,q.quotationStatus,q.validTill,q.remarks]);
     });
 
     rows.push([]);
