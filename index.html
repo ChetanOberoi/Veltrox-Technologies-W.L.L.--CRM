@@ -2711,125 +2711,301 @@ printInvoice = function(invoiceNo){
     document.getElementById('viewModal').style.display = 'flex';
 };
 
-
-
 /* ==============================
-   V4 UPDATE - Manual Serial Number / Asset Number
-   Added to Service Ticket and Tax Invoice capture/print
+   INIT
 ================================= */
+setModule("dashboard");
 
+
+/* =========================================================
+   V5 FIX - SERIAL NUMBER MANUAL FIELD + TAX INVOICE CAPTURE
+   This override makes Serial Number visible in Service Ticket
+   in the blank right-side area beside Service.
+========================================================= */
 function serviceTicketSelect(selected=""){
-    return `<div><label>Service Ticket No</label><select id="serviceTicketNo" onchange="fillFromServiceTicketForInvoice()"><option value="">Select Service Ticket</option>${(db.service||[]).map(t => { const c=getCustomer(t.customerId); return `<option value="${t.ticketNo}" ${t.ticketNo===selected ? "selected" : ""}>${escapeHtml(t.ticketNo)} - ${escapeHtml(c.companyName||"")} - ${escapeHtml(t.serialNumber||"")}</option>`; }).join("")}</select></div>`;
+    return `<div>
+        <label>Service Ticket No</label>
+        <select id="serviceTicketNo" onchange="fillFromServiceTicketForInvoice()">
+            <option value="">Select Service Ticket</option>
+            ${(db.service || []).map(t => {
+                const c = getCustomer(t.customerId);
+                return `<option value="${escapeHtml(t.ticketNo)}" ${t.ticketNo === selected ? "selected" : ""}>${escapeHtml(t.ticketNo)} - ${escapeHtml(c.companyName || "")} - ${escapeHtml(t.serialNumber || "")}</option>`;
+            }).join("")}
+        </select>
+    </div>`;
 }
 
 function fillFromServiceTicketForInvoice(){
-    const tNo = document.getElementById("serviceTicketNo")?.value;
-    const t = (db.service||[]).find(x => x.ticketNo === tNo);
+    const ticketNo = document.getElementById("serviceTicketNo")?.value;
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
     if(!t) return;
+
     if(document.getElementById("customerId")) document.getElementById("customerId").value = t.customerId || "";
     if(document.getElementById("assignedAgent")) document.getElementById("assignedAgent").value = t.assignedAgent || t.assignedEngineer || "";
     if(document.getElementById("productName")) document.getElementById("productName").value = t.productName || "";
     if(document.getElementById("serviceName")) document.getElementById("serviceName").value = t.serviceName || "";
     if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = t.serialNumber || "";
+    if(document.getElementById("rate")) document.getElementById("rate").value = t.serviceCharges || 0;
+    if(document.getElementById("qty")) document.getElementById("qty").value = 1;
     if(document.getElementById("invoiceRemarks")) document.getElementById("invoiceRemarks").value = t.issueReported || "";
 }
 
-const _v4OldFillFromQuotation = fillFromQuotation;
-fillFromQuotation = function(){
-    _v4OldFillFromQuotation();
+function fillFromQuotation(){
     const qNo = document.getElementById("quotationNo")?.value;
-    const q = (db.quotations||[]).find(x => x.quotationNo === qNo);
+    const q = (db.quotations || []).find(x => x.quotationNo === qNo);
     if(!q) return;
-    if(document.getElementById("assignedAgent")) document.getElementById("assignedAgent").value = q.assignedAgent || "";
-    if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = q.serialNumber || "";
-};
 
-const _v4OldFillInvoiceAmount = fillInvoiceAmount;
-fillInvoiceAmount = function(){
-    _v4OldFillInvoiceAmount();
-    const invNo = document.getElementById("paymentInvoiceNo")?.value;
-    const inv = (db.invoices||[]).find(i => i.invoiceNo === invNo);
-    if(inv && document.getElementById("assignedAgent")) document.getElementById("assignedAgent").value = inv.assignedAgent || "";
-};
+    if(document.getElementById("customerId")) document.getElementById("customerId").value = q.customerId || "";
+    if(document.getElementById("assignedAgent")) document.getElementById("assignedAgent").value = q.assignedAgent || "";
+    if(document.getElementById("productName")) document.getElementById("productName").value = q.productName || "";
+    if(document.getElementById("serviceName")) document.getElementById("serviceName").value = q.serviceName || "";
+    if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = q.serialNumber || "";
+    if(document.getElementById("qty")) document.getElementById("qty").value = q.qty || 1;
+    if(document.getElementById("rate")) document.getElementById("rate").value = q.rate || 0;
+    if(document.getElementById("vatPercent")) document.getElementById("vatPercent").value = q.vatPercent || db.settings.vatPercent || 10;
+}
 
 serviceForm = function(id){
-    const r = db.service.find(x => x.ticketNo === id) || {};
+    const r = (db.service || []).find(x => x.ticketNo === id) || {};
     document.getElementById("formTitle").innerText = id ? "Edit Service Ticket" : "Add Service Ticket";
-    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}${customerSelect(r.customerId)}${input("ticketLocation","Location",r.location || "")}${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || "")}${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}${textarea("issueReported","Issue Reported",r.issueReported || "")}${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}${input("startTime","Start Time",r.startTime || "","time")}${input("endTime","End Time",r.endTime || "","time")}${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}${textarea("ticketRemarks","Remarks",r.remarks || "")}</div>`;
-};
-
-invoiceForm = function(id){
-    const r = db.invoices.find(x => x.invoiceNo === id) || {};
-    document.getElementById("formTitle").innerText = id ? "Edit Tax Invoice" : "Add Tax Invoice";
-    document.getElementById("formArea").innerHTML = `<div class="notice">Select Quotation or Service Ticket to auto-fetch customer, product/service, serial number, quantity, rate and VAT.</div><div class="form-grid">${input("invoiceNo","Tax Invoice Number",r.invoiceNo || uid("INV"),"text",true)}${input("invoiceDate","Invoice Date",r.invoiceDate || today(),"date")}${customerSelect(r.customerId)}${quotationSelect(r.quotationNo || "")}${serviceTicketSelect(r.serviceTicketNo || "")}${agentSelect("assignedAgent","Salesman / Field Agent",r.assignedAgent || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || "")}${input("invoiceSerialNumber","Serial Number / Asset Number",r.serialNumber || "")}${input("qty","Qty",r.qty || 1,"number")}${input("rate","Rate",r.rate || 0,"number")}${input("vatPercent","VAT %",r.vatPercent || db.settings.vatPercent || 10,"number")}${select("invoicePaymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${textarea("invoiceRemarks","Remarks",r.remarks || "")}</div>`;
+    document.getElementById("formArea").innerHTML = `
+        <div class="form-grid">
+            ${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}
+            ${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${input("ticketLocation","Location",r.location || "")}
+            ${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}
+            ${productSelect(r.productName || "")}
+            ${serviceSelect(r.serviceName || "")}
+            ${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}
+            ${textarea("issueReported","Issue Reported",r.issueReported || "")}
+            ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
+            ${input("startTime","Start Time",r.startTime || "","time")}
+            ${input("endTime","End Time",r.endTime || "","time")}
+            ${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}
+            ${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}
+            ${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}
+            ${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}
+            ${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}
+            ${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}
+            ${textarea("ticketRemarks","Remarks",r.remarks || "")}
+        </div>`;
 };
 
 saveService = function(){
-    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
-    const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value, agent=document.getElementById("assignedAgent").value;
-    upsert(db.service,"ticketNo",{ticketNo:document.getElementById("ticketNo").value,ticketDate:document.getElementById("ticketDate").value,customerId:cid,location:document.getElementById("ticketLocation").value,assignedAgent:agent,assignedEngineer:agent,productName,serviceName,serialNumber:document.getElementById("serialNumber").value,productService:[productName,serviceName].filter(Boolean).join(" / "),issueReported:document.getElementById("issueReported").value,priority:document.getElementById("ticketPriority").value,startTime:document.getElementById("startTime").value,endTime:document.getElementById("endTime").value,solutionProvided:document.getElementById("solutionProvided").value,serviceStatus:document.getElementById("serviceStatus").value,serviceCharges:document.getElementById("serviceCharges").value,paymentStatus:document.getElementById("paymentStatus").value,nextServiceReminder:document.getElementById("nextServiceReminder").value,amcAvailable:document.getElementById("amcAvailable").value,remarks:document.getElementById("ticketRemarks").value});
+    const cid = document.getElementById("customerId").value;
+    if(!cid){ alert("Please create/select customer first."); throw new Error("Customer missing"); }
+    const productName = document.getElementById("productName")?.value || "";
+    const serviceName = document.getElementById("serviceName")?.value || "";
+    const agent = document.getElementById("assignedAgent")?.value || "";
+
+    upsert(db.service,"ticketNo",{
+        ticketNo:document.getElementById("ticketNo").value,
+        ticketDate:document.getElementById("ticketDate").value,
+        customerId:cid,
+        location:document.getElementById("ticketLocation").value,
+        assignedAgent:agent,
+        assignedEngineer:agent,
+        productName:productName,
+        serviceName:serviceName,
+        productService:[productName,serviceName].filter(Boolean).join(" / "),
+        serialNumber:document.getElementById("serialNumber").value,
+        issueReported:document.getElementById("issueReported").value,
+        priority:document.getElementById("ticketPriority").value,
+        startTime:document.getElementById("startTime").value,
+        endTime:document.getElementById("endTime").value,
+        solutionProvided:document.getElementById("solutionProvided").value,
+        serviceStatus:document.getElementById("serviceStatus").value,
+        serviceCharges:document.getElementById("serviceCharges").value,
+        paymentStatus:document.getElementById("paymentStatus").value,
+        nextServiceReminder:document.getElementById("nextServiceReminder").value,
+        amcAvailable:document.getElementById("amcAvailable").value,
+        remarks:document.getElementById("ticketRemarks").value
+    });
+};
+
+invoiceForm = function(id){
+    const r = (db.invoices || []).find(x => x.invoiceNo === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Tax Invoice" : "Add Tax Invoice";
+    document.getElementById("formArea").innerHTML = `
+        <div class="notice">Select Service Ticket or Quotation to auto-fetch customer, product, service, serial number and amount.</div>
+        <div class="form-grid">
+            ${input("invoiceNo","Tax Invoice Number",r.invoiceNo || uid("INV"),"text",true)}
+            ${input("invoiceDate","Invoice Date",r.invoiceDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${quotationSelect(r.quotationNo || "")}
+            ${serviceTicketSelect(r.serviceTicketNo || "")}
+            ${agentSelect("assignedAgent","Salesman / Field Agent",r.assignedAgent || "")}
+            ${productSelect(r.productName || "")}
+            ${serviceSelect(r.serviceName || "")}
+            ${input("invoiceSerialNumber","Serial Number / Asset Number",r.serialNumber || "")}
+            ${input("qty","Qty",r.qty || 1,"number")}
+            ${input("rate","Rate",r.rate || 0,"number")}
+            ${input("vatPercent","VAT %",r.vatPercent || db.settings.vatPercent || 10,"number")}
+            ${select("invoicePaymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}
+            ${textarea("invoiceRemarks","Remarks",r.remarks || "")}
+        </div>`;
 };
 
 saveInvoice = function(){
-    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
-    const qty=Number(document.getElementById("qty").value||0), rate=Number(document.getElementById("rate").value||0), vatPercent=Number(document.getElementById("vatPercent").value||0), amount=qty*rate, vatAmount=amount*vatPercent/100, totalInclVat=amount+vatAmount;
-    const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value;
-    upsert(db.invoices,"invoiceNo",{invoiceNo:document.getElementById("invoiceNo").value,invoiceDate:document.getElementById("invoiceDate").value,customerId:cid,quotationNo:document.getElementById("quotationNo").value,serviceTicketNo:document.getElementById("serviceTicketNo")?.value || "",assignedAgent:document.getElementById("assignedAgent").value,productName,serviceName,serialNumber:document.getElementById("invoiceSerialNumber").value,itemDetails:[productName,serviceName].filter(Boolean).join(" / "),qty,rate,amount,vatPercent,vatAmount,totalInclVat,paymentStatus:document.getElementById("invoicePaymentStatus").value,remarks:document.getElementById("invoiceRemarks").value});
+    const cid = document.getElementById("customerId").value;
+    if(!cid){ alert("Please create/select customer first."); throw new Error("Customer missing"); }
+    const productName = document.getElementById("productName")?.value || "";
+    const serviceName = document.getElementById("serviceName")?.value || "";
+    const qty = Number(document.getElementById("qty").value || 0);
+    const rate = Number(document.getElementById("rate").value || 0);
+    const vatPercent = Number(document.getElementById("vatPercent").value || 0);
+    const amount = qty * rate;
+    const vatAmount = amount * vatPercent / 100;
+    const totalInclVat = amount + vatAmount;
+
+    upsert(db.invoices,"invoiceNo",{
+        invoiceNo:document.getElementById("invoiceNo").value,
+        invoiceDate:document.getElementById("invoiceDate").value,
+        customerId:cid,
+        quotationNo:document.getElementById("quotationNo")?.value || "",
+        serviceTicketNo:document.getElementById("serviceTicketNo")?.value || "",
+        assignedAgent:document.getElementById("assignedAgent")?.value || "",
+        productName:productName,
+        serviceName:serviceName,
+        itemDetails:[productName,serviceName].filter(Boolean).join(" / "),
+        serialNumber:document.getElementById("invoiceSerialNumber")?.value || "",
+        qty:qty,
+        rate:rate,
+        amount:amount,
+        vatPercent:vatPercent,
+        vatAmount:vatAmount,
+        totalInclVat:totalInclVat,
+        paymentStatus:document.getElementById("invoicePaymentStatus").value,
+        remarks:document.getElementById("invoiceRemarks").value
+    });
 };
 
 renderService = function(){
     document.getElementById("sectionTitle").innerText = activeFilter ? (activeFilter === "open" ? "Open Tickets" : activeFilter === "pending" ? "Pending Tickets" : "Closed Tickets") : "Service Ticket Details";
-    let data = db.service.filter(matchObject);
-    if(activeFilter){ data = data.filter(x => activeFilter === "open" ? x.serviceStatus !== "Closed" : x.serviceStatus === (activeFilter === "pending" ? "Pending" : "Closed")); }
-    const rows = data.map(s => { const c=getCustomer(s.customerId); return `<tr><td>${escapeHtml(s.ticketNo)}</td><td>${escapeHtml(s.ticketDate)}</td><td>${escapeHtml(c.contactPerson)}</td><td>${escapeHtml(c.companyName)}</td><td>${escapeHtml(c.mobile)}</td><td>${escapeHtml(c.email)}</td><td>${escapeHtml(s.location)}</td><td>${escapeHtml(getProductServiceText(s))}</td><td>${escapeHtml(s.serialNumber || "")}</td><td>${escapeHtml(s.issueReported)}</td><td>${statusBadge(s.priority)}</td><td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td><td>${escapeHtml(s.startTime)}</td><td>${escapeHtml(s.endTime)}</td><td>${escapeHtml(s.solutionProvided)}</td><td>${statusBadge(s.serviceStatus)}</td><td>${money(s.serviceCharges)}</td><td>${statusBadge(s.paymentStatus)}</td><td>${escapeHtml(s.nextServiceReminder)}</td><td>${escapeHtml(s.amcAvailable)}</td><td>${escapeHtml(s.remarks)}</td><td><button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button><button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button><button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button></td></tr>`; }).join("");
-    document.getElementById("content").innerHTML = table(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Serial Number","Issue Reported","Priority","Assigned Agent / Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"], rows);
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.contactPerson)}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(c.mobile)}</td>
+            <td>${escapeHtml(c.email)}</td>
+            <td>${escapeHtml(s.location)}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported)}</td>
+            <td>${statusBadge(s.priority)}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.startTime)}</td>
+            <td>${escapeHtml(s.endTime)}</td>
+            <td>${escapeHtml(s.solutionProvided)}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${statusBadge(s.paymentStatus)}</td>
+            <td>${escapeHtml(s.nextServiceReminder)}</td>
+            <td>${escapeHtml(s.amcAvailable)}</td>
+            <td>${escapeHtml(s.remarks)}</td>
+            <td>
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Serial Number","Issue Reported","Priority","Assigned Field Agent / Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"],
+        rows
+    );
 };
 
 renderInvoices = function(){
     document.getElementById("sectionTitle").innerText = "Tax Invoice Details";
-    const data = db.invoices.filter(matchObject);
-    const rows = data.map(i => { const c=getCustomer(i.customerId); return `<tr><td>${escapeHtml(i.invoiceNo)}</td><td>${escapeHtml(i.invoiceDate)}</td><td>${escapeHtml(i.quotationNo || "")}</td><td>${escapeHtml(i.serviceTicketNo || "")}</td><td>${escapeHtml(c.companyName)}</td><td>${escapeHtml(getProductServiceText(i))}</td><td>${escapeHtml(i.serialNumber || "")}</td><td>${escapeHtml(i.qty)}</td><td>${money(i.rate)}</td><td>${money(i.amount)}</td><td>${escapeHtml(i.vatPercent)}%</td><td>${money(i.vatAmount)}</td><td><b>${money(i.totalInclVat)}</b></td><td>${escapeHtml(i.assignedAgent || "")}</td><td>${statusBadge(i.paymentStatus)}</td><td>${escapeHtml(i.remarks)}</td><td><button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button><button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button><button class="btn small red" onclick="deleteRecord('invoices','${i.invoiceNo}')">Delete</button></td></tr>`; }).join("");
-    document.getElementById("content").innerHTML = table(["Tax Invoice Number","Invoice Date","Quotation Number","Service Ticket No","Customer","Service / Product Details","Serial Number","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Salesman","Payment Status","Remarks","Action"], rows);
+    const data = (db.invoices || []).filter(matchObject);
+    const rows = data.map(i => {
+        const c = getCustomer(i.customerId);
+        return `<tr>
+            <td>${escapeHtml(i.invoiceNo)}</td>
+            <td>${escapeHtml(i.invoiceDate)}</td>
+            <td>${escapeHtml(i.quotationNo || "")}</td>
+            <td>${escapeHtml(i.serviceTicketNo || "")}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(getProductServiceText(i))}</td>
+            <td>${escapeHtml(i.serialNumber || "")}</td>
+            <td>${escapeHtml(i.qty)}</td>
+            <td>${money(i.rate)}</td>
+            <td>${money(i.amount)}</td>
+            <td>${escapeHtml(i.vatPercent)}%</td>
+            <td>${money(i.vatAmount)}</td>
+            <td><b>${money(i.totalInclVat)}</b></td>
+            <td>${escapeHtml(i.assignedAgent || "")}</td>
+            <td>${statusBadge(i.paymentStatus)}</td>
+            <td>${escapeHtml(i.remarks)}</td>
+            <td>
+                <button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button>
+                <button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('invoices','${i.invoiceNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Tax Invoice Number","Invoice Date","Quotation Number","Service Ticket No","Customer","Service / Product Details","Serial Number","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Salesman / Agent","Payment Status","Remarks","Action"],
+        rows
+    );
 };
 
 printInvoice = function(invoiceNo){
-    const i = db.invoices.find(x => x.invoiceNo === invoiceNo);
-    if(!i){ alert('Invoice not found.'); return; }
+    const i = (db.invoices || []).find(x => x.invoiceNo === invoiceNo);
+    if(!i){ alert("Invoice not found."); return; }
     const c = getCustomer(i.customerId);
-    document.getElementById('viewArea').innerHTML = `
-        <div class="modal-head no-print"><h2>Tax Invoice Preview</h2><div><button class="btn green" onclick="window.print()">Print A4</button><button class="btn gray" onclick="closeView()">X</button></div></div>
-        <div id="printArea" class="a4-doc">
-            <div class="a4-head">
-                ${a4CompanyBlock()}
-                <div class="a4-meta right">
-                    <div class="a4-title">TAX INVOICE</div>
+    const logoHtml = db.settings.logoData ? `<img src="${db.settings.logoData}" style="max-width:130px;max-height:75px;margin-bottom:8px;">` : "";
+
+    document.getElementById("viewArea").innerHTML = `
+        <div id="printArea" class="invoice-print a4-print">
+            <div class="invoice-header a4-header">
+                <div>
+                    ${logoHtml}
+                    <h2>${escapeHtml(db.settings.supplierName)}</h2>
+                    <p>${escapeHtml(db.settings.supplierAddress)}</p>
+                    <p><b>CR No:</b> ${escapeHtml(db.settings.supplierCR)}</p>
+                    <p><b>VAT No:</b> ${escapeHtml(db.settings.supplierVAT)}</p>
+                </div>
+                <div>
+                    <div class="invoice-title">TAX INVOICE</div>
                     <p><b>Invoice No:</b> ${escapeHtml(i.invoiceNo)}</p>
                     <p><b>Invoice Date:</b> ${escapeHtml(i.invoiceDate)}</p>
-                    <p><b>Quotation No:</b> ${escapeHtml(i.quotationNo || '')}</p>
-                    <p><b>Service Ticket No:</b> ${escapeHtml(i.serviceTicketNo || '')}</p>
+                    <p><b>Quotation No:</b> ${escapeHtml(i.quotationNo || "")}</p>
+                    <p><b>Service Ticket No:</b> ${escapeHtml(i.serviceTicketNo || "")}</p>
                 </div>
             </div>
-            <div class="a4-info-grid">${a4SupplierBox()}${a4CustomerBox(c)}</div>
-            <table class="a4-table">
-                <thead><tr><th class="desc">Description</th><th>Serial No / Asset No</th><th>Qty</th><th>Rate</th><th>Amount</th><th>VAT %</th><th>VAT Amount</th><th>Total Incl. VAT</th></tr></thead>
-                <tbody><tr><td>${escapeHtml(i.itemDetails || '')}</td><td>${escapeHtml(i.serialNumber || '')}</td><td class="right">${escapeHtml(i.qty || 0)}</td><td class="right">${money(i.rate)}</td><td class="right">${money(i.amount)}</td><td class="right">${escapeHtml(i.vatPercent || 0)}%</td><td class="right">${money(i.vatAmount)}</td><td class="right"><b>${money(i.totalInclVat)}</b></td></tr></tbody>
-            </table>
-            ${a4Totals(i.amount, i.vatAmount, i.totalInclVat)}
-            <div class="a4-notes">
-                <p><b>Salesman / Field Agent:</b> ${escapeHtml(i.assignedAgent || '')}</p>
-                <p><b>Payment Status:</b> ${escapeHtml(i.paymentStatus || '')}</p>
-                <p><b>Remarks:</b> ${escapeHtml(i.remarks || '')}</p>
+            <div class="invoice-grid">
+                <div class="invoice-box"><h3>Supplier Details</h3><p><b>Name:</b> ${escapeHtml(db.settings.supplierName)}</p><p><b>Address:</b> ${escapeHtml(db.settings.supplierAddress)}</p><p><b>CR No:</b> ${escapeHtml(db.settings.supplierCR)}</p><p><b>VAT No:</b> ${escapeHtml(db.settings.supplierVAT)}</p></div>
+                <div class="invoice-box"><h3>Customer Details</h3><p><b>Company:</b> ${escapeHtml(c.companyName)}</p><p><b>Contact:</b> ${escapeHtml(c.contactPerson)}</p><p><b>Mobile:</b> ${escapeHtml(c.mobile)}</p><p><b>Email:</b> ${escapeHtml(c.email)}</p><p><b>CR No:</b> ${escapeHtml(c.crNo)}</p><p><b>VAT No:</b> ${escapeHtml(c.vatNo)}</p></div>
             </div>
-            <div class="a4-sign"><div><div class="a4-sign-line">Authorized Signature</div></div><div class="right"><div class="a4-sign-line" style="margin-left:auto">Customer Signature / Stamp</div></div></div>
-            <div class="a4-footer">This is a computer-generated tax invoice from Veltrox CRM.</div>
-        </div>`;
-    document.getElementById('viewModal').style.display = 'flex';
+            <table class="a4-table">
+                <thead><tr><th>Description</th><th>Serial Number</th><th>Qty</th><th>Rate</th><th>Amount</th><th>VAT %</th><th>VAT Amount</th><th>Total</th></tr></thead>
+                <tbody><tr><td>${escapeHtml(i.itemDetails || "")}</td><td>${escapeHtml(i.serialNumber || "")}</td><td class="right">${escapeHtml(i.qty || 0)}</td><td class="right">${money(i.rate)}</td><td class="right">${money(i.amount)}</td><td class="right">${escapeHtml(i.vatPercent || 0)}%</td><td class="right">${money(i.vatAmount)}</td><td class="right"><b>${money(i.totalInclVat)}</b></td></tr></tbody>
+            </table>
+            <h2 class="right">Grand Total Including VAT: BHD ${money(i.totalInclVat)}</h2>
+            <p><b>Payment Status:</b> ${escapeHtml(i.paymentStatus)}</p>
+            <p><b>Salesman / Agent:</b> ${escapeHtml(i.assignedAgent || "")}</p>
+            <p><b>Remarks:</b> ${escapeHtml(i.remarks)}</p>
+            <br><br><p>Authorized Signature: ______________________</p>
+        </div>
+        <div class="form-actions no-print"><button class="btn green" onclick="window.print()">Print</button><button class="btn gray" onclick="closeView()">Close</button></div>`;
+    document.getElementById("viewModal").style.display = "flex";
 };
 
-/* ==============================
-   INIT
-================================= */
-setModule("dashboard");
+saveDB();
+
 </script>
 
 </body>
