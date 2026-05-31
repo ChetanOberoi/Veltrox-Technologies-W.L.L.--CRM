@@ -357,10 +357,216 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
 .sales-mini-card b{font-size:22px;display:block;margin-top:5px}
 @media(max-width:1000px){.sales-dashboard-grid{grid-template-columns:1fr}.sales-pie{width:190px;height:190px}}
 
+
+
+/* ==============================
+   LOGIN PAGE INTERFACE
+================================= */
+.auth-locked .app,
+.auth-locked .modal{
+    display:none!important;
+}
+.login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px;
+    background:
+        radial-gradient(circle at 18% 20%, rgba(37,99,235,.30), transparent 28%),
+        radial-gradient(circle at 82% 18%, rgba(22,163,74,.22), transparent 26%),
+        linear-gradient(135deg,#0f172a 0%,#111827 42%,#1e3a8a 100%);
+    overflow:hidden;
+    position:relative;
+}
+.login-screen::before,
+.login-screen::after{
+    content:"";
+    position:absolute;
+    width:420px;
+    height:420px;
+    border-radius:50%;
+    background:rgba(255,255,255,.08);
+    animation:floatShape 7s ease-in-out infinite;
+}
+.login-screen::before{left:-120px;top:-90px}
+.login-screen::after{right:-140px;bottom:-120px;animation-delay:1.5s}
+@keyframes floatShape{
+    0%,100%{transform:translateY(0) scale(1)}
+    50%{transform:translateY(-28px) scale(1.06)}
+}
+.login-card{
+    width:1080px;
+    max-width:100%;
+    min-height:610px;
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    background:rgba(255,255,255,.96);
+    border-radius:30px;
+    box-shadow:0 30px 90px rgba(0,0,0,.35);
+    overflow:hidden;
+    position:relative;
+    z-index:1;
+}
+.login-brand{
+    padding:52px;
+    color:white;
+    background:linear-gradient(145deg,#1d4ed8,#111827);
+    position:relative;
+    overflow:hidden;
+}
+.login-brand::after{
+    content:"";
+    position:absolute;
+    inset:auto -80px -100px auto;
+    width:280px;
+    height:280px;
+    border-radius:50%;
+    background:rgba(255,255,255,.12);
+}
+.login-logo-box{
+    width:92px;
+    height:92px;
+    border-radius:24px;
+    background:white;
+    color:#1d4ed8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:34px;
+    font-weight:900;
+    margin-bottom:28px;
+    overflow:hidden;
+    animation:pulseLogo 2.8s ease-in-out infinite;
+}
+.login-logo-box img{width:100%;height:100%;object-fit:contain;padding:8px}
+@keyframes pulseLogo{
+    0%,100%{transform:scale(1);box-shadow:0 0 0 rgba(255,255,255,.25)}
+    50%{transform:scale(1.05);box-shadow:0 0 32px rgba(255,255,255,.28)}
+}
+.login-brand h1{
+    font-size:42px;
+    line-height:1.08;
+    margin:0 0 14px;
+}
+.login-brand p{
+    font-size:17px;
+    color:#dbeafe;
+    margin:0 0 26px;
+    line-height:1.6;
+}
+.login-points{
+    display:grid;
+    gap:13px;
+    margin-top:26px;
+}
+.login-point{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:16px;
+    padding:14px 16px;
+    font-weight:700;
+    animation:slideUp .7s ease both;
+}
+.login-point:nth-child(2){animation-delay:.15s}
+.login-point:nth-child(3){animation-delay:.30s}
+@keyframes slideUp{
+    from{opacity:0;transform:translateY(20px)}
+    to{opacity:1;transform:translateY(0)}
+}
+.login-form-wrap{
+    padding:52px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+.login-form-wrap h2{
+    font-size:34px;
+    margin:0 0 8px;
+    color:#0f172a;
+}
+.login-form-wrap .login-sub{
+    margin:0 0 28px;
+    color:#6b7280;
+    line-height:1.5;
+}
+.login-form-wrap label{
+    font-size:14px;
+    color:#111827;
+}
+.login-form-wrap input{
+    height:52px;
+    font-size:16px;
+    margin-bottom:16px;
+}
+.login-btn{
+    width:100%;
+    height:54px;
+    border:0;
+    border-radius:14px;
+    background:#2563eb;
+    color:white;
+    font-size:17px;
+    font-weight:900;
+    cursor:pointer;
+    margin-top:8px;
+}
+.login-btn:hover{background:#1d4ed8}
+.login-error{
+    display:none;
+    margin-top:12px;
+    padding:12px;
+    border-radius:12px;
+    background:#fee2e2;
+    color:#991b1b;
+    font-weight:700;
+}
+.login-hint{
+    margin-top:18px;
+    font-size:13px;
+    color:#6b7280;
+    background:#f3f6fb;
+    padding:12px;
+    border-radius:12px;
+}
+.logout-btn{background:#111827!important}
+@media(max-width:900px){
+    .login-card{grid-template-columns:1fr;min-height:auto}
+    .login-brand,.login-form-wrap{padding:32px}
+    .login-brand h1{font-size:32px}
+}
+
 </style>
 </head>
 
-<body>
+<body class="auth-locked">
+
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="login-logo-box" id="loginLogoBox">VT</div>
+            <h1>Veltrox Technologies W.L.L.</h1>
+            <p>CRM for Sales Leads, Service Tickets, Quotations, Tax Invoices, Follow-ups and Payment Tracking.</p>
+            <div class="login-points">
+                <div class="login-point">⚡ Sales & Service Workflow Management</div>
+                <div class="login-point">📊 Dashboard, Reports & Payment Tracking</div>
+                <div class="login-point">🧾 A4 Quotation & Tax Invoice Printing</div>
+            </div>
+        </div>
+        <div class="login-form-wrap">
+            <h2>Login to CRM</h2>
+            <p class="login-sub">Enter your username and password to access the Veltrox CRM dashboard.</p>
+            <label>Username</label>
+            <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username">
+            <label>Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+            <button class="login-btn" onclick="loginToCRM()">Login</button>
+            <div class="login-error" id="loginError">Invalid username or password.</div>
+            <div class="login-hint"><b>Default Login:</b> admin / admin123<br>You can change this later in the code.</div>
+        </div>
+    </div>
+</div>
+
 <div class="app">
     <aside class="sidebar">
         <div class="logo">Veltrox CRM</div>
@@ -390,6 +596,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
                 <button class="btn" id="addBtn" onclick="openForm()">+ Add</button>
                 <button class="btn gray" onclick="exportBackup()">Export Backup</button>
                 <button class="btn green" onclick="exportExcel()">Export Excel</button>
+                <button class="btn logout-btn" onclick="logoutCRM()">Logout</button>
             </div>
         </div>
 
@@ -3012,6 +3219,72 @@ printInvoice = function(invoiceNo){
 };
 
 saveDB();
+
+
+
+/* ==============================
+   LOGIN FUNCTIONS
+================================= */
+const LOGIN_SESSION_KEY = "VELTROX_CRM_LOGGED_IN";
+const CRM_LOGIN_USER = "admin";
+const CRM_LOGIN_PASS = "admin123";
+
+function initLoginScreen(){
+    const loginScreen = document.getElementById("loginScreen");
+    const logoBox = document.getElementById("loginLogoBox");
+    try{
+        if(db?.settings?.logoData && logoBox){
+            logoBox.innerHTML = `<img src="${db.settings.logoData}" alt="Company Logo">`;
+        }
+    }catch(e){}
+
+    if(localStorage.getItem(LOGIN_SESSION_KEY) === "YES"){
+        document.body.classList.remove("auth-locked");
+        if(loginScreen) loginScreen.style.display = "none";
+    }else{
+        document.body.classList.add("auth-locked");
+        if(loginScreen) loginScreen.style.display = "flex";
+        setTimeout(() => document.getElementById("loginUsername")?.focus(), 200);
+    }
+
+    ["loginUsername","loginPassword"].forEach(id => {
+        const el = document.getElementById(id);
+        if(el){
+            el.addEventListener("keydown", function(e){
+                if(e.key === "Enter") loginToCRM();
+            });
+        }
+    });
+}
+
+function loginToCRM(){
+    const username = (document.getElementById("loginUsername")?.value || "").trim();
+    const password = document.getElementById("loginPassword")?.value || "";
+    const error = document.getElementById("loginError");
+
+    if(username === CRM_LOGIN_USER && password === CRM_LOGIN_PASS){
+        localStorage.setItem(LOGIN_SESSION_KEY,"YES");
+        document.body.classList.remove("auth-locked");
+        const loginScreen = document.getElementById("loginScreen");
+        if(loginScreen) loginScreen.style.display = "none";
+        if(error) error.style.display = "none";
+        setModule("dashboard");
+    }else{
+        if(error) error.style.display = "block";
+    }
+}
+
+function logoutCRM(){
+    if(!confirm("Logout from CRM?")) return;
+    localStorage.removeItem(LOGIN_SESSION_KEY);
+    document.body.classList.add("auth-locked");
+    const loginScreen = document.getElementById("loginScreen");
+    if(loginScreen) loginScreen.style.display = "flex";
+    document.getElementById("loginPassword").value = "";
+    setTimeout(() => document.getElementById("loginUsername")?.focus(), 100);
+}
+
+initLoginScreen();
 
 </script>
 
