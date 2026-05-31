@@ -562,7 +562,8 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
             <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
             <button class="login-btn" onclick="loginToCRM()">Login</button>
             <div class="login-error" id="loginError">Invalid username or password.</div>
-            <div class="login-hint"><b>Default Login:</b> admin / admin123<br>You can change this later in the code.</div>
+            <div class="login-hint"><b>Default Login:</b> admin / admin123<br>Use Set / Change Login Credentials below to create your own login.</div>
+            <button type="button" class="login-btn" style="margin-top:12px;background:#111827;" onclick="openCredentialSetup()">Set / Change Login Credentials</button>
         </div>
     </div>
 </div>
@@ -638,6 +639,41 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
 
 <div class="modal" id="viewModal">
     <div class="modal-content" id="viewArea"></div>
+</div>
+
+
+<div class="modal" id="credentialSetupModal">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-head">
+            <h2>Set Login Credentials</h2>
+            <button class="btn gray" onclick="closeCredentialSetup()">X</button>
+        </div>
+        <div class="notice">
+            Create or update your CRM login username and password. These details will be saved in browser localStorage backend and included in Export Backup.
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr;">
+            <div>
+                <label>Username</label>
+                <input type="text" id="setupUsername" placeholder="Enter your username">
+            </div>
+            <div>
+                <label>Password</label>
+                <input type="password" id="setupPassword" placeholder="Enter new password">
+            </div>
+            <div>
+                <label>Confirm Password</label>
+                <input type="password" id="setupConfirmPassword" placeholder="Confirm new password">
+            </div>
+            <div>
+                <label>Full Name</label>
+                <input type="text" id="setupFullName" placeholder="Enter full name">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn gray" onclick="closeCredentialSetup()">Cancel</button>
+            <button class="btn green" onclick="saveCredentialSetup()">Save Credentials</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -3287,6 +3323,305 @@ function logoutCRM(){
 
 document.addEventListener("DOMContentLoaded", initLoginScreen);
 if(document.readyState !== "loading") initLoginScreen();
+
+
+/* ==============================
+   USER LOGIN MANAGEMENT + PASSWORD CHANGE
+   Backend: saved inside browser localStorage CRM database
+================================= */
+const LOGIN_CURRENT_USER_KEY = "VELTROX_CRM_CURRENT_USER";
+
+function ensureLoginUsers(){
+    if(!db.users || !Array.isArray(db.users)){
+        db.users = [];
+    }
+    if(!db.users.some(u => String(u.username || "").toLowerCase() === "admin")){
+        db.users.unshift({
+            username:"admin",
+            password:"admin123",
+            fullName:"Administrator",
+            role:"Admin",
+            active:"Yes"
+        });
+    }
+    saveDB();
+}
+ensureLoginUsers();
+
+loginToCRM = function(){
+    ensureLoginUsers();
+    const username = (document.getElementById("loginUsername")?.value || "").trim();
+    const password = document.getElementById("loginPassword")?.value || "";
+    const error = document.getElementById("loginError");
+
+    const user = db.users.find(u =>
+        String(u.username || "").toLowerCase() === username.toLowerCase() &&
+        String(u.password || "") === password &&
+        String(u.active || "Yes") === "Yes"
+    );
+
+    if(user){
+        localStorage.setItem(LOGIN_SESSION_KEY,"YES");
+        localStorage.setItem(LOGIN_CURRENT_USER_KEY,user.username);
+        document.body.classList.remove("auth-locked");
+        const loginScreen = document.getElementById("loginScreen");
+        if(loginScreen) loginScreen.style.display = "none";
+        if(error) error.style.display = "none";
+        try{ setModule("dashboard"); }catch(e){ console.error("Dashboard init error:", e); }
+    }else{
+        if(error){
+            error.innerText = "Invalid username / password, or user is inactive.";
+            error.style.display = "block";
+        }
+    }
+};
+
+logoutCRM = function(){
+    if(!confirm("Logout from CRM?")) return;
+    localStorage.removeItem(LOGIN_SESSION_KEY);
+    localStorage.removeItem(LOGIN_CURRENT_USER_KEY);
+    document.body.classList.add("auth-locked");
+    const loginScreen = document.getElementById("loginScreen");
+    if(loginScreen) loginScreen.style.display = "flex";
+    if(document.getElementById("loginPassword")) document.getElementById("loginPassword").value = "";
+    setTimeout(() => document.getElementById("loginUsername")?.focus(), 100);
+};
+
+function renderLoginUserManager(){
+    ensureLoginUsers();
+    const area = document.getElementById("loginUserTableArea");
+    if(!area) return;
+
+    const rows = db.users.map((u,index) => `
+        <tr>
+            <td>${escapeHtml(u.username)}</td>
+            <td>${escapeHtml(u.fullName || "")}</td>
+            <td>${escapeHtml(u.role || "User")}</td>
+            <td>${statusBadge(u.active || "Yes")}</td>
+            <td>
+                <button class="btn small orange" onclick="resetLoginUserPassword(${index})">Reset Password</button>
+                ${String(u.username).toLowerCase() === "admin" ? "" : `<button class="btn small red" onclick="deleteLoginUser(${index})">Delete</button>`}
+            </td>
+        </tr>
+    `).join("");
+
+    area.innerHTML = table(["Username","Full Name","Role","Active","Action"], rows);
+}
+
+function addLoginUser(){
+    ensureLoginUsers();
+    const username = (document.getElementById("newLoginUsername")?.value || "").trim();
+    const fullName = (document.getElementById("newLoginFullName")?.value || "").trim();
+    const password = document.getElementById("newLoginPassword")?.value || "";
+    const role = document.getElementById("newLoginRole")?.value || "User";
+    const active = document.getElementById("newLoginActive")?.value || "Yes";
+
+    if(!username || !password){ alert("Username and password are required."); return; }
+    if(db.users.some(u => String(u.username || "").toLowerCase() === username.toLowerCase())){
+        alert("This username already exists.");
+        return;
+    }
+
+    db.users.push({username, fullName, password, role, active});
+    saveDB();
+    document.getElementById("newLoginUsername").value = "";
+    document.getElementById("newLoginFullName").value = "";
+    document.getElementById("newLoginPassword").value = "";
+    renderLoginUserManager();
+    alert("Login user created successfully.");
+}
+
+function resetLoginUserPassword(index){
+    ensureLoginUsers();
+    const user = db.users[index];
+    if(!user){ alert("User not found."); return; }
+    const newPass = prompt(`Enter new password for ${user.username}:`);
+    if(!newPass){ return; }
+    user.password = newPass;
+    saveDB();
+    alert("Password updated successfully.");
+}
+
+function deleteLoginUser(index){
+    ensureLoginUsers();
+    const user = db.users[index];
+    if(!user){ return; }
+    if(String(user.username).toLowerCase() === "admin"){
+        alert("Admin user cannot be deleted.");
+        return;
+    }
+    if(!confirm(`Delete login user ${user.username}?`)) return;
+    db.users.splice(index,1);
+    saveDB();
+    renderLoginUserManager();
+}
+
+function changeMyPassword(){
+    ensureLoginUsers();
+    const currentUsername = localStorage.getItem(LOGIN_CURRENT_USER_KEY) || "admin";
+    const currentPassword = document.getElementById("currentPassword")?.value || "";
+    const newPassword = document.getElementById("myNewPassword")?.value || "";
+    const confirmPassword = document.getElementById("myConfirmPassword")?.value || "";
+
+    const user = db.users.find(u => String(u.username || "").toLowerCase() === currentUsername.toLowerCase());
+    if(!user){ alert("Current logged-in user not found."); return; }
+    if(user.password !== currentPassword){ alert("Current password is incorrect."); return; }
+    if(!newPassword){ alert("New password cannot be blank."); return; }
+    if(newPassword !== confirmPassword){ alert("New password and confirm password are not matching."); return; }
+
+    user.password = newPassword;
+    saveDB();
+    document.getElementById("currentPassword").value = "";
+    document.getElementById("myNewPassword").value = "";
+    document.getElementById("myConfirmPassword").value = "";
+    alert("Your password has been changed successfully.");
+}
+
+const oldRenderSettingsLoginUsers = renderSettings;
+renderSettings = function(){
+    oldRenderSettingsLoginUsers();
+    ensureLoginUsers();
+    const content = document.getElementById("content");
+    if(!content) return;
+
+    const currentUsername = localStorage.getItem(LOGIN_CURRENT_USER_KEY) || "admin";
+
+    content.innerHTML += `
+        <hr>
+        <h3>Login User Management</h3>
+        <div class="notice">
+            Create CRM login users here. Username and password are saved in the CRM backend localStorage backup.
+            Each user can change their own password below.
+        </div>
+        <div class="form-grid">
+            ${input("newLoginUsername","Username","")}
+            ${input("newLoginFullName","Full Name","")}
+            ${input("newLoginPassword","Password", "", "password")}
+            ${select("newLoginRole","Role",["Admin","Sales","Service","Accounts","User"],"User")}
+            ${select("newLoginActive","Active",["Yes","No"],"Yes")}
+            <div style="display:flex;align-items:end;">
+                <button class="btn green" onclick="addLoginUser()">Add Login User</button>
+            </div>
+        </div>
+        <br>
+        <div id="loginUserTableArea"></div>
+
+        <hr>
+        <h3>Change My Password</h3>
+        <p class="small-text">Logged in as: <b>${escapeHtml(currentUsername)}</b></p>
+        <div class="form-grid">
+            ${input("currentPassword","Current Password", "", "password")}
+            ${input("myNewPassword","New Password", "", "password")}
+            ${input("myConfirmPassword","Confirm New Password", "", "password")}
+            <div style="display:flex;align-items:end;">
+                <button class="btn orange" onclick="changeMyPassword()">Change Password</button>
+            </div>
+        </div>
+    `;
+    renderLoginUserManager();
+};
+
+
+
+/* ==============================
+   FINAL LOGIN CREDENTIAL SETUP FIX
+   Allows owner to set own login from login page.
+   Saved in db.users/localStorage backend.
+================================= */
+function normalizeLoginUsers(){
+    if(!db.users || !Array.isArray(db.users)) db.users = [];
+    const hasAdmin = db.users.some(u => String(u.username || '').toLowerCase() === 'admin');
+    if(!hasAdmin){
+        db.users.unshift({username:'admin', password:'admin123', fullName:'Administrator', role:'Admin', active:'Yes'});
+    }
+    saveDB();
+}
+
+function openCredentialSetup(){
+    normalizeLoginUsers();
+    const currentUser = db.users[0] || {username:'admin', fullName:'Administrator'};
+    const modal = document.getElementById('credentialSetupModal');
+    if(document.getElementById('setupUsername')) document.getElementById('setupUsername').value = currentUser.username || '';
+    if(document.getElementById('setupFullName')) document.getElementById('setupFullName').value = currentUser.fullName || '';
+    if(document.getElementById('setupPassword')) document.getElementById('setupPassword').value = '';
+    if(document.getElementById('setupConfirmPassword')) document.getElementById('setupConfirmPassword').value = '';
+    if(modal) modal.style.display = 'flex';
+}
+
+function closeCredentialSetup(){
+    const modal = document.getElementById('credentialSetupModal');
+    if(modal) modal.style.display = 'none';
+}
+
+function saveCredentialSetup(){
+    normalizeLoginUsers();
+    const username = (document.getElementById('setupUsername')?.value || '').trim();
+    const password = document.getElementById('setupPassword')?.value || '';
+    const confirmPassword = document.getElementById('setupConfirmPassword')?.value || '';
+    const fullName = (document.getElementById('setupFullName')?.value || '').trim() || username;
+
+    if(!username){ alert('Username is required.'); return; }
+    if(!password){ alert('Password is required.'); return; }
+    if(password !== confirmPassword){ alert('Password and confirm password are not matching.'); return; }
+
+    let user = db.users.find(u => String(u.username || '').toLowerCase() === username.toLowerCase());
+    if(user){
+        user.password = password;
+        user.fullName = fullName;
+        user.role = user.role || 'Admin';
+        user.active = 'Yes';
+    }else{
+        db.users.push({username, password, fullName, role:'Admin', active:'Yes'});
+    }
+    saveDB();
+    closeCredentialSetup();
+    if(document.getElementById('loginUsername')) document.getElementById('loginUsername').value = username;
+    if(document.getElementById('loginPassword')) document.getElementById('loginPassword').value = '';
+    alert('Login credentials saved successfully. Please login with your new username and password.');
+}
+
+loginToCRM = function(){
+    normalizeLoginUsers();
+    const username = (document.getElementById('loginUsername')?.value || '').trim();
+    const password = document.getElementById('loginPassword')?.value || '';
+    const error = document.getElementById('loginError');
+
+    const user = db.users.find(u =>
+        String(u.username || '').toLowerCase() === username.toLowerCase() &&
+        String(u.password || '') === password &&
+        String(u.active || 'Yes') === 'Yes'
+    );
+
+    if(user){
+        localStorage.setItem(LOGIN_SESSION_KEY,'YES');
+        localStorage.setItem(LOGIN_CURRENT_USER_KEY,user.username);
+        document.body.classList.remove('auth-locked');
+        const loginScreen = document.getElementById('loginScreen');
+        if(loginScreen) loginScreen.style.display = 'none';
+        if(error) error.style.display = 'none';
+        try{ setModule('dashboard'); }catch(e){ console.error('Dashboard init error:', e); alert('Login successful, but dashboard loading found an error.'); }
+    }else{
+        if(error){
+            error.innerText = 'Invalid username or password. Use Set / Change Login Credentials to create your login.';
+            error.style.display = 'block';
+        }
+    }
+};
+
+function forceShowLoginIfLoggedOut(){
+    normalizeLoginUsers();
+    const loginScreen = document.getElementById('loginScreen');
+    if(localStorage.getItem(LOGIN_SESSION_KEY) === 'YES'){
+        document.body.classList.remove('auth-locked');
+        if(loginScreen) loginScreen.style.display = 'none';
+    }else{
+        document.body.classList.add('auth-locked');
+        if(loginScreen) loginScreen.style.display = 'flex';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', forceShowLoginIfLoggedOut);
+if(document.readyState !== 'loading') forceShowLoginIfLoggedOut();
 
 </script>
 
