@@ -125,6 +125,8 @@ body{
     border-radius:18px;
     box-shadow:0 8px 22px rgba(0,0,0,.07);
 }
+.card.drill{cursor:pointer; transition:.15s}
+.card.drill:hover{transform:translateY(-2px); box-shadow:0 12px 26px rgba(0,0,0,.10);}
 .card-title{
     color:var(--muted);
     font-weight:700;
@@ -341,14 +343,15 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
         </div>
 
         <div class="cards">
-            <div class="card"><div class="card-title">Total Customers</div><div class="card-value" id="cntCustomers">0</div></div>
-            <div class="card"><div class="card-title">Total Leads</div><div class="card-value" id="cntLeads">0</div></div>
-            <div class="card"><div class="card-title">Quotations</div><div class="card-value" id="cntQuotations">0</div></div>
-            <div class="card"><div class="card-title">Open Tickets</div><div class="card-value" id="cntTickets">0</div></div>
-            <div class="card"><div class="card-title">Pending Follow-ups</div><div class="card-value" id="cntFollowups">0</div></div>
-            <div class="card"><div class="card-title">Tax Invoices</div><div class="card-value" id="cntInvoices">0</div></div>
-            <div class="card"><div class="card-title">Invoice Value</div><div class="card-value" id="cntInvoiceValue">0.000</div></div>
-            <div class="card"><div class="card-title">Payment Pending</div><div class="card-value" id="cntPaymentPending">0.000</div></div>
+            <div class="card drill" onclick="setModule('customers')"><div class="card-title">Total Customers</div><div class="card-value" id="cntCustomers">0</div></div>
+            <div class="card drill" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value" id="cntLeads">0</div></div>
+            <div class="card drill" onclick="setModule('quotations')"><div class="card-title">Quotations</div><div class="card-value" id="cntQuotations">0</div></div>
+            <div class="card drill" onclick="setModule('service','open')"><div class="card-title">Open Tickets</div><div class="card-value" id="cntTickets">0</div></div>
+            <div class="card drill" onclick="setModule('service','pending')"><div class="card-title">Pending Tickets</div><div class="card-value" id="cntPendingTickets">0</div></div>
+            <div class="card drill" onclick="setModule('service','closed')"><div class="card-title">Closed Tickets</div><div class="card-value" id="cntClosedTickets">0</div></div>
+            <div class="card drill" onclick="setModule('followups')"><div class="card-title">Pending Follow-ups</div><div class="card-value" id="cntFollowups">0</div></div>
+            <div class="card drill" onclick="setModule('invoices')"><div class="card-title">Tax Invoices</div><div class="card-value" id="cntInvoices">0</div></div>
+            <div class="card drill" onclick="setModule('payments','pending')"><div class="card-title">Payment Pending</div><div class="card-value" id="cntPaymentPending">0.000</div></div>
         </div>
 
         <section class="panel">
@@ -395,28 +398,6 @@ let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
         supplierVAT:"",
         invoicePrefix:"INV",
         vatPercent:10,
-        products:[
-            "TallyPrime Silver",
-            "TallyPrime Gold",
-            "TSS Renewal",
-            "Tally on Cloud",
-            "TallyPrime Server",
-            "TallyPrime Auditor",
-            "Other"
-        ],
-        services:[
-            "Tally Customization",
-            "Tally AMC Support",
-            "Tally Training",
-            "VAT Filing",
-            "Web Designing",
-            "Mobile App Development",
-            "CCTV Service",
-            "IT Support",
-            "Data Migration",
-            "Cloud Support",
-            "Other"
-        ],
         productServices:[
             "TallyPrime Silver",
             "TallyPrime Gold",
@@ -764,8 +745,7 @@ function renderLeads(){
             <td>${escapeHtml(c.mobile)}</td>
             <td>${escapeHtml(c.email)}</td>
             <td>${escapeHtml(l.leadSource)}</td>
-            <td>${escapeHtml(l.productName || "")}</td>
-            <td>${escapeHtml(l.serviceName || "")}</td>
+            <td>${escapeHtml(l.productService)}</td>
             <td>${escapeHtml(l.requirementNotes)}</td>
             <td>${statusBadge(l.priority)}</td>
             <td>${statusBadge(l.status)}</td>
@@ -788,7 +768,7 @@ function renderLeads(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product","Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link","Action"],
+        ["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link","Action"],
         rows
     );
 }
@@ -809,8 +789,7 @@ function renderQuotations(){
             <td>${escapeHtml(q.quotationDate)}</td>
             <td>${escapeHtml(q.leadId)}</td>
             <td>${escapeHtml(c.companyName)}</td>
-            <td>${escapeHtml(q.productName || "")}</td>
-            <td>${escapeHtml(q.serviceName || "")}</td>
+            <td>${escapeHtml(q.itemDetails)}</td>
             <td>${escapeHtml(q.qty)}</td>
             <td>${money(q.rate)}</td>
             <td>${money(q.amount)}</td>
@@ -830,7 +809,7 @@ function renderQuotations(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Quotation No","Quotation Date","Lead ID","Customer","Product","Service","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks","Action"],
+        ["Quotation No","Quotation Date","Lead ID","Customer","Product / Service Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks","Action"],
         rows
     );
 }
@@ -853,8 +832,7 @@ function renderService(){
             <td>${escapeHtml(c.mobile)}</td>
             <td>${escapeHtml(c.email)}</td>
             <td>${escapeHtml(s.location)}</td>
-            <td>${escapeHtml(s.productName || "")}</td>
-            <td>${escapeHtml(s.serviceName || "")}</td>
+            <td>${escapeHtml(s.productService)}</td>
             <td>${escapeHtml(s.issueReported)}</td>
             <td>${statusBadge(s.priority)}</td>
             <td>${escapeHtml(s.assignedEngineer)}</td>
@@ -876,7 +854,7 @@ function renderService(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product","Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"],
+        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"],
         rows
     );
 }
@@ -1061,27 +1039,15 @@ function renderSettings(){
 
         <hr>
 
-        <h3>Product Master</h3>
+        <h3>Product / Service Master</h3>
         <div class="form-grid">
             <div class="full">
-                <label>Product List - one item per line</label>
-                <textarea id="productList" style="min-height:160px;">${(db.settings.products || []).join("\n")}</textarea>
+                <label>Product / Service List - one item per line</label>
+                <textarea id="productServiceList" style="min-height:180px;">${(db.settings.productServices || []).join("\n")}</textarea>
             </div>
         </div>
         <br>
-        <button class="btn green" onclick="saveProducts()">Save Product List</button>
-
-        <hr>
-
-        <h3>Service Master</h3>
-        <div class="form-grid">
-            <div class="full">
-                <label>Service List - one item per line</label>
-                <textarea id="serviceList" style="min-height:160px;">${(db.settings.services || []).join("\n")}</textarea>
-            </div>
-        </div>
-        <br>
-        <button class="btn green" onclick="saveServices()">Save Service List</button>
+        <button class="btn green" onclick="saveProductServices()">Save Product / Service List</button>
 
         <hr>
 
@@ -1095,18 +1061,11 @@ function renderSettings(){
     `;
 }
 
-function saveProducts(){
-    const text = document.getElementById("productList").value;
-    db.settings.products = text.split("\n").map(x => x.trim()).filter(x => x !== "");
+function saveProductServices(){
+    const text = document.getElementById("productServiceList").value;
+    db.settings.productServices = text.split("\n").map(x => x.trim()).filter(x => x !== "");
     saveDB();
-    alert("Product list updated successfully.");
-}
-
-function saveServices(){
-    const text = document.getElementById("serviceList").value;
-    db.settings.services = text.split("\n").map(x => x.trim()).filter(x => x !== "");
-    saveDB();
-    alert("Service list updated successfully.");
+    alert("Product / Service list updated successfully.");
 }
 
 function saveSettings(){
@@ -1158,84 +1117,41 @@ function customerForm(id){
             ${textarea("customerRemarks","Remarks",r.remarks || "")}
         </div>`;
 }
-function productOptions(selected=""){
-    const list = db.settings.products || [
-        "TallyPrime Silver",
-        "TallyPrime Gold",
-        "TSS Renewal",
-        "Tally on Cloud",
-        "TallyPrime Server",
-        "TallyPrime Auditor",
-        "Other"
-    ];
+function productServiceOptions(selected=""){
 
-    return `
-    <select id="productName" onchange="handleProductMasterSelection()">
-        <option value="">Select Product</option>
-        ${list.map(item => `
-        <option value="${escapeHtml(item)}" ${item===selected ? "selected" : ""}>${escapeHtml(item)}</option>
-        `).join("")}
-        <option value="__NEW_PRODUCT__">+ Add New Product</option>
-    </select>`;
-}
+const list = [
 
-function serviceOptions(selected=""){
-    const list = db.settings.services || [
-        "Tally Customization",
-        "Tally AMC Support",
-        "Tally Training",
-        "VAT Filing",
-        "Web Designing",
-        "Mobile App Development",
-        "CCTV Service",
-        "IT Support",
-        "Data Migration",
-        "Cloud Support",
-        "Other"
-    ];
+"TallyPrime Silver",
+"TallyPrime Gold",
+"TSS Renewal",
+"Tally on Cloud",
+"Tally Customization",
+"Tally AMC Support",
+"Tally Training",
+"VAT Filing",
+"Web Designing",
+"Mobile App Development",
+"CCTV Service",
+"IT Support",
+"Other"
 
-    return `
-    <select id="serviceName" onchange="handleServiceMasterSelection()">
-        <option value="">Select Service</option>
-        ${list.map(item => `
-        <option value="${escapeHtml(item)}" ${item===selected ? "selected" : ""}>${escapeHtml(item)}</option>
-        `).join("")}
-        <option value="__NEW_SERVICE__">+ Add New Service</option>
-    </select>`;
-}
+];
 
-function handleProductMasterSelection(){
-    const field = document.getElementById("productName");
-    if(field && field.value === "__NEW_PRODUCT__"){
-        const newItem = prompt("Enter new Product name:");
-        if(newItem && newItem.trim()){
-            if(!db.settings.products) db.settings.products = [];
-            db.settings.products.push(newItem.trim());
-            saveDB();
-            const selected = newItem.trim();
-            field.innerHTML = productOptions(selected).match(/<select[^>]*>([\\s\\S]*)<\\/select>/)[1];
-            field.value = selected;
-        }else{
-            field.value = "";
-        }
-    }
-}
+return `
 
-function handleServiceMasterSelection(){
-    const field = document.getElementById("serviceName");
-    if(field && field.value === "__NEW_SERVICE__"){
-        const newItem = prompt("Enter new Service name:");
-        if(newItem && newItem.trim()){
-            if(!db.settings.services) db.settings.services = [];
-            db.settings.services.push(newItem.trim());
-            saveDB();
-            const selected = newItem.trim();
-            field.innerHTML = serviceOptions(selected).match(/<select[^>]*>([\\s\\S]*)<\\/select>/)[1];
-            field.value = selected;
-        }else{
-            field.value = "";
-        }
-    }
+<select id="productService" onchange="handleProductSelection()">
+
+${list.map(item => `
+<option value="${item}" ${item===selected ? "selected" : ""}>
+${item}
+</option>
+`).join("")}
+
+<option value="__NEW_PRODUCT__">+ Add New Product / Service</option>
+</select>
+
+`;
+
 }
 function leadForm(id){
     const r = db.leads.find(x => x.leadId === id) || {};
@@ -1269,12 +1185,8 @@ function leadForm(id){
     "Other"
 ],r.leadSource || "Cold Call")}
             <div>
-    <label>Product</label>
-    ${productOptions(r.productName || r.productService || "")}
-</div>
-<div>
-    <label>Service</label>
-    ${serviceOptions(r.serviceName || "")}
+    <label>Product / Service</label>
+    ${productServiceOptions(r.productService || "")}
 </div>
             ${textarea("requirementNotes","Requirement / Notes",r.requirementNotes || "")}
             ${select("priority","Priority",["High","Medium","Low"],r.priority || "Medium")}
@@ -1302,12 +1214,8 @@ function quotationForm(id){
             ${customerSelect(r.customerId)}
             ${leadSelect(r.leadId || "")}
             <div>
-                <label>Product</label>
-                ${productOptions(r.productName || r.itemDetails || "")}
-            </div>
-            <div>
-                <label>Service</label>
-                ${serviceOptions(r.serviceName || "")}
+                <label>Product / Service</label>
+                ${productServiceOptions(r.itemDetails || "")}
             </div>
             ${input("quotationQty","Qty",r.qty || 1,"number")}
             ${input("quotationRate","Rate",r.rate || 0,"number")}
@@ -1344,12 +1252,8 @@ function serviceForm(id){
             ${customerSelect(r.customerId)}
             ${input("ticketLocation","Location",r.location || "")}
             <div>
-<label>Product</label>
-${productOptions(r.productName || r.productService || "")}
-</div>
-<div>
-<label>Service</label>
-${serviceOptions(r.serviceName || "")}
+<label>Product / Service</label>
+${productServiceOptions(r.productService || "")}
 </div>
             ${textarea("issueReported","Issue Reported",r.issueReported || "")}
             ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
@@ -1509,9 +1413,7 @@ function saveLead(){
         leadDate:document.getElementById("leadDate").value,
         customerId:cid,
         leadSource:document.getElementById("leadSource").value,
-        productName:document.getElementById("productName").value,
-        serviceName:document.getElementById("serviceName").value,
-        productService:[document.getElementById("productName").value, document.getElementById("serviceName").value].filter(Boolean).join(" / "),
+        productService:document.getElementById("productService").value,
         requirementNotes:document.getElementById("requirementNotes").value,
         priority:document.getElementById("priority").value,
         status:document.getElementById("status").value,
@@ -1547,9 +1449,7 @@ function saveQuotation(){
         quotationDate:document.getElementById("quotationDate").value,
         customerId:cid,
         leadId:document.getElementById("quotationLeadId").value,
-        productName:document.getElementById("productName").value,
-        serviceName:document.getElementById("serviceName").value,
-        itemDetails:[document.getElementById("productName").value, document.getElementById("serviceName").value].filter(Boolean).join(" / "),
+        itemDetails:document.getElementById("productService").value,
         qty:qty,
         rate:rate,
         amount:amount,
@@ -1575,9 +1475,7 @@ function saveService(){
         ticketDate:document.getElementById("ticketDate").value,
         customerId:cid,
         location:document.getElementById("ticketLocation").value,
-        productName:document.getElementById("productName").value,
-        serviceName:document.getElementById("serviceName").value,
-        productService:[document.getElementById("productName").value, document.getElementById("serviceName").value].filter(Boolean).join(" / "),
+        productService:document.getElementById("productService").value,
         issueReported:document.getElementById("issueReported").value,
         priority:document.getElementById("ticketPriority").value,
         assignedEngineer:document.getElementById("assignedEngineer").value,
@@ -2006,26 +1904,26 @@ function exportExcel(){
 
     rows.push([]);
     rows.push(["SALES LEADS"]);
-    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile","Email","Lead Source","Product","Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Expected Deal Value","Closing Probability","Expected Closing Date","Remarks","Document Link"]);
+    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile","Email","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Expected Deal Value","Closing Probability","Expected Closing Date","Remarks","Document Link"]);
     db.leads.forEach(l=>{
         let c = getCustomer(l.customerId);
-        rows.push([l.leadId,l.leadDate,c.companyName,c.contactPerson,c.mobile,c.email,l.leadSource,l.productName,l.serviceName,l.requirementNotes,l.priority,l.status,l.lastFollowupDate,l.nextFollowupDate,l.expectedDealValue,l.closingProbability,l.expectedClosingDate,l.remarks,l.documentLink]);
+        rows.push([l.leadId,l.leadDate,c.companyName,c.contactPerson,c.mobile,c.email,l.leadSource,l.productService,l.requirementNotes,l.priority,l.status,l.lastFollowupDate,l.nextFollowupDate,l.expectedDealValue,l.closingProbability,l.expectedClosingDate,l.remarks,l.documentLink]);
     });
 
     rows.push([]);
     rows.push(["QUOTATIONS"]);
-    rows.push(["Quotation No","Quotation Date","Lead ID","Company","Product","Service","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks"]);
+    rows.push(["Quotation No","Quotation Date","Lead ID","Company","Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks"]);
     (db.quotations || []).forEach(q=>{
         let c = getCustomer(q.customerId);
-        rows.push([q.quotationNo,q.quotationDate,q.leadId,c.companyName,q.productName,q.serviceName,q.qty,q.rate,q.amount,q.vatPercent,q.vatAmount,q.totalInclVat,q.quotationStatus,q.validTill,q.remarks]);
+        rows.push([q.quotationNo,q.quotationDate,q.leadId,c.companyName,q.itemDetails,q.qty,q.rate,q.amount,q.vatPercent,q.vatAmount,q.totalInclVat,q.quotationStatus,q.validTill,q.remarks]);
     });
 
     rows.push([]);
     rows.push(["SERVICE TICKETS"]);
-    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email","Location","Product","Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
+    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
     db.service.forEach(s=>{
         let c = getCustomer(s.customerId);
-        rows.push([s.ticketNo,s.ticketDate,c.contactPerson,c.companyName,c.mobile,c.email,s.location,s.productName,s.serviceName,s.issueReported,s.priority,s.assignedEngineer,s.startTime,s.endTime,s.solutionProvided,s.serviceStatus,s.serviceCharges,s.paymentStatus,s.nextServiceReminder,s.amcAvailable,s.remarks]);
+        rows.push([s.ticketNo,s.ticketDate,c.contactPerson,c.companyName,c.mobile,c.email,s.location,s.productService,s.issueReported,s.priority,s.assignedEngineer,s.startTime,s.endTime,s.solutionProvided,s.serviceStatus,s.serviceCharges,s.paymentStatus,s.nextServiceReminder,s.amcAvailable,s.remarks]);
     });
 
     rows.push([]);
@@ -2099,6 +1997,361 @@ function clearAllData(){
         localStorage.removeItem(STORAGE_KEY);
         location.reload();
     }
+}
+
+
+
+/* =========================================================
+   REQUIRED CORRECTIONS - V3 OVERRIDES
+   Product Master + Service Master + Agent Dropdown + Auto Fetch + Dashboard Drill-down
+========================================================= */
+let activeFilter = "";
+function ensureV3Data(){
+    db.settings = db.settings || {};
+    const oldList = db.settings.productServices || [];
+    if(!db.products){
+        db.products = ["TallyPrime Silver","TallyPrime Gold"].filter(x => oldList.length ? oldList.includes(x) || x.includes("TallyPrime") : true);
+        oldList.forEach(x => { if(["TSS Renewal","Tally on Cloud"].includes(x) && !db.products.includes(x)) db.products.push(x); });
+    }
+    if(!db.services){
+        db.services = ["Tally Customization","Tally AMC Support","Tally Training","VAT Filing","Web Designing","Mobile App Development","CCTV Service","IT Support","Other"];
+        oldList.forEach(x => { if(!db.products.includes(x) && !db.services.includes(x)) db.services.push(x); });
+    }
+    if(!db.agents){
+        db.agents = ["Chetan","Sales Team","Support Team","Field Engineer","Other"];
+    }
+    ["customers","leads","quotations","service","followups","invoices","payments"].forEach(k => { if(!db[k]) db[k] = []; });
+    saveDB();
+}
+ensureV3Data();
+
+function getProductServiceText(r){
+    return [r.productName, r.serviceName].filter(Boolean).join(" / ") || r.productService || r.itemDetails || "";
+}
+function masterSelect(id,label,list,selected,addValue,onchange=""){
+    return `<div><label>${label}</label><select id="${id}" ${onchange ? `onchange="${onchange}"` : ""}>
+        <option value="">Select ${label}</option>
+        ${list.map(x => `<option value="${escapeHtml(x)}" ${x===selected ? "selected" : ""}>${escapeHtml(x)}</option>`).join("")}
+        <option value="${addValue}">+ Add New ${label}</option>
+    </select></div>`;
+}
+function productSelect(selected=""){ return masterSelect("productName","Product",db.products || [],selected,"__NEW_PRODUCT__","handleMasterAdd(this,'products')"); }
+function serviceSelect(selected=""){ return masterSelect("serviceName","Service",db.services || [],selected,"__NEW_SERVICE__","handleMasterAdd(this,'services')"); }
+function agentSelect(id="assignedAgent", label="Field Agent / Salesman", selected=""){
+    return masterSelect(id,label,db.agents || [],selected,"__NEW_AGENT__",`handleMasterAdd(this,'agents')`);
+}
+function handleMasterAdd(field, master){
+    if(!String(field.value).startsWith("__NEW_")) return;
+    const label = master === "products" ? "Product" : master === "services" ? "Service" : "Field Agent / Salesman";
+    const value = prompt("Enter new " + label + ":");
+    if(!value || !value.trim()){ field.value = ""; return; }
+    if(!db[master]) db[master] = [];
+    if(!db[master].includes(value.trim())) db[master].push(value.trim());
+    saveDB();
+    const selected = value.trim();
+    field.innerHTML = `<option value="">Select ${label}</option>` + db[master].map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("") + `<option value="__NEW_${label.toUpperCase().replaceAll(' ','_')}__">+ Add New ${label}</option>`;
+    field.value = selected;
+}
+
+function referenceSelect(selected="", type="Lead"){
+    const leadOptions = db.leads.map(l => { const c=getCustomer(l.customerId); return `<option data-type="Lead" value="${l.leadId}" ${l.leadId===selected ? "selected" : ""}>Lead: ${escapeHtml(l.leadId)} - ${escapeHtml(c.companyName||"")}</option>`; }).join("");
+    const ticketOptions = db.service.map(t => { const c=getCustomer(t.customerId); return `<option data-type="Service" value="${t.ticketNo}" ${t.ticketNo===selected ? "selected" : ""}>Ticket: ${escapeHtml(t.ticketNo)} - ${escapeHtml(c.companyName||"")}</option>`; }).join("");
+    return `<div><label>Reference Lead / Service Ticket</label><select id="referenceId" onchange="fillFromReference()"><option value="">Select Reference</option>${leadOptions}${ticketOptions}</select></div>`;
+}
+function fillFromReference(){
+    const ref = document.getElementById("referenceId")?.value;
+    const lead = db.leads.find(x => x.leadId === ref);
+    const ticket = db.service.find(x => x.ticketNo === ref);
+    const r = lead || ticket;
+    if(!r) return;
+    if(document.getElementById("customerId")) document.getElementById("customerId").value = r.customerId || "";
+    if(document.getElementById("referenceType")) document.getElementById("referenceType").value = lead ? "Lead" : "Service";
+    if(document.getElementById("followupCompanyName")) document.getElementById("followupCompanyName").value = getCustomer(r.customerId).companyName || "";
+    if(document.getElementById("productName")) document.getElementById("productName").value = r.productName || "";
+    if(document.getElementById("serviceName")) document.getElementById("serviceName").value = r.serviceName || "";
+    if(document.getElementById("assignedAgent")) document.getElementById("assignedAgent").value = r.assignedAgent || r.salesman || r.assignedEngineer || "";
+}
+function quotationSelect(selected=""){
+    return `<div><label>Quotation Number</label><select id="quotationNo" onchange="fillFromQuotation()"><option value="">Select Quotation</option>${(db.quotations||[]).map(q => { const c=getCustomer(q.customerId); return `<option value="${q.quotationNo}" ${q.quotationNo===selected ? "selected" : ""}>${escapeHtml(q.quotationNo)} - ${escapeHtml(c.companyName||"")} - BHD ${money(q.totalInclVat)}</option>`; }).join("")}</select></div>`;
+}
+function fillFromQuotation(){
+    const qNo = document.getElementById("quotationNo")?.value;
+    const q = (db.quotations||[]).find(x => x.quotationNo === qNo);
+    if(!q) return;
+    if(document.getElementById("customerId")) document.getElementById("customerId").value = q.customerId;
+    if(document.getElementById("productName")) document.getElementById("productName").value = q.productName || "";
+    if(document.getElementById("serviceName")) document.getElementById("serviceName").value = q.serviceName || "";
+    if(document.getElementById("qty")) document.getElementById("qty").value = q.qty || 1;
+    if(document.getElementById("rate")) document.getElementById("rate").value = q.rate || 0;
+    if(document.getElementById("vatPercent")) document.getElementById("vatPercent").value = q.vatPercent || db.settings.vatPercent || 10;
+}
+function fillFromLeadForQuotation(){
+    const leadId = document.getElementById("quotationLeadId")?.value;
+    const l = db.leads.find(x => x.leadId === leadId);
+    if(!l) return;
+    document.getElementById("customerId").value = l.customerId;
+    if(document.getElementById("productName")) document.getElementById("productName").value = l.productName || "";
+    if(document.getElementById("serviceName")) document.getElementById("serviceName").value = l.serviceName || "";
+    if(document.getElementById("assignedAgent")) document.getElementById("assignedAgent").value = l.assignedAgent || "";
+    if(document.getElementById("quotationRemarks")) document.getElementById("quotationRemarks").value = l.requirementNotes || "";
+}
+
+leadSelect = function(selected=""){
+    return `<div><label>Lead ID</label><select id="quotationLeadId" onchange="fillFromLeadForQuotation()"><option value="">Select Lead</option>${db.leads.map(l=>{const c=getCustomer(l.customerId);return `<option value="${l.leadId}" ${l.leadId===selected?"selected":""}>${escapeHtml(l.leadId)} - ${escapeHtml(c.companyName||"")}</option>`}).join("")}</select></div>`;
+}
+
+setModule = function(moduleName, filter=""){
+    currentModule = moduleName; activeFilter = filter; editId = null;
+    document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.remove("active"));
+    const active = document.getElementById("nav-" + moduleName); if(active) active.classList.add("active");
+    const titles = {dashboard:"Dashboard",customers:"Customer Master",products:"Product Master",services:"Service Master",agents:"Field Agents / Salesmen",leads:"Sales Leads",quotations:"Quotations",service:"Service Tickets",followups:"Follow-ups",invoices:"Tax Invoices",payments:"Payment Tracking",reports:"Reports",settings:"Settings / Backup"};
+    document.getElementById("pageTitle").innerText = titles[moduleName] || "CRM";
+    document.getElementById("addBtn").style.display = ["dashboard","reports","settings"].includes(moduleName) ? "none" : "inline-block";
+    const addText = {customers:"+ Add Customer",products:"+ Add Product",services:"+ Add Service",agents:"+ Add Agent",leads:"+ Add Lead",quotations:"+ Add Quotation",service:"+ Add Ticket",followups:"+ Add Follow-up",invoices:"+ Add Invoice",payments:"+ Add Payment"};
+    document.getElementById("addBtn").innerText = addText[moduleName] || "+ Add";
+    render();
+}
+render = function(){
+    updateCounts(); document.getElementById("sectionActions").innerHTML = "";
+    if(currentModule === "dashboard") renderDashboard();
+    if(currentModule === "customers") renderCustomers();
+    if(currentModule === "products") renderSimpleMaster("products","Product Master","Product");
+    if(currentModule === "services") renderSimpleMaster("services","Service Master","Service");
+    if(currentModule === "agents") renderSimpleMaster("agents","Field Agents / Salesmen","Agent / Salesman");
+    if(currentModule === "leads") renderLeads();
+    if(currentModule === "quotations") renderQuotations();
+    if(currentModule === "service") renderService();
+    if(currentModule === "followups") renderFollowups();
+    if(currentModule === "invoices") renderInvoices();
+    if(currentModule === "payments") renderPayments();
+    if(currentModule === "reports") renderReports();
+    if(currentModule === "settings") renderSettings();
+}
+updateCounts = function(){
+    document.getElementById("cntCustomers").innerText = db.customers.length;
+    document.getElementById("cntLeads").innerText = db.leads.length;
+    document.getElementById("cntQuotations").innerText = (db.quotations || []).length;
+    document.getElementById("cntTickets").innerText = db.service.filter(x => x.serviceStatus !== "Closed").length;
+    if(document.getElementById("cntPendingTickets")) document.getElementById("cntPendingTickets").innerText = db.service.filter(x => x.serviceStatus === "Pending").length;
+    if(document.getElementById("cntClosedTickets")) document.getElementById("cntClosedTickets").innerText = db.service.filter(x => x.serviceStatus === "Closed").length;
+    document.getElementById("cntFollowups").innerText = db.followups.filter(x => x.statusUpdate !== "Closed" && x.statusUpdate !== "Done").length;
+    document.getElementById("cntInvoices").innerText = db.invoices.length;
+    const invoiceTotal = db.invoices.reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0);
+    const receivedTotal = (db.payments || []).reduce((sum, pay) => sum + Number(pay.receivedAmount || 0), 0);
+    if(document.getElementById("cntInvoiceValue")) document.getElementById("cntInvoiceValue").innerText = money(invoiceTotal);
+    document.getElementById("cntPaymentPending").innerText = money(invoiceTotal - receivedTotal);
+}
+function renderSimpleMaster(master,title,label){
+    document.getElementById("sectionTitle").innerText = title;
+    const rows = (db[master] || []).filter(x=>String(x).toLowerCase().includes(searchText())).map((name,idx)=>`<tr><td>${idx+1}</td><td>${escapeHtml(name)}</td><td><button class="btn small orange" onclick="openForm('${idx}')">Edit</button><button class="btn small red" onclick="deleteMaster('${master}',${idx})">Delete</button></td></tr>`).join("");
+    document.getElementById("content").innerHTML = table(["Sl No",label,"Action"], rows);
+}
+function deleteMaster(master,idx){ if(confirm("Delete this master record?")){ db[master].splice(idx,1); saveDB(); render(); } }
+openForm = function(id=null){
+    editId = id; document.getElementById("formModal").style.display = "flex";
+    if(currentModule === "products") return simpleMasterForm("products","Product",id);
+    if(currentModule === "services") return simpleMasterForm("services","Service",id);
+    if(currentModule === "agents") return simpleMasterForm("agents","Field Agent / Salesman",id);
+    if(currentModule === "customers") customerForm(id); if(currentModule === "leads") leadForm(id); if(currentModule === "quotations") quotationForm(id); if(currentModule === "service") serviceForm(id); if(currentModule === "followups") followupForm(id); if(currentModule === "invoices") invoiceForm(id); if(currentModule === "payments") paymentForm(id);
+}
+function simpleMasterForm(master,label,id){
+    const old = id !== null ? (db[master] || [])[Number(id)] : "";
+    document.getElementById("formTitle").innerText = old ? "Edit " + label : "Add " + label;
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("masterName",label,old || "")}</div>`;
+}
+
+leadForm = function(id){
+    const r = db.leads.find(x => x.leadId === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Sales Lead" : "Add Sales Lead";
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("leadId","Lead ID",r.leadId || uid("LEAD"),"text",true)}${input("leadDate","Lead Date",r.leadDate || today(),"date")}${customerSelect(r.customerId)}${agentSelect("assignedAgent","Salesman / Field Agent",r.assignedAgent || r.salesman || "")}${select("leadSource","Lead Source",["Cold Call","WhatsApp Campaign","Facebook","Instagram","Reference","Existing Customer","Website Enquiry","Walk-In","Google Search","Email Campaign","AMC Renewal","TSS Renewal","Cloud Renewal","Sales Visit","Exhibition","LinkedIn","YouTube","Partner Reference","Support Conversion","Other"],r.leadSource || "Cold Call")}${productSelect(r.productName || (r.productService && (db.products||[]).includes(r.productService) ? r.productService : ""))}${serviceSelect(r.serviceName || (r.productService && (db.services||[]).includes(r.productService) ? r.productService : ""))}${textarea("requirementNotes","Requirement / Notes",r.requirementNotes || "")}${select("priority","Priority",["High","Medium","Low"],r.priority || "Medium")}${select("status","Status",["New","Follow-up","Quotation Sent","Negotiation","Won","Lost"],r.status || "New")}${input("lastFollowupDate","Last Follow-Up Date",r.lastFollowupDate || "","date")}${input("nextFollowupDate","Next Follow-Up Date",r.nextFollowupDate || "","date")}${input("expectedDealValue","Expected Deal Value (BHD)",r.expectedDealValue || "","number")}${input("closingProbability","Closing Probability %",r.closingProbability || "","number")}${input("expectedClosingDate","Expected Closing Date",r.expectedClosingDate || "","date")}${input("leadDocumentLink","Document Link",r.documentLink || "")}${textarea("leadRemarks","Remarks",r.remarks || "")}</div>`;
+}
+quotationForm = function(id){
+    const r = (db.quotations || []).find(x => x.quotationNo === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Quotation" : "Add Quotation";
+    document.getElementById("formArea").innerHTML = `<div class="notice">Select Lead ID to auto-fetch customer, product/service, agent and notes.</div><div class="form-grid">${input("quotationNo","Quotation Number",r.quotationNo || uid("QT"),"text",true)}${input("quotationDate","Quotation Date",r.quotationDate || today(),"date")}${customerSelect(r.customerId)}${leadSelect(r.leadId || "")}${agentSelect("assignedAgent","Salesman / Field Agent",r.assignedAgent || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || "")}${input("quotationQty","Qty",r.qty || 1,"number")}${input("quotationRate","Rate",r.rate || 0,"number")}${input("quotationVatPercent","VAT %",r.vatPercent || db.settings.vatPercent || 10,"number")}${input("validTill","Valid Till",r.validTill || "","date")}${select("quotationStatus","Quotation Status",["Draft","Sent","Accepted","Rejected","Expired","Converted to Invoice"],r.quotationStatus || "Draft")}${textarea("quotationTerms","Terms & Conditions",r.terms || "60% advance on confirmation, 40% on delivery. Prices are subject to final scope confirmation.")}${textarea("quotationRemarks","Remarks",r.remarks || "")}</div>`;
+}
+serviceForm = function(id){
+    const r = db.service.find(x => x.ticketNo === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Service Ticket" : "Add Service Ticket";
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}${customerSelect(r.customerId)}${input("ticketLocation","Location",r.location || "")}${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || (r.productService || ""))}${textarea("issueReported","Issue Reported",r.issueReported || "")}${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}${input("startTime","Start Time",r.startTime || "","time")}${input("endTime","End Time",r.endTime || "","time")}${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}${textarea("ticketRemarks","Remarks",r.remarks || "")}</div>`;
+}
+followupForm = function(id){
+    const r = db.followups.find(x => x.followupId === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Follow-up" : "Add Follow-up";
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("followupId","Follow-up ID",r.followupId || uid("FUP"),"text",true)}${input("followupDate","Follow-Up Date",r.followupDate || today(),"date")}${select("referenceType","Reference Type",["Lead","Service"],r.referenceType || "Lead")}${referenceSelect(r.referenceId || "", r.referenceType || "Lead")}${customerSelect(r.customerId)}${input("followupCompanyName","Company Name",r.companyName || "")}${agentSelect("updatedBy","Updated By / Agent",r.updatedBy || "")}${select("followupType","Follow-Up Type",["Call","WhatsApp","Email","Visit","Meeting","Demo"],r.followupType || "Call")}${textarea("discussion","Discussion / Action Taken",r.discussion || "")}${input("followupNextDate","Next Follow-Up Date",r.nextFollowupDate || "","date")}${select("statusUpdate","Status Update",["Pending","Done","Closed","Need Follow-up"],r.statusUpdate || "Pending")}${input("followupCount","Follow-Up Count",r.followupCount || 1,"number")}${textarea("followupRemarks","Remarks",r.remarks || "")}</div>`;
+}
+invoiceForm = function(id){
+    const r = db.invoices.find(x => x.invoiceNo === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Tax Invoice" : "Add Tax Invoice";
+    document.getElementById("formArea").innerHTML = `<div class="notice">Select Quotation Number to auto-fetch customer, product/service, quantity, rate and VAT.</div><div class="form-grid">${input("invoiceNo","Tax Invoice Number",r.invoiceNo || uid("INV"),"text",true)}${input("invoiceDate","Invoice Date",r.invoiceDate || today(),"date")}${customerSelect(r.customerId)}${quotationSelect(r.quotationNo || "")}${agentSelect("assignedAgent","Salesman / Field Agent",r.assignedAgent || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || "")}${input("qty","Qty",r.qty || 1,"number")}${input("rate","Rate",r.rate || 0,"number")}${input("vatPercent","VAT %",r.vatPercent || db.settings.vatPercent || 10,"number")}${select("invoicePaymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${textarea("invoiceRemarks","Remarks",r.remarks || "")}</div>`;
+}
+paymentForm = function(id){
+    const r = (db.payments || []).find(x => x.paymentId === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Payment" : "Add Payment";
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("paymentId","Payment ID",r.paymentId || uid("PAY"),"text",true)}${input("paymentDate","Payment Date",r.paymentDate || today(),"date")}${customerSelect(r.customerId)}${invoiceSelect(r.invoiceNo || "", r.customerId || "")}${agentSelect("assignedAgent","Collection Agent / Salesman",r.assignedAgent || "")}${input("invoiceAmount","Invoice Amount",r.invoiceAmount || "","number")}${input("receivedAmount","Received Amount",r.receivedAmount || "","number")}${input("dueDate","Due Date",r.dueDate || "","date")}${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${select("paymentMode","Payment Mode",["Cash","BenefitPay","Bank Transfer","Cheque","Card","Other"],r.paymentMode || "Bank Transfer")}${input("referenceNo","Reference No",r.referenceNo || "")}${input("paymentNextFollowupDate","Next Follow-up Date",r.nextFollowupDate || "","date")}${textarea("paymentRemarks","Remarks",r.remarks || "")}</div>`;
+}
+
+saveForm = function(){
+    try{
+        if(currentModule === "products" || currentModule === "services" || currentModule === "agents") saveSimpleMaster(currentModule);
+        if(currentModule === "customers") saveCustomer(); if(currentModule === "leads") saveLead(); if(currentModule === "quotations") saveQuotation(); if(currentModule === "service") saveService(); if(currentModule === "followups") saveFollowup(); if(currentModule === "invoices") saveInvoice(); if(currentModule === "payments") savePayment();
+        saveDB(); closeForm(); render();
+    }catch(error){ alert("Save error: " + error.message); console.error(error); }
+}
+function saveSimpleMaster(master){
+    const value = document.getElementById("masterName").value.trim(); if(!value){ alert("Name is required."); throw new Error("Master name missing"); }
+    if(editId !== null) db[master][Number(editId)] = value; else if(!db[master].includes(value)) db[master].push(value);
+}
+saveLead = function(){
+    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
+    const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value;
+    upsert(db.leads,"leadId",{leadId:document.getElementById("leadId").value,leadDate:document.getElementById("leadDate").value,customerId:cid,assignedAgent:document.getElementById("assignedAgent").value,leadSource:document.getElementById("leadSource").value,productName,serviceName,productService:[productName,serviceName].filter(Boolean).join(" / "),requirementNotes:document.getElementById("requirementNotes").value,priority:document.getElementById("priority").value,status:document.getElementById("status").value,lastFollowupDate:document.getElementById("lastFollowupDate").value,nextFollowupDate:document.getElementById("nextFollowupDate").value,expectedDealValue:document.getElementById("expectedDealValue").value,closingProbability:document.getElementById("closingProbability").value,expectedClosingDate:document.getElementById("expectedClosingDate").value,remarks:document.getElementById("leadRemarks").value,documentLink:document.getElementById("leadDocumentLink").value});
+}
+saveQuotation = function(){
+    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");} if(!db.quotations) db.quotations=[];
+    const qty=Number(document.getElementById("quotationQty").value||0), rate=Number(document.getElementById("quotationRate").value||0), vatPercent=Number(document.getElementById("quotationVatPercent").value||0), amount=qty*rate, vatAmount=amount*vatPercent/100, totalInclVat=amount+vatAmount;
+    const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value;
+    upsert(db.quotations,"quotationNo",{quotationNo:document.getElementById("quotationNo").value,quotationDate:document.getElementById("quotationDate").value,customerId:cid,leadId:document.getElementById("quotationLeadId").value,assignedAgent:document.getElementById("assignedAgent").value,productName,serviceName,itemDetails:[productName,serviceName].filter(Boolean).join(" / "),qty,rate,amount,vatPercent,vatAmount,totalInclVat,validTill:document.getElementById("validTill").value,quotationStatus:document.getElementById("quotationStatus").value,terms:document.getElementById("quotationTerms").value,remarks:document.getElementById("quotationRemarks").value});
+}
+saveService = function(){
+    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
+    const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value, agent=document.getElementById("assignedAgent").value;
+    upsert(db.service,"ticketNo",{ticketNo:document.getElementById("ticketNo").value,ticketDate:document.getElementById("ticketDate").value,customerId:cid,location:document.getElementById("ticketLocation").value,assignedAgent:agent,assignedEngineer:agent,productName,serviceName,productService:[productName,serviceName].filter(Boolean).join(" / "),issueReported:document.getElementById("issueReported").value,priority:document.getElementById("ticketPriority").value,startTime:document.getElementById("startTime").value,endTime:document.getElementById("endTime").value,solutionProvided:document.getElementById("solutionProvided").value,serviceStatus:document.getElementById("serviceStatus").value,serviceCharges:document.getElementById("serviceCharges").value,paymentStatus:document.getElementById("paymentStatus").value,nextServiceReminder:document.getElementById("nextServiceReminder").value,amcAvailable:document.getElementById("amcAvailable").value,remarks:document.getElementById("ticketRemarks").value});
+}
+saveInvoice = function(){
+    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
+    const qty=Number(document.getElementById("qty").value||0), rate=Number(document.getElementById("rate").value||0), vatPercent=Number(document.getElementById("vatPercent").value||0), amount=qty*rate, vatAmount=amount*vatPercent/100, totalInclVat=amount+vatAmount;
+    const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value;
+    upsert(db.invoices,"invoiceNo",{invoiceNo:document.getElementById("invoiceNo").value,invoiceDate:document.getElementById("invoiceDate").value,customerId:cid,quotationNo:document.getElementById("quotationNo").value,assignedAgent:document.getElementById("assignedAgent").value,productName,serviceName,itemDetails:[productName,serviceName].filter(Boolean).join(" / "),qty,rate,amount,vatPercent,vatAmount,totalInclVat,paymentStatus:document.getElementById("invoicePaymentStatus").value,remarks:document.getElementById("invoiceRemarks").value});
+}
+savePayment = function(){
+    const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");} if(!db.payments) db.payments=[];
+    upsert(db.payments,"paymentId",{paymentId:document.getElementById("paymentId").value,paymentDate:document.getElementById("paymentDate").value,customerId:cid,invoiceNo:document.getElementById("paymentInvoiceNo").value,assignedAgent:document.getElementById("assignedAgent").value,invoiceAmount:document.getElementById("invoiceAmount").value,receivedAmount:document.getElementById("receivedAmount").value,dueDate:document.getElementById("dueDate").value,paymentStatus:document.getElementById("paymentStatus").value,paymentMode:document.getElementById("paymentMode").value,referenceNo:document.getElementById("referenceNo").value,nextFollowupDate:document.getElementById("paymentNextFollowupDate").value,remarks:document.getElementById("paymentRemarks").value});
+}
+
+const _oldRenderDashboard = renderDashboard;
+renderDashboard = function(){
+    document.getElementById("sectionTitle").innerText = "Dashboard Drill-down Summary";
+    const openTickets=db.service.filter(x=>x.serviceStatus!=="Closed"), pendingTickets=db.service.filter(x=>x.serviceStatus==="Pending"), closedTickets=db.service.filter(x=>x.serviceStatus==="Closed"), pendingPayments=(db.payments||[]).filter(x=>x.paymentStatus!=="Paid");
+    document.getElementById("sectionActions").innerHTML = `<button class="btn small" onclick="setModule('leads')">View Leads</button><button class="btn small" onclick="setModule('service','open')">Open Tickets</button><button class="btn small" onclick="setModule('service','closed')">Closed Tickets</button><button class="btn small" onclick="setModule('quotations')">Quotations</button><button class="btn small" onclick="setModule('invoices')">Invoices</button><button class="btn small" onclick="setModule('payments','pending')">Pending Payments</button>`;
+    _oldRenderDashboard();
+}
+const _oldRenderService = renderService;
+renderService = function(){ _oldRenderService(); if(activeFilter){
+    let label = activeFilter === "open" ? "Open Tickets" : activeFilter === "pending" ? "Pending Tickets" : "Closed Tickets";
+    document.getElementById("sectionTitle").innerText = label;
+    let data = db.service.filter(x => activeFilter === "open" ? x.serviceStatus !== "Closed" : x.serviceStatus === (activeFilter === "pending" ? "Pending" : "Closed")).filter(matchObject);
+    const rows=data.map(s=>{const c=getCustomer(s.customerId);return `<tr><td>${escapeHtml(s.ticketNo)}</td><td>${escapeHtml(s.ticketDate)}</td><td>${escapeHtml(c.companyName)}</td><td>${escapeHtml(c.mobile)}</td><td>${escapeHtml(s.location)}</td><td>${escapeHtml(getProductServiceText(s))}</td><td>${escapeHtml(s.issueReported)}</td><td>${escapeHtml(s.assignedAgent||s.assignedEngineer||"")}</td><td>${statusBadge(s.serviceStatus)}</td><td>${money(s.serviceCharges)}</td><td><button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button></td></tr>`}).join("");
+    document.getElementById("content").innerHTML=table(["Ticket No","Date","Company","Mobile","Location","Product / Service","Issue","Agent","Status","Charges","Action"],rows);
+}}
+const _oldRenderPayments = renderPayments;
+renderPayments = function(){ _oldRenderPayments(); if(activeFilter === "pending"){
+    document.getElementById("sectionTitle").innerText = "Pending Payments";
+    const data=(db.payments||[]).filter(x=>x.paymentStatus!=="Paid").filter(matchObject);
+    const rows=data.map(p=>{const c=getCustomer(p.customerId); const balance=Number(p.invoiceAmount||0)-Number(p.receivedAmount||0); return `<tr><td>${escapeHtml(p.paymentId)}</td><td>${escapeHtml(p.paymentDate)}</td><td>${escapeHtml(c.companyName)}</td><td>${escapeHtml(p.invoiceNo)}</td><td>${money(p.invoiceAmount)}</td><td>${money(p.receivedAmount)}</td><td>${money(balance)}</td><td>${escapeHtml(p.assignedAgent||"")}</td><td>${statusBadge(p.paymentStatus)}</td><td><button class="btn small orange" onclick="openForm('${p.paymentId}')">Edit</button></td></tr>`}).join("");
+    document.getElementById("content").innerHTML=table(["Payment ID","Date","Company","Invoice No","Invoice Amount","Received","Balance","Agent","Status","Action"],rows);
+}}
+
+renderSettings = function(){
+    document.getElementById("sectionTitle").innerText = "Settings / Backup";
+    document.getElementById("content").innerHTML = `<div class="notice">Product, Service and Agent masters are now separate. Use the left side menus to create and maintain them.</div><h3>Supplier / Invoice Settings</h3><div class="form-grid">${input("setSupplierName","Supplier Name",db.settings.supplierName)}${input("setSupplierAddress","Supplier Address",db.settings.supplierAddress)}${input("setSupplierCR","Supplier CR No",db.settings.supplierCR)}${input("setSupplierVAT","Supplier VAT No",db.settings.supplierVAT)}${input("setVatPercent","Default VAT %",db.settings.vatPercent,"number")}</div><br><button class="btn green" onclick="saveSettings()">Save Settings</button><hr><h3>Backup / Restore</h3><div class="import-box"><button class="btn gray" onclick="exportBackup()">Export JSON Backup</button><input type="file" id="backupFile" accept=".json"><button class="btn orange" onclick="importBackup()">Import Backup</button><button class="btn red" onclick="clearAllData()">Clear All Data</button></div>`;
+}
+
+
+
+/* ==============================
+   SETTINGS MASTER SECTIONS - Product / Service / Agents under Settings
+================================= */
+function settingsMasterTable(master, title, label){
+    const list = db[master] || [];
+    const rows = list.map((value, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td><input id="${master}_${index}" value="${escapeHtml(value)}"></td>
+            <td>
+                <button class="btn small green" onclick="updateSettingsMasterItem('${master}',${index})">Update</button>
+                <button class="btn small red" onclick="deleteSettingsMasterItem('${master}',${index})">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    return `
+        <h3>${title}</h3>
+        <div class="form-grid">
+            <div>
+                <label>New ${label}</label>
+                <input id="new_${master}" placeholder="Enter ${label}">
+            </div>
+            <div style="display:flex;align-items:end;">
+                <button class="btn green" onclick="addSettingsMasterItem('${master}')">+ Add ${label}</button>
+            </div>
+        </div>
+        <br>
+        ${table(["S.No","Name","Action"], rows)}
+        <hr>
+    `;
+}
+
+function addSettingsMasterItem(master){
+    const field = document.getElementById("new_" + master);
+    const value = (field?.value || "").trim();
+    if(!value){ alert("Please enter value."); return; }
+    if(!db[master]) db[master] = [];
+    if(db[master].includes(value)){ alert("Already exists."); return; }
+    db[master].push(value);
+    saveDB();
+    renderSettings();
+}
+
+function updateSettingsMasterItem(master, index){
+    const field = document.getElementById(`${master}_${index}`);
+    const value = (field?.value || "").trim();
+    if(!value){ alert("Value cannot be blank."); return; }
+    db[master][index] = value;
+    saveDB();
+    renderSettings();
+}
+
+function deleteSettingsMasterItem(master, index){
+    if(!confirm("Delete this item?")) return;
+    db[master].splice(index, 1);
+    saveDB();
+    renderSettings();
+}
+
+renderSettings = function(){
+    document.getElementById("sectionTitle").innerText = "Settings / Backup";
+    document.getElementById("sectionActions").innerHTML = "";
+    document.getElementById("content").innerHTML = `
+        <div class="notice">
+            Product Master, Service Master, and Field Agents / Salesmen are maintained here under Settings.
+            These values will automatically show as dropdowns in Sales Lead, Service Ticket, Quotation, Tax Invoice, and Payment forms.
+        </div>
+
+        <h3>Supplier / Invoice Settings</h3>
+        <div class="form-grid">
+            ${input("setSupplierName","Supplier Name",db.settings.supplierName)}
+            ${input("setSupplierAddress","Supplier Address",db.settings.supplierAddress)}
+            ${input("setSupplierCR","Supplier CR No",db.settings.supplierCR)}
+            ${input("setSupplierVAT","Supplier VAT No",db.settings.supplierVAT)}
+            ${input("setVatPercent","Default VAT %",db.settings.vatPercent,"number")}
+        </div>
+        <br>
+        <button class="btn green" onclick="saveSettings()">Save Settings</button>
+        <hr>
+
+        ${settingsMasterTable("products","Product Master","Product")}
+        ${settingsMasterTable("services","Service Master","Service")}
+        ${settingsMasterTable("agents","Field Agents / Salesmen","Agent / Salesman")}
+
+        <h3>Backup / Restore</h3>
+        <div class="import-box">
+            <button class="btn gray" onclick="exportBackup()">Export JSON Backup</button>
+            <input type="file" id="backupFile" accept=".json">
+            <button class="btn orange" onclick="importBackup()">Import Backup</button>
+            <button class="btn red" onclick="clearAllData()">Clear All Data</button>
+        </div>
+    `;
 }
 
 /* ==============================
