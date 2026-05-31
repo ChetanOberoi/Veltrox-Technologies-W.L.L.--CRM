@@ -306,6 +306,57 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
     .form-grid{grid-template-columns:1fr}
     .invoice-header,.invoice-grid{display:block}
 }
+
+.sales-dashboard-grid{
+    display:grid;
+    grid-template-columns:360px 1fr;
+    gap:18px;
+    align-items:start;
+    margin-bottom:18px;
+}
+.sales-pie-card{
+    background:#ffffff;
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:18px;
+    box-shadow:0 8px 22px rgba(0,0,0,.05);
+}
+.sales-pie-card h3{margin:0 0 12px;font-size:18px}
+.sales-pie{
+    width:220px;
+    height:220px;
+    border-radius:50%;
+    margin:12px auto;
+    background:conic-gradient(#e5e7eb 0deg 360deg);
+    position:relative;
+}
+.sales-pie::after{
+    content:"";
+    position:absolute;
+    inset:55px;
+    background:white;
+    border-radius:50%;
+}
+.sales-pie-center{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:1;
+    font-weight:900;
+}
+.sales-pie-center span{font-size:12px;color:var(--muted);font-weight:700}
+.sales-legend{display:grid;gap:8px;margin-top:12px}
+.sales-legend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+.sales-legend-left{display:flex;align-items:center;gap:8px}
+.legend-dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.sales-mini-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.sales-mini-card{background:#f9fafb;border:1px solid var(--border);border-radius:14px;padding:14px}
+.sales-mini-card b{font-size:22px;display:block;margin-top:5px}
+@media(max-width:1000px){.sales-dashboard-grid{grid-template-columns:1fr}.sales-pie{width:190px;height:190px}}
+
 </style>
 </head>
 
@@ -342,7 +393,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
             </div>
         </div>
 
-        <div class="cards">
+        <div class="cards" id="summaryCards">
             <div class="card drill" onclick="setModule('customers')"><div class="card-title">Total Customers</div><div class="card-value" id="cntCustomers">0</div></div>
             <div class="card drill" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value" id="cntLeads">0</div></div>
             <div class="card drill" onclick="setModule('quotations')"><div class="card-title">Quotations</div><div class="card-value" id="cntQuotations">0</div></div>
@@ -2352,6 +2403,95 @@ renderSettings = function(){
             <button class="btn red" onclick="clearAllData()">Clear All Data</button>
         </div>
     `;
+}
+
+
+/* ==============================
+   FINAL UI UPDATE - Cards only on Dashboard/Reports + Sales Pie Chart
+================================= */
+function toggleSummaryCards(){
+    const cards = document.getElementById("summaryCards");
+    if(cards){
+        cards.style.display = ["dashboard","reports"].includes(currentModule) ? "grid" : "none";
+    }
+}
+
+const _finalRenderBase = render;
+render = function(){
+    toggleSummaryCards();
+    _finalRenderBase();
+    toggleSummaryCards();
+}
+
+function salesStatusData(){
+    const statuses = ["New","Follow-up","Quotation Sent","Negotiation","Won","Lost"];
+    return statuses.map(status => ({
+        status,
+        count: db.leads.filter(x => (x.status || "New") === status).length
+    })).filter(x => x.count > 0);
+}
+
+function renderSalesPieChart(){
+    const data = salesStatusData();
+    const total = data.reduce((sum, x) => sum + x.count, 0);
+    const colors = ["#2563eb","#f59e0b","#7c3aed","#14b8a6","#16a34a","#dc2626"];
+    let start = 0;
+    const segments = data.map((item, index) => {
+        const deg = total ? (item.count / total) * 360 : 0;
+        const segment = `${colors[index % colors.length]} ${start}deg ${start + deg}deg`;
+        start += deg;
+        return segment;
+    }).join(", ");
+
+    const legend = data.length ? data.map((item, index) => {
+        const pct = total ? ((item.count / total) * 100).toFixed(1) : "0.0";
+        return `<div class="sales-legend-row"><div class="sales-legend-left"><span class="legend-dot" style="background:${colors[index % colors.length]}"></span>${escapeHtml(item.status)}</div><b>${item.count} (${pct}%)</b></div>`;
+    }).join("") : `<div class="small-text">No sales lead data available.</div>`;
+
+    const wonValue = db.leads.filter(x => x.status === "Won").reduce((sum, x) => sum + Number(x.expectedDealValue || 0), 0);
+    const openValue = db.leads.filter(x => !["Won","Lost"].includes(x.status)).reduce((sum, x) => sum + Number(x.expectedDealValue || 0), 0);
+    const quotationValue = (db.quotations || []).reduce((sum, x) => sum + Number(x.totalInclVat || 0), 0);
+    const invoiceValue = db.invoices.reduce((sum, x) => sum + Number(x.totalInclVat || 0), 0);
+
+    return `
+        <div class="sales-dashboard-grid">
+            <div class="sales-pie-card">
+                <h3>Sales Lead Status Pie Chart</h3>
+                <div class="sales-pie" style="background:conic-gradient(${segments || '#e5e7eb 0deg 360deg'});">
+                    <div class="sales-pie-center">${total}<span>Total Leads</span></div>
+                </div>
+                <div class="sales-legend">${legend}</div>
+            </div>
+            <div class="sales-pie-card">
+                <h3>Sales Details</h3>
+                <div class="sales-mini-cards">
+                    <div class="sales-mini-card"><span class="card-title">Open Deal Value</span><b>${money(openValue)}</b></div>
+                    <div class="sales-mini-card"><span class="card-title">Won Deal Value</span><b>${money(wonValue)}</b></div>
+                    <div class="sales-mini-card"><span class="card-title">Quotation Value</span><b>${money(quotationValue)}</b></div>
+                    <div class="sales-mini-card"><span class="card-title">Invoice Value</span><b>${money(invoiceValue)}</b></div>
+                </div>
+            </div>
+        </div>`;
+}
+
+renderDashboard = function(){
+    document.getElementById("sectionTitle").innerText = "Dashboard - Sales Overview";
+    document.getElementById("sectionActions").innerHTML = `<button class="btn small" onclick="setModule('leads')">View Leads</button><button class="btn small" onclick="setModule('quotations')">Quotations</button><button class="btn small" onclick="setModule('invoices')">Invoices</button><button class="btn small" onclick="setModule('payments','pending')">Pending Payments</button>`;
+
+    const activities = [
+        ...db.leads.map(x => ({type:"Sales Lead",date:x.leadDate,ref:x.leadId,customerId:x.customerId,status:x.status,details:x.productService})),
+        ...(db.quotations || []).map(x => ({type:"Quotation",date:x.quotationDate,ref:x.quotationNo,customerId:x.customerId,status:x.quotationStatus,details:x.itemDetails})),
+        ...db.service.map(x => ({type:"Service Ticket",date:x.ticketDate,ref:x.ticketNo,customerId:x.customerId,status:x.serviceStatus,details:x.issueReported})),
+        ...db.invoices.map(x => ({type:"Tax Invoice",date:x.invoiceDate,ref:x.invoiceNo,customerId:x.customerId,status:x.paymentStatus,details:x.itemDetails})),
+        ...(db.payments || []).map(x => ({type:"Payment",date:x.paymentDate,ref:x.paymentId,customerId:x.customerId,status:x.paymentStatus,details:x.remarks}))
+    ].sort((a,b) => String(b.date).localeCompare(String(a.date))).slice(0,15);
+
+    const rows = activities.map(item => {
+        const c = getCustomer(item.customerId);
+        return `<tr><td>${escapeHtml(item.date)}</td><td>${escapeHtml(item.type)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(item.ref)}</td><td>${escapeHtml(item.details || "")}</td><td>${statusBadge(item.status)}</td><td><button class="btn small" onclick="viewCustomer('${item.customerId}')">Customer History</button></td></tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = renderSalesPieChart() + `<h3>Recent Activities</h3>` + table(["Date","Type","Company","Reference","Details","Status","Action"], rows);
 }
 
 /* ==============================
