@@ -3623,6 +3623,614 @@ function forceShowLoginIfLoggedOut(){
 document.addEventListener('DOMContentLoaded', forceShowLoginIfLoggedOut);
 if(document.readyState !== 'loading') forceShowLoginIfLoggedOut();
 
+
+/* =========================================================
+   SECURITY POLICY CONFIGURATION + USER MANAGEMENT V13
+   Password policy, users, first-login password change,
+   expiry, failed attempt lock, role-aware navigation.
+   Backend: browser localStorage via db + saveDB()
+========================================================= */
+
+(function(){
+    const SECURITY_STYLE_ID = "veltroxSecurityPolicyStyle";
+    if(!document.getElementById(SECURITY_STYLE_ID)){
+        const st = document.createElement("style");
+        st.id = SECURITY_STYLE_ID;
+        st.textContent = `
+            .auth-locked #credentialSetupModal.force-open,
+            .auth-locked #passwordChangeModal.force-open{display:flex!important}
+            .security-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+            .security-box{background:#f9fafb;border:1px solid var(--border);border-radius:14px;padding:14px}
+            .password-rules{font-size:13px;line-height:1.7;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-top:8px}
+            .rule-ok{color:#16a34a;font-weight:800}
+            .rule-bad{color:#dc2626;font-weight:800}
+        `;
+        document.head.appendChild(st);
+    }
+
+    function defaultSecurityPolicy(){
+        return {
+            minLength:8,
+            requireUppercase:true,
+            requireLowercase:true,
+            requireNumber:true,
+            requireSpecial:true,
+            expiryDays:90,
+            forceChangeOnFirstLogin:true,
+            maxAttempts:5,
+            lockMinutes:30
+        };
+    }
+
+    function encodePassword(password){
+        try{return btoa(unescape(encodeURIComponent(String(password || ""))));}
+        catch(e){return String(password || "");}
+    }
+
+    function verifyPassword(user,password){
+        if(!user) return false;
+        const p = String(password || "");
+        if(user.passwordHash && user.passwordHash === encodePassword(p)) return true;
+        if(user.password && String(user.password) === p) return true;
+        return false;
+    }
+
+    function userDisplayRole(user){
+        return user?.role || "Administrator";
+    }
+
+    window.ensureSecurityModel = function(){
+        if(!db.settings) db.settings = {};
+        if(!db.settings.security) db.settings.security = defaultSecurityPolicy();
+        db.settings.security = {...defaultSecurityPolicy(), ...db.settings.security};
+
+        if(!db.users || !Array.isArray(db.users)) db.users = [];
+        const admin = db.users.find(u => String(u.username || "").toLowerCase() === "admin");
+        if(!admin){
+            db.users.unshift({
+                userId:"U001",
+                username:"admin",
+                passwordHash:encodePassword("admin123"),
+                fullName:"Administrator",
+                email:"",
+                mobile:"",
+                role:"Administrator",
+                status:"Active",
+                active:"Yes",
+                forcePasswordChange:false,
+                lastPasswordChange:today(),
+                failedAttempts:0,
+                lockedUntil:""
+            });
+        }else{
+            admin.userId = admin.userId || "U001";
+            admin.fullName = admin.fullName || "Administrator";
+            admin.role = admin.role === "Admin" ? "Administrator" : (admin.role || "Administrator");
+            admin.status = admin.status || (admin.active === "No" ? "Inactive" : "Active");
+            admin.active = admin.status === "Active" ? "Yes" : "No";
+            admin.passwordHash = admin.passwordHash || encodePassword(admin.password || "admin123");
+            admin.forcePasswordChange = admin.forcePasswordChange === true;
+            admin.lastPasswordChange = admin.lastPasswordChange || today();
+            admin.failedAttempts = Number(admin.failedAttempts || 0);
+            admin.lockedUntil = admin.lockedUntil || "";
+        }
+
+        db.users.forEach((u,idx)=>{
+            u.userId = u.userId || "U" + String(idx + 1).padStart(3,"0");
+            u.role = u.role === "Admin" ? "Administrator" : (u.role || "Sales");
+            u.status = u.status || (u.active === "No" ? "Inactive" : "Active");
+            u.active = u.status === "Active" ? "Yes" : "No";
+            u.passwordHash = u.passwordHash || encodePassword(u.password || "Password@123");
+            delete u.password;
+            u.lastPasswordChange = u.lastPasswordChange || today();
+            u.failedAttempts = Number(u.failedAttempts || 0);
+            u.lockedUntil = u.lockedUntil || "";
+            u.forcePasswordChange = u.forcePasswordChange === true;
+        });
+        saveDB();
+    };
+
+    function validatePasswordPolicy(password, username=""){
+        ensureSecurityModel();
+        const p = db.settings.security;
+        const val = String(password || "");
+        const rules = [
+            {ok: val.length >= Number(p.minLength || 8), text:`Minimum ${p.minLength || 8} characters`},
+            {ok: !p.requireUppercase || /[A-Z]/.test(val), text:"At least 1 uppercase letter"},
+            {ok: !p.requireLowercase || /[a-z]/.test(val), text:"At least 1 lowercase letter"},
+            {ok: !p.requireNumber || /[0-9]/.test(val), text:"At least 1 number"},
+            {ok: !p.requireSpecial || /[^A-Za-z0-9]/.test(val), text:"At least 1 special character"},
+            {ok: !username || val.toLowerCase() !== String(username).toLowerCase(), text:"Password must not be same as username"}
+        ];
+        return {valid: rules.every(r=>r.ok), rules};
+    }
+
+    window.renderPasswordRules = function(password, username){
+        const result = validatePasswordPolicy(password, username);
+        return `<div class="password-rules">
+            ${result.rules.map(r => `<div class="${r.ok ? "rule-ok" : "rule-bad"}">${r.ok ? "✓" : "✗"} ${r.text}</div>`).join("")}
+        </div>`;
+    };
+
+    function daysBetween(dateStr){
+        if(!dateStr) return 9999;
+        const d1 = new Date(dateStr + "T00:00:00");
+        const d2 = new Date(today() + "T00:00:00");
+        return Math.floor((d2 - d1) / 86400000);
+    }
+
+    function isUserLocked(user){
+        if(!user?.lockedUntil) return false;
+        return new Date(user.lockedUntil).getTime() > Date.now();
+    }
+
+    function currentSecurityUser(){
+        ensureSecurityModel();
+        const username = localStorage.getItem(LOGIN_CURRENT_USER_KEY) || "admin";
+        return db.users.find(u => String(u.username || "").toLowerCase() === username.toLowerCase()) || db.users[0];
+    }
+
+    function isAdminUser(){
+        return userDisplayRole(currentSecurityUser()) === "Administrator";
+    }
+
+    window.applyRoleAccess = function(){
+        const user = currentSecurityUser();
+        const role = userDisplayRole(user);
+        const access = {
+            Administrator:["dashboard","customers","leads","quotations","service","followups","invoices","payments","reports","settings"],
+            Sales:["dashboard","customers","leads","quotations","followups","reports"],
+            Service:["dashboard","customers","service","followups","reports"],
+            Accounts:["dashboard","customers","invoices","payments","reports"]
+        };
+        const allowed = access[role] || access.Sales;
+        document.querySelectorAll(".nav-btn").forEach(btn=>{
+            const id = (btn.id || "").replace("nav-","");
+            btn.style.display = allowed.includes(id) ? "block" : "none";
+        });
+    };
+
+    const originalSetModuleSecurity = window.setModule;
+    window.setModule = function(moduleName){
+        ensureSecurityModel();
+        const user = currentSecurityUser();
+        const role = userDisplayRole(user);
+        const access = {
+            Administrator:["dashboard","customers","leads","quotations","service","followups","invoices","payments","reports","settings"],
+            Sales:["dashboard","customers","leads","quotations","followups","reports"],
+            Service:["dashboard","customers","service","followups","reports"],
+            Accounts:["dashboard","customers","invoices","payments","reports"]
+        };
+        const allowed = access[role] || access.Sales;
+        if(!allowed.includes(moduleName)){
+            alert("Access denied for this user role.");
+            moduleName = "dashboard";
+        }
+        originalSetModuleSecurity(moduleName);
+        applyRoleAccess();
+    };
+
+    window.loginToCRM = function(){
+        ensureSecurityModel();
+        const username = (document.getElementById("loginUsername")?.value || "").trim();
+        const password = document.getElementById("loginPassword")?.value || "";
+        const error = document.getElementById("loginError");
+        const user = db.users.find(u => String(u.username || "").toLowerCase() === username.toLowerCase());
+
+        if(!user){
+            if(error){error.innerText = "Invalid username or password."; error.style.display = "block";}
+            return;
+        }
+
+        if(String(user.status || "Active") !== "Active"){
+            if(error){error.innerText = "This user is inactive. Contact administrator."; error.style.display = "block";}
+            return;
+        }
+
+        if(isUserLocked(user)){
+            const unlockTime = new Date(user.lockedUntil).toLocaleString();
+            if(error){error.innerText = "Account locked due to failed attempts. Try again after: " + unlockTime; error.style.display = "block";}
+            return;
+        }
+
+        if(!verifyPassword(user,password)){
+            user.failedAttempts = Number(user.failedAttempts || 0) + 1;
+            const maxAttempts = Number(db.settings.security.maxAttempts || 5);
+            if(user.failedAttempts >= maxAttempts){
+                const lockMinutes = Number(db.settings.security.lockMinutes || 30);
+                user.lockedUntil = new Date(Date.now() + lockMinutes * 60000).toISOString();
+                user.failedAttempts = 0;
+            }
+            saveDB();
+            if(error){error.innerText = "Invalid username or password."; error.style.display = "block";}
+            return;
+        }
+
+        user.failedAttempts = 0;
+        user.lockedUntil = "";
+        saveDB();
+
+        localStorage.setItem(LOGIN_SESSION_KEY,"YES");
+        localStorage.setItem(LOGIN_CURRENT_USER_KEY,user.username);
+        document.body.classList.remove("auth-locked");
+        const loginScreen = document.getElementById("loginScreen");
+        if(loginScreen) loginScreen.style.display = "none";
+        if(error) error.style.display = "none";
+
+        const expiryDays = Number(db.settings.security.expiryDays || 90);
+        if(user.forcePasswordChange || daysBetween(user.lastPasswordChange) >= expiryDays){
+            showPasswordChangeModal(true);
+            return;
+        }
+
+        try{ setModule("dashboard"); applyRoleAccess(); }
+        catch(e){ console.error("Dashboard init error:", e); alert("Login successful, but dashboard loading found an error."); }
+    };
+
+    window.logoutCRM = function(){
+        if(!confirm("Logout from CRM?")) return;
+        localStorage.removeItem(LOGIN_SESSION_KEY);
+        localStorage.removeItem(LOGIN_CURRENT_USER_KEY);
+        document.body.classList.add("auth-locked");
+        const loginScreen = document.getElementById("loginScreen");
+        if(loginScreen) loginScreen.style.display = "flex";
+        const pass = document.getElementById("loginPassword");
+        if(pass) pass.value = "";
+        setTimeout(() => document.getElementById("loginUsername")?.focus(), 100);
+    };
+
+    window.openCredentialSetup = function(){
+        ensureSecurityModel();
+        const modal = document.getElementById("credentialSetupModal");
+        if(!modal) return alert("Credential setup modal not found.");
+        modal.classList.add("force-open");
+        modal.style.display = "flex";
+        const u = db.users.find(x => String(x.username || "").toLowerCase() === "admin") || db.users[0];
+        document.getElementById("setupUsername").value = u?.username || "admin";
+        document.getElementById("setupFullName").value = u?.fullName || "Administrator";
+        document.getElementById("setupPassword").value = "";
+        document.getElementById("setupConfirmPassword").value = "";
+        addPasswordLiveRules("setupPassword","setupUsername","credentialRulesBox");
+    };
+
+    window.closeCredentialSetup = function(){
+        const modal = document.getElementById("credentialSetupModal");
+        if(modal){modal.classList.remove("force-open"); modal.style.display = "none";}
+    };
+
+    function addPasswordLiveRules(passwordId, usernameId, boxId){
+        let box = document.getElementById(boxId);
+        const pass = document.getElementById(passwordId);
+        if(!pass) return;
+        if(!box){
+            box = document.createElement("div");
+            box.id = boxId;
+            pass.parentElement.appendChild(box);
+        }
+        const refresh = () => box.innerHTML = renderPasswordRules(pass.value, document.getElementById(usernameId)?.value || "");
+        pass.oninput = refresh;
+        const userField = document.getElementById(usernameId);
+        if(userField) userField.oninput = refresh;
+        refresh();
+    }
+
+    window.saveCredentialSetup = function(){
+        ensureSecurityModel();
+        const username = (document.getElementById("setupUsername")?.value || "").trim();
+        const password = document.getElementById("setupPassword")?.value || "";
+        const confirmPassword = document.getElementById("setupConfirmPassword")?.value || "";
+        const fullName = (document.getElementById("setupFullName")?.value || "").trim() || username;
+
+        if(!username){ alert("Username is required."); return; }
+        if(!password){ alert("Password is required."); return; }
+        if(password !== confirmPassword){ alert("Password and confirm password are not matching."); return; }
+
+        const check = validatePasswordPolicy(password, username);
+        if(!check.valid){ alert("Password does not match the configured password policy."); return; }
+
+        let user = db.users.find(u => String(u.username || "").toLowerCase() === username.toLowerCase());
+        if(!user){
+            user = {
+                userId:"U" + String(db.users.length + 1).padStart(3,"0"),
+                username,
+                fullName,
+                role:"Administrator",
+                status:"Active"
+            };
+            db.users.push(user);
+        }
+        user.username = username;
+        user.fullName = fullName;
+        user.passwordHash = encodePassword(password);
+        user.role = "Administrator";
+        user.status = "Active";
+        user.active = "Yes";
+        user.forcePasswordChange = false;
+        user.lastPasswordChange = today();
+        user.failedAttempts = 0;
+        user.lockedUntil = "";
+        saveDB();
+        closeCredentialSetup();
+        if(document.getElementById("loginUsername")) document.getElementById("loginUsername").value = username;
+        if(document.getElementById("loginPassword")) document.getElementById("loginPassword").value = "";
+        alert("Login credentials saved successfully. Please login with your new username and password.");
+    };
+
+    function ensurePasswordChangeModal(){
+        let modal = document.getElementById("passwordChangeModal");
+        if(modal) return modal;
+        modal = document.createElement("div");
+        modal.className = "modal";
+        modal.id = "passwordChangeModal";
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:620px;">
+                <div class="modal-head">
+                    <h2 id="passwordChangeTitle">Change Password</h2>
+                    <button class="btn gray" id="passwordChangeCloseBtn" onclick="closePasswordChangeModal()">X</button>
+                </div>
+                <div class="notice" id="passwordChangeNotice">Enter current password and set a new password as per policy.</div>
+                <div class="form-grid" style="grid-template-columns:1fr;">
+                    <div><label>Current Password</label><input type="password" id="currentPasswordInput"></div>
+                    <div><label>New Password</label><input type="password" id="newPasswordInput"></div>
+                    <div><label>Confirm New Password</label><input type="password" id="confirmNewPasswordInput"></div>
+                </div>
+                <div id="changePasswordRulesBox"></div>
+                <div class="form-actions">
+                    <button class="btn gray" id="passwordChangeCancelBtn" onclick="closePasswordChangeModal()">Cancel</button>
+                    <button class="btn green" onclick="saveOwnPasswordChange()">Update Password</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        return modal;
+    }
+
+    window.showPasswordChangeModal = function(force=false){
+        ensureSecurityModel();
+        const modal = ensurePasswordChangeModal();
+        modal.dataset.force = force ? "yes" : "no";
+        modal.classList.add("force-open");
+        modal.style.display = "flex";
+        document.getElementById("passwordChangeTitle").innerText = force ? "Password Change Required" : "Change Password";
+        document.getElementById("passwordChangeNotice").innerText = force
+            ? "You must change your password before using the CRM."
+            : "Enter your current password and set a new password as per policy.";
+        document.getElementById("passwordChangeCloseBtn").style.display = force ? "none" : "inline-block";
+        document.getElementById("passwordChangeCancelBtn").style.display = force ? "none" : "inline-block";
+        document.getElementById("currentPasswordInput").value = "";
+        document.getElementById("newPasswordInput").value = "";
+        document.getElementById("confirmNewPasswordInput").value = "";
+        addPasswordLiveRules("newPasswordInput","loginUsername","changePasswordRulesBox");
+    };
+
+    window.closePasswordChangeModal = function(){
+        const modal = document.getElementById("passwordChangeModal");
+        if(!modal) return;
+        if(modal.dataset.force === "yes") return;
+        modal.classList.remove("force-open");
+        modal.style.display = "none";
+    };
+
+    window.saveOwnPasswordChange = function(){
+        ensureSecurityModel();
+        const user = currentSecurityUser();
+        const current = document.getElementById("currentPasswordInput").value || "";
+        const np = document.getElementById("newPasswordInput").value || "";
+        const cp = document.getElementById("confirmNewPasswordInput").value || "";
+        if(!verifyPassword(user,current)){ alert("Current password is incorrect."); return; }
+        if(np !== cp){ alert("New password and confirm password are not matching."); return; }
+        const check = validatePasswordPolicy(np, user.username);
+        if(!check.valid){ alert("New password does not match password policy."); return; }
+        user.passwordHash = encodePassword(np);
+        user.forcePasswordChange = false;
+        user.lastPasswordChange = today();
+        user.failedAttempts = 0;
+        user.lockedUntil = "";
+        saveDB();
+        const modal = document.getElementById("passwordChangeModal");
+        if(modal){modal.classList.remove("force-open"); modal.style.display = "none";}
+        alert("Password updated successfully.");
+        try{ setModule("dashboard"); applyRoleAccess(); }catch(e){}
+    };
+
+    const oldRenderSettingsSecurity = window.renderSettings;
+    window.renderSettings = function(){
+        ensureSecurityModel();
+        oldRenderSettingsSecurity();
+        const content = document.getElementById("content");
+        if(!content) return;
+
+        const security = db.settings.security;
+        const canAdmin = isAdminUser();
+
+        content.innerHTML += `
+            <hr>
+            <h3>Security Settings / Password Policy</h3>
+            <div class="notice">
+                Configure password rules, expiry, first-login password change and login lock policy.
+            </div>
+            ${canAdmin ? `
+            <div class="security-grid">
+                ${input("secMinLength","Minimum Password Length",security.minLength,"number")}
+                ${select("secUpper","Require Uppercase Letter",["Yes","No"],security.requireUppercase ? "Yes" : "No")}
+                ${select("secLower","Require Lowercase Letter",["Yes","No"],security.requireLowercase ? "Yes" : "No")}
+                ${select("secNumber","Require Number",["Yes","No"],security.requireNumber ? "Yes" : "No")}
+                ${select("secSpecial","Require Special Character",["Yes","No"],security.requireSpecial ? "Yes" : "No")}
+                ${input("secExpiryDays","Password Expiry Days",security.expiryDays,"number")}
+                ${select("secForceFirst","Force Password Change on First Login",["Yes","No"],security.forceChangeOnFirstLogin ? "Yes" : "No")}
+                ${input("secMaxAttempts","Maximum Login Attempts",security.maxAttempts,"number")}
+                ${input("secLockMinutes","Account Lock Duration Minutes",security.lockMinutes,"number")}
+            </div>
+            <br>
+            <button class="btn green" onclick="saveSecurityPolicy()">Save Security Policy</button>
+            ` : `<div class="notice">Only Administrator can change security policy.</div>`}
+
+            <hr>
+            <h3>User Management</h3>
+            ${canAdmin ? `
+            <div class="form-grid">
+                ${input("newSecFullName","Full Name","")}
+                ${input("newSecUsername","Username","")}
+                ${input("newSecEmail","Email ID","","email")}
+                ${input("newSecMobile","Mobile Number","")}
+                ${select("newSecRole","Role",["Administrator","Sales","Service","Accounts"],"Sales")}
+                ${select("newSecStatus","Status",["Active","Inactive"],"Active")}
+                ${input("newSecPassword","Temporary Password","","password")}
+                ${select("newSecForceChange","Force Password Change",["Yes","No"],security.forceChangeOnFirstLogin ? "Yes" : "No")}
+            </div>
+            <div id="newUserPasswordRules"></div>
+            <br>
+            <button class="btn green" onclick="createSecurityUser()">Create User</button>
+            <hr>
+            <div id="securityUsersTable">${renderSecurityUsersTable()}</div>
+            ` : `<div class="notice">Only Administrator can create or reset users.</div>`}
+
+            <hr>
+            <h3>My Password</h3>
+            <button class="btn orange" onclick="showPasswordChangeModal(false)">Change My Password</button>
+        `;
+        setTimeout(()=>addPasswordLiveRules("newSecPassword","newSecUsername","newUserPasswordRules"),50);
+    };
+
+    window.saveSecurityPolicy = function(){
+        ensureSecurityModel();
+        db.settings.security = {
+            minLength:Number(document.getElementById("secMinLength").value || 8),
+            requireUppercase:document.getElementById("secUpper").value === "Yes",
+            requireLowercase:document.getElementById("secLower").value === "Yes",
+            requireNumber:document.getElementById("secNumber").value === "Yes",
+            requireSpecial:document.getElementById("secSpecial").value === "Yes",
+            expiryDays:Number(document.getElementById("secExpiryDays").value || 90),
+            forceChangeOnFirstLogin:document.getElementById("secForceFirst").value === "Yes",
+            maxAttempts:Number(document.getElementById("secMaxAttempts").value || 5),
+            lockMinutes:Number(document.getElementById("secLockMinutes").value || 30)
+        };
+        saveDB();
+        alert("Security policy saved.");
+        renderSettings();
+    };
+
+    window.renderSecurityUsersTable = function(){
+        ensureSecurityModel();
+        const rows = db.users.map(u => `
+            <tr>
+                <td>${escapeHtml(u.userId)}</td>
+                <td>${escapeHtml(u.fullName || "")}</td>
+                <td>${escapeHtml(u.username || "")}</td>
+                <td>${escapeHtml(u.email || "")}</td>
+                <td>${escapeHtml(u.mobile || "")}</td>
+                <td>${escapeHtml(userDisplayRole(u))}</td>
+                <td>${statusBadge(u.status || "Active")}</td>
+                <td>${u.forcePasswordChange ? statusBadge("Required") : statusBadge("No")}</td>
+                <td>${escapeHtml(u.lastPasswordChange || "")}</td>
+                <td>${u.lockedUntil && isUserLocked(u) ? statusBadge("Locked") : statusBadge("Normal")}</td>
+                <td>
+                    <button class="btn small orange" onclick="resetSecurityUserPassword('${escapeHtml(u.username)}')">Reset Password</button>
+                    <button class="btn small gray" onclick="toggleSecurityUserStatus('${escapeHtml(u.username)}')">${(u.status || "Active")==="Active" ? "Deactivate" : "Activate"}</button>
+                    ${String(u.username).toLowerCase()==="admin" ? "" : `<button class="btn small red" onclick="deleteSecurityUser('${escapeHtml(u.username)}')">Delete</button>`}
+                </td>
+            </tr>
+        `).join("");
+        return table(["User ID","Full Name","Username","Email","Mobile","Role","Status","Force Change","Last Change","Lock","Action"], rows);
+    };
+
+    window.createSecurityUser = function(){
+        ensureSecurityModel();
+        const fullName = (document.getElementById("newSecFullName").value || "").trim();
+        const username = (document.getElementById("newSecUsername").value || "").trim();
+        const email = (document.getElementById("newSecEmail").value || "").trim();
+        const mobile = (document.getElementById("newSecMobile").value || "").trim();
+        const role = document.getElementById("newSecRole").value;
+        const status = document.getElementById("newSecStatus").value;
+        const password = document.getElementById("newSecPassword").value || "";
+        const forceChange = document.getElementById("newSecForceChange").value === "Yes";
+
+        if(!fullName || !username || !password){ alert("Full Name, Username and Temporary Password are required."); return; }
+        if(db.users.some(u => String(u.username || "").toLowerCase() === username.toLowerCase())){ alert("Username already exists."); return; }
+
+        const check = validatePasswordPolicy(password, username);
+        if(!check.valid){ alert("Temporary password does not match password policy."); return; }
+
+        db.users.push({
+            userId:"U" + String(db.users.length + 1).padStart(3,"0"),
+            fullName, username, email, mobile, role, status,
+            active: status === "Active" ? "Yes" : "No",
+            passwordHash: encodePassword(password),
+            forcePasswordChange: forceChange,
+            lastPasswordChange: today(),
+            failedAttempts:0,
+            lockedUntil:""
+        });
+        saveDB();
+        alert("User created successfully.");
+        renderSettings();
+    };
+
+    window.resetSecurityUserPassword = function(username){
+        ensureSecurityModel();
+        const user = db.users.find(u => String(u.username || "").toLowerCase() === String(username).toLowerCase());
+        if(!user) return alert("User not found.");
+        const newPass = prompt("Enter new temporary password for " + user.username + ":");
+        if(!newPass) return;
+        const check = validatePasswordPolicy(newPass, user.username);
+        if(!check.valid){ alert("Password does not match password policy."); return; }
+        user.passwordHash = encodePassword(newPass);
+        user.forcePasswordChange = true;
+        user.lastPasswordChange = today();
+        user.failedAttempts = 0;
+        user.lockedUntil = "";
+        saveDB();
+        alert("Password reset successfully. User must change password on next login.");
+        renderSettings();
+    };
+
+    window.toggleSecurityUserStatus = function(username){
+        ensureSecurityModel();
+        const user = db.users.find(u => String(u.username || "").toLowerCase() === String(username).toLowerCase());
+        if(!user) return;
+        if(String(user.username).toLowerCase()==="admin" && user.status === "Active"){
+            alert("Admin user cannot be deactivated.");
+            return;
+        }
+        user.status = (user.status || "Active") === "Active" ? "Inactive" : "Active";
+        user.active = user.status === "Active" ? "Yes" : "No";
+        saveDB();
+        renderSettings();
+    };
+
+    window.deleteSecurityUser = function(username){
+        if(String(username).toLowerCase()==="admin"){ alert("Admin user cannot be deleted."); return; }
+        if(!confirm("Delete this login user?")) return;
+        db.users = db.users.filter(u => String(u.username || "").toLowerCase() !== String(username).toLowerCase());
+        saveDB();
+        renderSettings();
+    };
+
+    const oldForceShowLoginIfLoggedOutSecurity = window.forceShowLoginIfLoggedOut;
+    window.forceShowLoginIfLoggedOut = function(){
+        ensureSecurityModel();
+        const loginScreen = document.getElementById("loginScreen");
+        if(localStorage.getItem(LOGIN_SESSION_KEY) === "YES"){
+            document.body.classList.remove("auth-locked");
+            if(loginScreen) loginScreen.style.display = "none";
+            applyRoleAccess();
+        }else{
+            document.body.classList.add("auth-locked");
+            if(loginScreen) loginScreen.style.display = "flex";
+        }
+    };
+
+    ensureSecurityModel();
+    if(document.readyState === "loading"){
+        document.addEventListener("DOMContentLoaded", () => {
+            forceShowLoginIfLoggedOut();
+            applyRoleAccess();
+        });
+    }else{
+        forceShowLoginIfLoggedOut();
+        applyRoleAccess();
+    }
+})();
+
 </script>
 
 </body>
