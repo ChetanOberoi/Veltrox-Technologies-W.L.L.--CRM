@@ -395,6 +395,28 @@ let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
         supplierVAT:"",
         invoicePrefix:"INV",
         vatPercent:10,
+        products:[
+            "TallyPrime Silver",
+            "TallyPrime Gold",
+            "TSS Renewal",
+            "Tally on Cloud",
+            "TallyPrime Server",
+            "TallyPrime Auditor",
+            "Other"
+        ],
+        services:[
+            "Tally Customization",
+            "Tally AMC Support",
+            "Tally Training",
+            "VAT Filing",
+            "Web Designing",
+            "Mobile App Development",
+            "CCTV Service",
+            "IT Support",
+            "Data Migration",
+            "Cloud Support",
+            "Other"
+        ],
         productServices:[
             "TallyPrime Silver",
             "TallyPrime Gold",
@@ -742,7 +764,8 @@ function renderLeads(){
             <td>${escapeHtml(c.mobile)}</td>
             <td>${escapeHtml(c.email)}</td>
             <td>${escapeHtml(l.leadSource)}</td>
-            <td>${escapeHtml(l.productService)}</td>
+            <td>${escapeHtml(l.productName || "")}</td>
+            <td>${escapeHtml(l.serviceName || "")}</td>
             <td>${escapeHtml(l.requirementNotes)}</td>
             <td>${statusBadge(l.priority)}</td>
             <td>${statusBadge(l.status)}</td>
@@ -765,7 +788,7 @@ function renderLeads(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link","Action"],
+        ["Lead ID","Lead Date","Company Name","Contact Person","Mobile No","Email ID","Lead Source","Product","Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Follow-Up Alert","Lead Age","Expected Deal Value (BHD)","Closing Probability %","Expected Revenue (BHD)","Expected Closing Date","Remarks","Document Link","Action"],
         rows
     );
 }
@@ -786,7 +809,8 @@ function renderQuotations(){
             <td>${escapeHtml(q.quotationDate)}</td>
             <td>${escapeHtml(q.leadId)}</td>
             <td>${escapeHtml(c.companyName)}</td>
-            <td>${escapeHtml(q.itemDetails)}</td>
+            <td>${escapeHtml(q.productName || "")}</td>
+            <td>${escapeHtml(q.serviceName || "")}</td>
             <td>${escapeHtml(q.qty)}</td>
             <td>${money(q.rate)}</td>
             <td>${money(q.amount)}</td>
@@ -806,7 +830,7 @@ function renderQuotations(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Quotation No","Quotation Date","Lead ID","Customer","Product / Service Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks","Action"],
+        ["Quotation No","Quotation Date","Lead ID","Customer","Product","Service","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks","Action"],
         rows
     );
 }
@@ -829,7 +853,8 @@ function renderService(){
             <td>${escapeHtml(c.mobile)}</td>
             <td>${escapeHtml(c.email)}</td>
             <td>${escapeHtml(s.location)}</td>
-            <td>${escapeHtml(s.productService)}</td>
+            <td>${escapeHtml(s.productName || "")}</td>
+            <td>${escapeHtml(s.serviceName || "")}</td>
             <td>${escapeHtml(s.issueReported)}</td>
             <td>${statusBadge(s.priority)}</td>
             <td>${escapeHtml(s.assignedEngineer)}</td>
@@ -851,7 +876,7 @@ function renderService(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"],
+        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product","Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"],
         rows
     );
 }
@@ -1036,15 +1061,27 @@ function renderSettings(){
 
         <hr>
 
-        <h3>Product / Service Master</h3>
+        <h3>Product Master</h3>
         <div class="form-grid">
             <div class="full">
-                <label>Product / Service List - one item per line</label>
-                <textarea id="productServiceList" style="min-height:180px;">${(db.settings.productServices || []).join("\n")}</textarea>
+                <label>Product List - one item per line</label>
+                <textarea id="productList" style="min-height:160px;">${(db.settings.products || []).join("\n")}</textarea>
             </div>
         </div>
         <br>
-        <button class="btn green" onclick="saveProductServices()">Save Product / Service List</button>
+        <button class="btn green" onclick="saveProducts()">Save Product List</button>
+
+        <hr>
+
+        <h3>Service Master</h3>
+        <div class="form-grid">
+            <div class="full">
+                <label>Service List - one item per line</label>
+                <textarea id="serviceList" style="min-height:160px;">${(db.settings.services || []).join("\n")}</textarea>
+            </div>
+        </div>
+        <br>
+        <button class="btn green" onclick="saveServices()">Save Service List</button>
 
         <hr>
 
@@ -1058,11 +1095,18 @@ function renderSettings(){
     `;
 }
 
-function saveProductServices(){
-    const text = document.getElementById("productServiceList").value;
-    db.settings.productServices = text.split("\n").map(x => x.trim()).filter(x => x !== "");
+function saveProducts(){
+    const text = document.getElementById("productList").value;
+    db.settings.products = text.split("\n").map(x => x.trim()).filter(x => x !== "");
     saveDB();
-    alert("Product / Service list updated successfully.");
+    alert("Product list updated successfully.");
+}
+
+function saveServices(){
+    const text = document.getElementById("serviceList").value;
+    db.settings.services = text.split("\n").map(x => x.trim()).filter(x => x !== "");
+    saveDB();
+    alert("Service list updated successfully.");
 }
 
 function saveSettings(){
@@ -1114,41 +1158,84 @@ function customerForm(id){
             ${textarea("customerRemarks","Remarks",r.remarks || "")}
         </div>`;
 }
-function productServiceOptions(selected=""){
+function productOptions(selected=""){
+    const list = db.settings.products || [
+        "TallyPrime Silver",
+        "TallyPrime Gold",
+        "TSS Renewal",
+        "Tally on Cloud",
+        "TallyPrime Server",
+        "TallyPrime Auditor",
+        "Other"
+    ];
 
-const list = [
+    return `
+    <select id="productName" onchange="handleProductMasterSelection()">
+        <option value="">Select Product</option>
+        ${list.map(item => `
+        <option value="${escapeHtml(item)}" ${item===selected ? "selected" : ""}>${escapeHtml(item)}</option>
+        `).join("")}
+        <option value="__NEW_PRODUCT__">+ Add New Product</option>
+    </select>`;
+}
 
-"TallyPrime Silver",
-"TallyPrime Gold",
-"TSS Renewal",
-"Tally on Cloud",
-"Tally Customization",
-"Tally AMC Support",
-"Tally Training",
-"VAT Filing",
-"Web Designing",
-"Mobile App Development",
-"CCTV Service",
-"IT Support",
-"Other"
+function serviceOptions(selected=""){
+    const list = db.settings.services || [
+        "Tally Customization",
+        "Tally AMC Support",
+        "Tally Training",
+        "VAT Filing",
+        "Web Designing",
+        "Mobile App Development",
+        "CCTV Service",
+        "IT Support",
+        "Data Migration",
+        "Cloud Support",
+        "Other"
+    ];
 
-];
+    return `
+    <select id="serviceName" onchange="handleServiceMasterSelection()">
+        <option value="">Select Service</option>
+        ${list.map(item => `
+        <option value="${escapeHtml(item)}" ${item===selected ? "selected" : ""}>${escapeHtml(item)}</option>
+        `).join("")}
+        <option value="__NEW_SERVICE__">+ Add New Service</option>
+    </select>`;
+}
 
-return `
+function handleProductMasterSelection(){
+    const field = document.getElementById("productName");
+    if(field && field.value === "__NEW_PRODUCT__"){
+        const newItem = prompt("Enter new Product name:");
+        if(newItem && newItem.trim()){
+            if(!db.settings.products) db.settings.products = [];
+            db.settings.products.push(newItem.trim());
+            saveDB();
+            const selected = newItem.trim();
+            field.innerHTML = productOptions(selected).match(/<select[^>]*>([\\s\\S]*)<\\/select>/)[1];
+            field.value = selected;
+        }else{
+            field.value = "";
+        }
+    }
+}
 
-<select id="productService" onchange="handleProductSelection()">
-
-${list.map(item => `
-<option value="${item}" ${item===selected ? "selected" : ""}>
-${item}
-</option>
-`).join("")}
-
-<option value="__NEW_PRODUCT__">+ Add New Product / Service</option>
-</select>
-
-`;
-
+function handleServiceMasterSelection(){
+    const field = document.getElementById("serviceName");
+    if(field && field.value === "__NEW_SERVICE__"){
+        const newItem = prompt("Enter new Service name:");
+        if(newItem && newItem.trim()){
+            if(!db.settings.services) db.settings.services = [];
+            db.settings.services.push(newItem.trim());
+            saveDB();
+            const selected = newItem.trim();
+            field.innerHTML = serviceOptions(selected).match(/<select[^>]*>([\\s\\S]*)<\\/select>/)[1];
+            field.value = selected;
+        }else{
+            field.value = "";
+        }
+    }
 }
 function leadForm(id){
     const r = db.leads.find(x => x.leadId === id) || {};
@@ -1182,8 +1269,12 @@ function leadForm(id){
     "Other"
 ],r.leadSource || "Cold Call")}
             <div>
-    <label>Product / Service</label>
-    ${productServiceOptions(r.productService || "")}
+    <label>Product</label>
+    ${productOptions(r.productName || r.productService || "")}
+</div>
+<div>
+    <label>Service</label>
+    ${serviceOptions(r.serviceName || "")}
 </div>
             ${textarea("requirementNotes","Requirement / Notes",r.requirementNotes || "")}
             ${select("priority","Priority",["High","Medium","Low"],r.priority || "Medium")}
@@ -1211,8 +1302,12 @@ function quotationForm(id){
             ${customerSelect(r.customerId)}
             ${leadSelect(r.leadId || "")}
             <div>
-                <label>Product / Service</label>
-                ${productServiceOptions(r.itemDetails || "")}
+                <label>Product</label>
+                ${productOptions(r.productName || r.itemDetails || "")}
+            </div>
+            <div>
+                <label>Service</label>
+                ${serviceOptions(r.serviceName || "")}
             </div>
             ${input("quotationQty","Qty",r.qty || 1,"number")}
             ${input("quotationRate","Rate",r.rate || 0,"number")}
@@ -1249,8 +1344,12 @@ function serviceForm(id){
             ${customerSelect(r.customerId)}
             ${input("ticketLocation","Location",r.location || "")}
             <div>
-<label>Product / Service</label>
-${productServiceOptions(r.productService || "")}
+<label>Product</label>
+${productOptions(r.productName || r.productService || "")}
+</div>
+<div>
+<label>Service</label>
+${serviceOptions(r.serviceName || "")}
 </div>
             ${textarea("issueReported","Issue Reported",r.issueReported || "")}
             ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
@@ -1410,7 +1509,9 @@ function saveLead(){
         leadDate:document.getElementById("leadDate").value,
         customerId:cid,
         leadSource:document.getElementById("leadSource").value,
-        productService:document.getElementById("productService").value,
+        productName:document.getElementById("productName").value,
+        serviceName:document.getElementById("serviceName").value,
+        productService:[document.getElementById("productName").value, document.getElementById("serviceName").value].filter(Boolean).join(" / "),
         requirementNotes:document.getElementById("requirementNotes").value,
         priority:document.getElementById("priority").value,
         status:document.getElementById("status").value,
@@ -1446,7 +1547,9 @@ function saveQuotation(){
         quotationDate:document.getElementById("quotationDate").value,
         customerId:cid,
         leadId:document.getElementById("quotationLeadId").value,
-        itemDetails:document.getElementById("productService").value,
+        productName:document.getElementById("productName").value,
+        serviceName:document.getElementById("serviceName").value,
+        itemDetails:[document.getElementById("productName").value, document.getElementById("serviceName").value].filter(Boolean).join(" / "),
         qty:qty,
         rate:rate,
         amount:amount,
@@ -1472,7 +1575,9 @@ function saveService(){
         ticketDate:document.getElementById("ticketDate").value,
         customerId:cid,
         location:document.getElementById("ticketLocation").value,
-        productService:document.getElementById("productService").value,
+        productName:document.getElementById("productName").value,
+        serviceName:document.getElementById("serviceName").value,
+        productService:[document.getElementById("productName").value, document.getElementById("serviceName").value].filter(Boolean).join(" / "),
         issueReported:document.getElementById("issueReported").value,
         priority:document.getElementById("ticketPriority").value,
         assignedEngineer:document.getElementById("assignedEngineer").value,
@@ -1901,26 +2006,26 @@ function exportExcel(){
 
     rows.push([]);
     rows.push(["SALES LEADS"]);
-    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile","Email","Lead Source","Product / Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Expected Deal Value","Closing Probability","Expected Closing Date","Remarks","Document Link"]);
+    rows.push(["Lead ID","Lead Date","Company Name","Contact Person","Mobile","Email","Lead Source","Product","Service","Requirement / Notes","Priority","Status","Last Follow-Up Date","Next Follow-Up Date","Expected Deal Value","Closing Probability","Expected Closing Date","Remarks","Document Link"]);
     db.leads.forEach(l=>{
         let c = getCustomer(l.customerId);
-        rows.push([l.leadId,l.leadDate,c.companyName,c.contactPerson,c.mobile,c.email,l.leadSource,l.productService,l.requirementNotes,l.priority,l.status,l.lastFollowupDate,l.nextFollowupDate,l.expectedDealValue,l.closingProbability,l.expectedClosingDate,l.remarks,l.documentLink]);
+        rows.push([l.leadId,l.leadDate,c.companyName,c.contactPerson,c.mobile,c.email,l.leadSource,l.productName,l.serviceName,l.requirementNotes,l.priority,l.status,l.lastFollowupDate,l.nextFollowupDate,l.expectedDealValue,l.closingProbability,l.expectedClosingDate,l.remarks,l.documentLink]);
     });
 
     rows.push([]);
     rows.push(["QUOTATIONS"]);
-    rows.push(["Quotation No","Quotation Date","Lead ID","Company","Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks"]);
+    rows.push(["Quotation No","Quotation Date","Lead ID","Company","Product","Service","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Valid Till","Remarks"]);
     (db.quotations || []).forEach(q=>{
         let c = getCustomer(q.customerId);
-        rows.push([q.quotationNo,q.quotationDate,q.leadId,c.companyName,q.itemDetails,q.qty,q.rate,q.amount,q.vatPercent,q.vatAmount,q.totalInclVat,q.quotationStatus,q.validTill,q.remarks]);
+        rows.push([q.quotationNo,q.quotationDate,q.leadId,c.companyName,q.productName,q.serviceName,q.qty,q.rate,q.amount,q.vatPercent,q.vatAmount,q.totalInclVat,q.quotationStatus,q.validTill,q.remarks]);
     });
 
     rows.push([]);
     rows.push(["SERVICE TICKETS"]);
-    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
+    rows.push(["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email","Location","Product","Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks"]);
     db.service.forEach(s=>{
         let c = getCustomer(s.customerId);
-        rows.push([s.ticketNo,s.ticketDate,c.contactPerson,c.companyName,c.mobile,c.email,s.location,s.productService,s.issueReported,s.priority,s.assignedEngineer,s.startTime,s.endTime,s.solutionProvided,s.serviceStatus,s.serviceCharges,s.paymentStatus,s.nextServiceReminder,s.amcAvailable,s.remarks]);
+        rows.push([s.ticketNo,s.ticketDate,c.contactPerson,c.companyName,c.mobile,c.email,s.location,s.productName,s.serviceName,s.issueReported,s.priority,s.assignedEngineer,s.startTime,s.endTime,s.solutionProvided,s.serviceStatus,s.serviceCharges,s.paymentStatus,s.nextServiceReminder,s.amcAvailable,s.remarks]);
     });
 
     rows.push([]);
