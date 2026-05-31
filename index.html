@@ -563,6 +563,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:18px 0}
             <button class="login-btn" onclick="loginToCRM()">Login</button>
             <div class="login-error" id="loginError">Invalid username or password.</div>
             <div class="login-hint"><b>Default Login:</b> admin / admin123<br>After login, Administrator can create users from Settings → User Management.</div>
+            <button type="button" class="login-btn" style="margin-top:12px;background:#16a34a;" onclick="resetAdminLoginFromLoginPage()">Reset Admin Login</button>
         </div>
     </div>
 </div>
@@ -4090,6 +4091,89 @@ if(document.readyState !== 'loading') forceShowLoginIfLoggedOut();
         hideSelfCredentialSetupButton();
         forceShowLoginIfLoggedOut();
     }
+})();
+
+
+
+/* =========================================================
+   V15 LOGIN FIX PATCH
+   Fixes old localStorage admin password/lock issues and ensures login initializes safely.
+========================================================= */
+window.resetAdminLoginFromLoginPage = function(){
+    try{
+        if(!db.settings) db.settings = {};
+        if(!Array.isArray(db.users)) db.users = [];
+        let admin = db.users.find(u => String(u.username || "").toLowerCase() === "admin");
+        if(!admin){
+            admin = {userId:"U001", fullName:"Administrator", username:"admin"};
+            db.users.unshift(admin);
+        }
+        admin.password = "admin123";
+        admin.role = "Administrator";
+        admin.status = "Active";
+        admin.active = "Yes";
+        admin.forcePasswordChange = false;
+        admin.failedAttempts = 0;
+        admin.lockedUntil = "";
+        admin.passwordChangedDate = today();
+        saveDB();
+        localStorage.removeItem(LOGIN_SESSION_KEY);
+        localStorage.removeItem(LOGIN_CURRENT_USER_KEY);
+        if(document.getElementById("loginUsername")) document.getElementById("loginUsername").value = "admin";
+        if(document.getElementById("loginPassword")) document.getElementById("loginPassword").value = "admin123";
+        const error = document.getElementById("loginError");
+        if(error){
+            error.innerText = "Admin login reset successfully. Now click Login.";
+            error.style.display = "block";
+            error.style.background = "#dcfce7";
+            error.style.color = "#166534";
+        }
+        alert("Admin login reset successfully. Username: admin | Password: admin123");
+    }catch(e){
+        alert("Reset failed: " + e.message);
+        console.error(e);
+    }
+};
+
+(function(){
+    const previousUpdateCounts = window.updateCounts;
+    window.updateCounts = function(){
+        try{
+            if(typeof previousUpdateCounts === "function") previousUpdateCounts();
+        }catch(e){
+            console.warn("Old counter skipped:", e.message);
+        }
+        const setText = (id, value) => { const el = document.getElementById(id); if(el) el.innerText = value; };
+        setText("cntCustomers", (db.customers || []).length);
+        setText("cntLeads", (db.leads || []).length);
+        setText("cntQuotations", (db.quotations || []).length);
+        setText("cntTickets", (db.service || []).filter(x => x.serviceStatus !== "Closed").length);
+        setText("cntPendingTickets", (db.service || []).filter(x => x.serviceStatus === "Pending").length);
+        setText("cntClosedTickets", (db.service || []).filter(x => x.serviceStatus === "Closed").length);
+        setText("cntFollowups", (db.followups || []).filter(x => x.statusUpdate !== "Closed" && x.statusUpdate !== "Done").length);
+        setText("cntInvoices", (db.invoices || []).length);
+        const invoiceTotal = (db.invoices || []).reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0);
+        const receivedTotal = (db.payments || []).reduce((sum, pay) => sum + Number(pay.receivedAmount || 0), 0);
+        setText("cntInvoiceValue", money(invoiceTotal));
+        setText("cntPaymentPending", money(invoiceTotal - receivedTotal));
+    };
+
+    window.forceShowLoginIfLoggedOut = function(){
+        try{ if(typeof ensureSecurityModel === "function") ensureSecurityModel(); }catch(e){ console.warn(e); }
+        try{ hideSelfCredentialSetupButton && hideSelfCredentialSetupButton(); }catch(e){}
+        const loginScreen = document.getElementById("loginScreen");
+        if(localStorage.getItem(LOGIN_SESSION_KEY) === "YES"){
+            document.body.classList.remove("auth-locked");
+            if(loginScreen) loginScreen.style.display = "none";
+            try{ applyRoleMenu && applyRoleMenu(); }catch(e){}
+            try{ setModule("dashboard"); }catch(e){ console.warn(e); }
+        }else{
+            document.body.classList.add("auth-locked");
+            if(loginScreen) loginScreen.style.display = "flex";
+        }
+    };
+
+    setTimeout(forceShowLoginIfLoggedOut, 100);
 })();
 
 </script>
