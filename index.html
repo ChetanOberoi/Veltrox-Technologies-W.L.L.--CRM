@@ -1306,6 +1306,7 @@ function serviceForm(id){
 <label>Product / Service</label>
 ${productServiceOptions(r.productService || "")}
 </div>
+            ${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}
             ${textarea("issueReported","Issue Reported",r.issueReported || "")}
             ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
             ${input("assignedEngineer","Assigned Engineer",r.assignedEngineer || "")}
@@ -1527,6 +1528,7 @@ function saveService(){
         customerId:cid,
         location:document.getElementById("ticketLocation").value,
         productService:document.getElementById("productService").value,
+        serialNumber:document.getElementById("serialNumber")?.value || "",
         issueReported:document.getElementById("issueReported").value,
         priority:document.getElementById("ticketPriority").value,
         assignedEngineer:document.getElementById("assignedEngineer").value,
@@ -2224,7 +2226,7 @@ quotationForm = function(id){
 serviceForm = function(id){
     const r = db.service.find(x => x.ticketNo === id) || {};
     document.getElementById("formTitle").innerText = id ? "Edit Service Ticket" : "Add Service Ticket";
-    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}${customerSelect(r.customerId)}${input("ticketLocation","Location",r.location || "")}${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || (r.productService || ""))}${textarea("issueReported","Issue Reported",r.issueReported || "")}${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}${input("startTime","Start Time",r.startTime || "","time")}${input("endTime","End Time",r.endTime || "","time")}${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}${textarea("ticketRemarks","Remarks",r.remarks || "")}</div>`;
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}${customerSelect(r.customerId)}${input("ticketLocation","Location",r.location || "")}${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || (r.productService || ""))}${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}${textarea("issueReported","Issue Reported",r.issueReported || "")}${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}${input("startTime","Start Time",r.startTime || "","time")}${input("endTime","End Time",r.endTime || "","time")}${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}${textarea("ticketRemarks","Remarks",r.remarks || "")}</div>`;
 }
 followupForm = function(id){
     const r = db.followups.find(x => x.followupId === id) || {};
@@ -2267,7 +2269,7 @@ saveQuotation = function(){
 saveService = function(){
     const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
     const productName=document.getElementById("productName").value, serviceName=document.getElementById("serviceName").value, agent=document.getElementById("assignedAgent").value;
-    upsert(db.service,"ticketNo",{ticketNo:document.getElementById("ticketNo").value,ticketDate:document.getElementById("ticketDate").value,customerId:cid,location:document.getElementById("ticketLocation").value,assignedAgent:agent,assignedEngineer:agent,productName,serviceName,productService:[productName,serviceName].filter(Boolean).join(" / "),issueReported:document.getElementById("issueReported").value,priority:document.getElementById("ticketPriority").value,startTime:document.getElementById("startTime").value,endTime:document.getElementById("endTime").value,solutionProvided:document.getElementById("solutionProvided").value,serviceStatus:document.getElementById("serviceStatus").value,serviceCharges:document.getElementById("serviceCharges").value,paymentStatus:document.getElementById("paymentStatus").value,nextServiceReminder:document.getElementById("nextServiceReminder").value,amcAvailable:document.getElementById("amcAvailable").value,remarks:document.getElementById("ticketRemarks").value});
+    upsert(db.service,"ticketNo",{ticketNo:document.getElementById("ticketNo").value,ticketDate:document.getElementById("ticketDate").value,customerId:cid,location:document.getElementById("ticketLocation").value,assignedAgent:agent,assignedEngineer:agent,productName,serviceName,productService:[productName,serviceName].filter(Boolean).join(" / "),serialNumber:document.getElementById("serialNumber")?.value || "",issueReported:document.getElementById("issueReported").value,priority:document.getElementById("ticketPriority").value,startTime:document.getElementById("startTime").value,endTime:document.getElementById("endTime").value,solutionProvided:document.getElementById("solutionProvided").value,serviceStatus:document.getElementById("serviceStatus").value,serviceCharges:document.getElementById("serviceCharges").value,paymentStatus:document.getElementById("paymentStatus").value,nextServiceReminder:document.getElementById("nextServiceReminder").value,amcAvailable:document.getElementById("amcAvailable").value,remarks:document.getElementById("ticketRemarks").value});
 }
 saveInvoice = function(){
     const cid=document.getElementById("customerId").value; if(!cid){alert("Please create/select customer first."); throw new Error("Customer missing");}
@@ -2478,13 +2480,18 @@ renderDashboard = function(){
     document.getElementById("sectionTitle").innerText = "Dashboard - Sales Overview";
     document.getElementById("sectionActions").innerHTML = `<button class="btn small" onclick="setModule('leads')">View Leads</button><button class="btn small" onclick="setModule('quotations')">Quotations</button><button class="btn small" onclick="setModule('invoices')">Invoices</button><button class="btn small" onclick="setModule('payments','pending')">Pending Payments</button>`;
 
+    const q = searchText();
     const activities = [
-        ...db.leads.map(x => ({type:"Sales Lead",date:x.leadDate,ref:x.leadId,customerId:x.customerId,status:x.status,details:x.productService})),
-        ...(db.quotations || []).map(x => ({type:"Quotation",date:x.quotationDate,ref:x.quotationNo,customerId:x.customerId,status:x.quotationStatus,details:x.itemDetails})),
-        ...db.service.map(x => ({type:"Service Ticket",date:x.ticketDate,ref:x.ticketNo,customerId:x.customerId,status:x.serviceStatus,details:x.issueReported})),
-        ...db.invoices.map(x => ({type:"Tax Invoice",date:x.invoiceDate,ref:x.invoiceNo,customerId:x.customerId,status:x.paymentStatus,details:x.itemDetails})),
-        ...(db.payments || []).map(x => ({type:"Payment",date:x.paymentDate,ref:x.paymentId,customerId:x.customerId,status:x.paymentStatus,details:x.remarks}))
-    ].sort((a,b) => String(b.date).localeCompare(String(a.date))).slice(0,15);
+        ...db.leads.map(x => ({type:"Sales Lead",date:x.leadDate,ref:x.leadId,customerId:x.customerId,status:x.status,details:x.productService,source:x})),
+        ...(db.quotations || []).map(x => ({type:"Quotation",date:x.quotationDate,ref:x.quotationNo,customerId:x.customerId,status:x.quotationStatus,details:x.itemDetails,source:x})),
+        ...db.service.map(x => ({type:"Service Ticket",date:x.ticketDate,ref:x.ticketNo,customerId:x.customerId,status:x.serviceStatus,details:x.issueReported,source:x})),
+        ...db.invoices.map(x => ({type:"Tax Invoice",date:x.invoiceDate,ref:x.invoiceNo,customerId:x.customerId,status:x.paymentStatus,details:x.itemDetails,source:x})),
+        ...(db.payments || []).map(x => ({type:"Payment",date:x.paymentDate,ref:x.paymentId,customerId:x.customerId,status:x.paymentStatus,details:x.remarks,source:x}))
+    ].filter(item => {
+        if(!q) return true;
+        const c = getCustomer(item.customerId);
+        return JSON.stringify({...item.source, type:item.type, ref:item.ref, details:item.details, status:item.status, companyName:c.companyName, contactPerson:c.contactPerson, mobile:c.mobile, email:c.email}).toLowerCase().includes(q);
+    }).sort((a,b) => String(b.date).localeCompare(String(a.date))).slice(0,50);
 
     const rows = activities.map(item => {
         const c = getCustomer(item.customerId);
