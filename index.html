@@ -3870,6 +3870,178 @@ renderService = function(){
 v22SyncTicketInvoiceTracking();
 saveDB();
 
+
+
+/* =========================================================
+   V24 FINAL WORKING PATCH - TAX INVOICE ACTION IN SERVICE TICKETS
+   Added from latest uploaded index file.
+   What this patch does:
+   1) Always shows Tax Invoice button in Service Ticket Action column.
+   2) Opens Tax Invoice form from selected Service Ticket.
+   3) Auto-fills Customer, Service Ticket No, Product/Service, Serial No, Rate and Remarks.
+   4) Shows linked Invoice No, Invoice Date, Invoice Amount and Payment Status in Service Tickets.
+========================================================= */
+function v24LinkedInvoiceForTicket(ticketNo){
+    return (db.invoices || []).find(inv => inv.serviceTicketNo === ticketNo) || null;
+}
+function v24AllLinkedInvoicesForTicket(ticketNo){
+    return (db.invoices || []).filter(inv => inv.serviceTicketNo === ticketNo);
+}
+function v24TicketInvoiceStatus(ticket){
+    const invoices = v24AllLinkedInvoicesForTicket(ticket.ticketNo);
+    if(invoices.length) return "Invoice Raised";
+    const billingType = ticket.billingType || "Chargeable";
+    if(["Free Support","AMC Covered","Warranty Covered","Internal Support","Demo Support"].includes(billingType)) return "Not Required";
+    return "Pending Invoice";
+}
+function v24SyncTicketInvoiceFields(){
+    if(!db.service) db.service = [];
+    if(!db.invoices) db.invoices = [];
+    db.service.forEach(ticket => {
+        const invoices = v24AllLinkedInvoicesForTicket(ticket.ticketNo);
+        if(invoices.length){
+            const latest = invoices.slice().sort((a,b)=>String(b.invoiceDate || "").localeCompare(String(a.invoiceDate || "")))[0];
+            ticket.invoiceStatus = "Invoice Raised";
+            ticket.invoiceNo = invoices.map(i => i.invoiceNo).filter(Boolean).join(", ");
+            ticket.invoiceDate = latest.invoiceDate || "";
+            ticket.invoiceAmount = invoices.reduce((sum,i)=>sum + Number(i.totalInclVat || 0),0);
+            ticket.paymentStatus = latest.paymentStatus || ticket.paymentStatus || "Pending";
+        }else{
+            ticket.invoiceStatus = v24TicketInvoiceStatus(ticket);
+            ticket.invoiceNo = "";
+            ticket.invoiceDate = "";
+            ticket.invoiceAmount = 0;
+            if(ticket.invoiceStatus === "Not Required") ticket.paymentStatus = "Not Applicable";
+            if(ticket.invoiceStatus === "Pending Invoice" && (!ticket.paymentStatus || ticket.paymentStatus === "Not Applicable")) ticket.paymentStatus = "Pending";
+        }
+    });
+}
+function v24InvoiceStatusBadge(status){
+    if(status === "Invoice Raised") return `<span class="badge green">Invoice Raised</span>`;
+    if(status === "Pending Invoice") return `<span class="badge red">Pending Invoice</span>`;
+    if(status === "Not Required") return `<span class="badge gray">Not Required</span>`;
+    return statusBadge(status || "Pending Invoice");
+}
+function v24CreateTaxInvoiceFromTicket(ticketNo){
+    const ticket = (db.service || []).find(t => t.ticketNo === ticketNo);
+    if(!ticket){ alert("Service ticket not found."); return; }
+
+    const linkedInvoice = v24LinkedInvoiceForTicket(ticketNo);
+    if(linkedInvoice){
+        if(confirm("Invoice already exists: " + linkedInvoice.invoiceNo + ". Do you want to open/print it?")){
+            printInvoice(linkedInvoice.invoiceNo);
+        }
+        return;
+    }
+
+    setModule("invoices");
+    openForm();
+
+    setTimeout(() => {
+        if(document.getElementById("customerId")) document.getElementById("customerId").value = ticket.customerId || "";
+
+        if(document.getElementById("serviceTicketNo")){
+            document.getElementById("serviceTicketNo").value = ticket.ticketNo || "";
+            if(typeof fillFromServiceTicketForInvoice === "function") fillFromServiceTicketForInvoice();
+        }
+
+        const productValue = ticket.productName || ticket.productService || "";
+        const serviceValue = ticket.serviceName || "";
+
+        if(document.getElementById("productName")) document.getElementById("productName").value = productValue;
+        if(document.getElementById("serviceName")) document.getElementById("serviceName").value = serviceValue;
+        if(document.getElementById("itemDetails")) document.getElementById("itemDetails").value = [productValue, serviceValue].filter(Boolean).join(" / ");
+        if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = ticket.serialNumber || "";
+        if(document.getElementById("qty")) document.getElementById("qty").value = 1;
+        if(document.getElementById("rate")) document.getElementById("rate").value = Number(ticket.serviceCharges || 0);
+        if(document.getElementById("vatPercent")) document.getElementById("vatPercent").value = db.settings.vatPercent || 10;
+        if(document.getElementById("invoicePaymentStatus")) document.getElementById("invoicePaymentStatus").value = ticket.paymentStatus && ticket.paymentStatus !== "Not Applicable" ? ticket.paymentStatus : "Pending";
+        if(document.getElementById("invoiceRemarks")){
+            document.getElementById("invoiceRemarks").value =
+                "Created from Service Ticket: " + (ticket.ticketNo || "") + "\n" +
+                "Issue Reported: " + (ticket.issueReported || "") + "\n" +
+                "Solution Provided: " + (ticket.solutionProvided || "");
+        }
+    }, 100);
+}
+function v24TaxInvoiceActionButton(ticket){
+    const linkedInvoice = v24LinkedInvoiceForTicket(ticket.ticketNo);
+    if(linkedInvoice){
+        return `<button class="btn small green" onclick="printInvoice('${ticket.invoiceNo ? linkedInvoice.invoiceNo : linkedInvoice.invoiceNo}')">View Invoice</button>`;
+    }
+    return `<button class="btn small green" onclick="v24CreateTaxInvoiceFromTicket('${ticket.ticketNo}')">Tax Invoice</button>`;
+}
+
+// Keep old save functions but sync invoice tracking after save.
+const v24OldSaveInvoice = saveInvoice;
+saveInvoice = function(){
+    v24OldSaveInvoice();
+    v24SyncTicketInvoiceFields();
+};
+const v24OldSaveService = saveService;
+saveService = function(){
+    v24OldSaveService();
+    v24SyncTicketInvoiceFields();
+};
+
+renderService = function(){
+    v24SyncTicketInvoiceFields();
+    document.getElementById("sectionTitle").innerText = "Service Ticket Details";
+
+    let data = (db.service || []).filter(matchObject);
+    if(typeof activeFilter !== "undefined"){
+        if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+        if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+        if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+        if(activeFilter === "unbilled") data = data.filter(x => x.invoiceStatus === "Pending Invoice");
+    }
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        const productText = (typeof getProductServiceText === "function") ? getProductServiceText(s) : (s.productService || s.productName || s.serviceName || "");
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo || "")}</td>
+            <td>${escapeHtml(s.ticketDate || "")}</td>
+            <td>${escapeHtml(c.contactPerson || "")}</td>
+            <td>${escapeHtml(c.companyName || "")}</td>
+            <td>${escapeHtml(c.mobile || "")}</td>
+            <td>${escapeHtml(c.email || "")}</td>
+            <td>${escapeHtml(s.location || "")}</td>
+            <td>${escapeHtml(productText)}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported || "")}</td>
+            <td>${statusBadge(s.priority || "")}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.startTime || "")}</td>
+            <td>${escapeHtml(s.endTime || "")}</td>
+            <td>${escapeHtml(s.solutionProvided || "")}</td>
+            <td>${statusBadge(s.serviceStatus || "")}</td>
+            <td>${money(s.serviceCharges || 0)}</td>
+            <td>${v24InvoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || "")}</td>
+            <td>${escapeHtml(s.invoiceDate || "")}</td>
+            <td>${money(s.invoiceAmount || 0)}</td>
+            <td>${statusBadge(s.paymentStatus || "Not Applicable")}</td>
+            <td>${escapeHtml(s.amcAvailable || "No")}</td>
+            <td>${escapeHtml(s.remarks || "")}</td>
+            <td>
+                ${v24TaxInvoiceActionButton(s)}
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Serial No","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status","AMC Available","Remarks","Action"],
+        rows
+    );
+};
+
+v24SyncTicketInvoiceFields();
+saveDB();
+
 </script>
 
 </body>
