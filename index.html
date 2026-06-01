@@ -574,7 +574,7 @@ function updateCounts(){
     document.getElementById("cntTickets").innerText = db.service.filter(x => x.serviceStatus !== "Closed").length;
     document.getElementById("cntFollowups").innerText = db.followups.filter(x => x.statusUpdate !== "Closed" && x.statusUpdate !== "Done").length;
     document.getElementById("cntInvoices").innerText = db.invoices.length;
-    document.getElementById("cntInvoiceValue").innerText = money(db.invoices.reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0));
+    if(document.getElementById("cntInvoiceValue")) document.getElementById("cntInvoiceValue").innerText = money(db.invoices.reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0));
     if(document.getElementById("cntPaymentPending")){
         const invoiceTotal = db.invoices.reduce((sum, inv) => sum + Number(inv.totalInclVat || 0), 0);
         const receivedTotal = (db.payments || []).reduce((sum, pay) => sum + Number(pay.receivedAmount || 0), 0);
