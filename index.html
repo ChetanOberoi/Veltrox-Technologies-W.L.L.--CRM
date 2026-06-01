@@ -3013,8 +3013,196 @@ printInvoice = function(invoiceNo){
     document.getElementById("viewModal").style.display = "flex";
 };
 
-saveDB();
 
+
+/* =========================================================
+   V19 PATCH - SERVICE TICKET TO TAX INVOICE TRACKING
+   Complete traceability: Service Ticket -> Tax Invoice -> Payment
+========================================================= */
+function syncServiceInvoiceStatus(){
+    if(!db.service) db.service = [];
+    if(!db.invoices) db.invoices = [];
+    db.service.forEach(t => {
+        const linkedInvoices = db.invoices.filter(i => i.serviceTicketNo === t.ticketNo);
+        if(linkedInvoices.length){
+            t.invoiceStatus = "Invoiced";
+            t.invoiceNo = linkedInvoices.map(i => i.invoiceNo).join(", ");
+        }else if(t.serviceStatus === "Closed"){
+            t.invoiceStatus = "Pending Invoice";
+            t.invoiceNo = "";
+        }else{
+            t.invoiceStatus = "Not Invoiced";
+            t.invoiceNo = "";
+        }
+    });
+}
+
+function invoiceStatusBadge(status){
+    if(status === "Invoiced") return statusBadge("Paid").replace("Paid","Invoiced");
+    if(status === "Pending Invoice") return statusBadge("Pending Invoice");
+    return statusBadge(status || "Not Invoiced");
+}
+
+function createInvoiceFromServiceTicket(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert("Service ticket not found."); return; }
+    setModule("invoices");
+    openForm();
+    setTimeout(() => {
+        if(document.getElementById("serviceTicketNo")){
+            document.getElementById("serviceTicketNo").value = t.ticketNo;
+            fillFromServiceTicketForInvoice();
+        }
+    }, 50);
+}
+
+const _v19SaveInvoice = saveInvoice;
+saveInvoice = function(){
+    _v19SaveInvoice();
+    syncServiceInvoiceStatus();
+    saveDB();
+};
+
+const _v19DeleteRecord = deleteRecord;
+deleteRecord = function(module,id){
+    _v19DeleteRecord(module,id);
+    if(["invoices","service"].includes(module)){
+        syncServiceInvoiceStatus();
+        saveDB();
+        render();
+    }
+};
+
+renderService = function(){
+    syncServiceInvoiceStatus();
+    document.getElementById("sectionTitle").innerText = activeFilter ? (activeFilter === "open" ? "Open Tickets" : activeFilter === "pending" ? "Pending Tickets" : activeFilter === "closed" ? "Closed Tickets" : activeFilter === "unbilled" ? "Unbilled Service Tickets" : "Service Ticket Details") : "Service Ticket Details";
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+    if(activeFilter === "unbilled") data = data.filter(x => x.invoiceStatus !== "Invoiced");
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.contactPerson)}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(c.mobile)}</td>
+            <td>${escapeHtml(s.location)}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported)}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${invoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || "")}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.remarks || "")}</td>
+            <td>
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small green" onclick="createInvoiceFromServiceTicket('${s.ticketNo}')">Create Invoice</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Location","Product / Service","Serial Number","Issue Reported","Service Status","Service Charges","Invoice Status","Invoice No","Assigned Agent / Engineer","Remarks","Action"],
+        rows
+    );
+};
+
+renderInvoices = function(){
+    document.getElementById("sectionTitle").innerText = "Tax Invoice Details";
+    const data = (db.invoices || []).filter(matchObject);
+    const rows = data.map(i => {
+        const c = getCustomer(i.customerId);
+        return `<tr>
+            <td>${escapeHtml(i.invoiceNo)}</td>
+            <td>${escapeHtml(i.invoiceDate)}</td>
+            <td>${escapeHtml(i.serviceTicketNo || "")}</td>
+            <td>${escapeHtml(i.quotationNo || "")}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(getProductServiceText(i))}</td>
+            <td>${escapeHtml(i.serialNumber || "")}</td>
+            <td>${escapeHtml(i.qty)}</td>
+            <td>${money(i.rate)}</td>
+            <td>${money(i.amount)}</td>
+            <td>${escapeHtml(i.vatPercent)}%</td>
+            <td>${money(i.vatAmount)}</td>
+            <td><b>${money(i.totalInclVat)}</b></td>
+            <td>${escapeHtml(i.assignedAgent || "")}</td>
+            <td>${statusBadge(i.paymentStatus)}</td>
+            <td>${escapeHtml(i.remarks)}</td>
+            <td>
+                <button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button>
+                <button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('invoices','${i.invoiceNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Tax Invoice Number","Invoice Date","Service Ticket No","Quotation Number","Customer","Service / Product Details","Serial Number","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Salesman / Agent","Payment Status","Remarks","Action"],
+        rows
+    );
+};
+
+function renderServiceBillingReport(){
+    syncServiceInvoiceStatus();
+    const rows = (db.service || []).map(t => {
+        const c = getCustomer(t.customerId);
+        const invs = (db.invoices || []).filter(i => i.serviceTicketNo === t.ticketNo);
+        if(!invs.length){
+            return `<tr><td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.serialNumber || "")}</td><td>${escapeHtml(t.issueReported || "")}</td><td>${money(t.serviceCharges)}</td><td>${invoiceStatusBadge(t.invoiceStatus)}</td><td></td><td></td><td></td><td></td></tr>`;
+        }
+        return invs.map(i => `<tr><td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.serialNumber || "")}</td><td>${escapeHtml(t.issueReported || "")}</td><td>${money(t.serviceCharges)}</td><td>${invoiceStatusBadge(t.invoiceStatus)}</td><td>${escapeHtml(i.invoiceNo)}</td><td>${escapeHtml(i.invoiceDate)}</td><td>${money(i.totalInclVat)}</td><td>${statusBadge(i.paymentStatus)}</td></tr>`).join("");
+    }).join("");
+    return table(["Ticket No","Ticket Date","Customer","Product / Service","Serial No","Issue","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status"], rows);
+}
+
+function renderUnbilledServiceReport(){
+    syncServiceInvoiceStatus();
+    const rows = (db.service || []).filter(t => t.invoiceStatus !== "Invoiced").map(t => {
+        const c = getCustomer(t.customerId);
+        return `<tr><td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.serialNumber || "")}</td><td>${escapeHtml(t.issueReported || "")}</td><td>${statusBadge(t.serviceStatus)}</td><td>${money(t.serviceCharges)}</td><td>${invoiceStatusBadge(t.invoiceStatus)}</td><td><button class="btn small green" onclick="createInvoiceFromServiceTicket('${t.ticketNo}')">Create Invoice</button></td></tr>`;
+    }).join("");
+    return table(["Ticket No","Ticket Date","Customer","Product / Service","Serial No","Issue","Service Status","Service Charges","Invoice Status","Action"], rows);
+}
+
+const _v19RenderReports = renderReports;
+renderReports = function(){
+    const totalServiceCharges = (db.service || []).reduce((s,x) => s + Number(x.serviceCharges || 0), 0);
+    const serviceRevenue = (db.invoices || []).filter(i => i.serviceTicketNo).reduce((s,x) => s + Number(x.totalInclVat || 0), 0);
+    const unbilledCount = (db.service || []).filter(t => t.invoiceStatus !== "Invoiced").length;
+    _v19RenderReports();
+    document.getElementById("content").insertAdjacentHTML("beforeend", `
+        <hr>
+        <h3>Service Billing Summary</h3>
+        <div class="cards">
+            <div class="card drill" onclick="setModule('service')"><div class="card-title">Total Service Tickets</div><div class="card-value">${(db.service || []).length}</div></div>
+            <div class="card drill" onclick="setModule('service','unbilled')"><div class="card-title">Unbilled Tickets</div><div class="card-value">${unbilledCount}</div></div>
+            <div class="card"><div class="card-title">Service Charges</div><div class="card-value">${money(totalServiceCharges)}</div></div>
+            <div class="card"><div class="card-title">Service Invoice Revenue</div><div class="card-value">${money(serviceRevenue)}</div></div>
+        </div>
+        <h3>Service Billing Report</h3>
+        ${renderServiceBillingReport()}
+        <h3>Unbilled Service Tickets</h3>
+        ${renderUnbilledServiceReport()}
+    `);
+};
+
+const _v19ExportExcel = exportExcel;
+exportExcel = function(){
+    syncServiceInvoiceStatus();
+    _v19ExportExcel();
+};
+
+syncServiceInvoiceStatus();
+saveDB();
 
 
 </script>
