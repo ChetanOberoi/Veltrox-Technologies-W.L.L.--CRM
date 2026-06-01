@@ -476,16 +476,6 @@ let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
     payments:[]
 };
 
-// Backward compatibility for old browser data
-if(!db.settings) db.settings = {};
-if(!db.quotations) db.quotations = [];
-if(!db.payments) db.payments = [];
-if(!db.service) db.service = [];
-if(!db.invoices) db.invoices = [];
-db.service.forEach(t => {
-    if(!t.invoiceStatus) t.invoiceStatus = t.invoiceNo ? "Invoice Raised" : "Pending Invoice";
-});
-
 function saveDB(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
@@ -905,15 +895,10 @@ function renderService(){
             <td>${statusBadge(s.serviceStatus)}</td>
             <td>${money(s.serviceCharges)}</td>
             <td>${statusBadge(s.paymentStatus)}</td>
-            <td>${statusBadge(s.invoiceStatus || (s.invoiceNo ? "Invoice Raised" : "Pending Invoice"))}</td>
-            <td>${escapeHtml(s.invoiceNo || "")}</td>
-            <td>${escapeHtml(s.invoiceDate || "")}</td>
-            <td>${s.invoiceAmount ? money(s.invoiceAmount) : ""}</td>
             <td>${escapeHtml(s.nextServiceReminder)}</td>
             <td>${escapeHtml(s.amcAvailable)}</td>
             <td>${escapeHtml(s.remarks)}</td>
             <td>
-                <button class="btn small green" onclick="createInvoiceFromTicket('${s.ticketNo}')">Tax Invoice</button>
                 <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
                 <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
                 <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
@@ -922,7 +907,7 @@ function renderService(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Next Service Reminder","AMC Available","Remarks","Action"],
+        ["Ticket No","Ticket Date","Customer Name","Company Name","Contact Number","Email ID","Location","Product / Service","Issue Reported","Priority","Assigned Engineer","Start Time","End Time","Solution Provided","Service Status","Service Charges","Payment Status","Next Service Reminder","AMC Available","Remarks","Action"],
         rows
     );
 }
@@ -972,8 +957,7 @@ function renderInvoices(){
         <tr>
             <td>${escapeHtml(i.invoiceNo)}</td>
             <td>${escapeHtml(i.invoiceDate)}</td>
-            <td>${escapeHtml(i.quotationNo || "")}</td>
-            <td>${escapeHtml(i.serviceTicketNo || "")}</td>
+            <td>${escapeHtml(i.quotationNo)}</td>
             <td>${escapeHtml(c.companyName)}</td>
             <td>${escapeHtml(i.itemDetails)}</td>
             <td>${escapeHtml(i.qty)}</td>
@@ -993,7 +977,7 @@ function renderInvoices(){
     }).join("");
 
     document.getElementById("content").innerHTML = table(
-        ["Tax Invoice Number","Invoice Date","Quotation Number","Service Ticket No","Customer","Service / Product Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Payment Status","Remarks","Action"],
+        ["Tax Invoice Number","Invoice Date","Quotation Number","Customer","Service / Product Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Payment Status","Remarks","Action"],
         rows
     );
 }
@@ -1373,7 +1357,6 @@ function invoiceForm(id){
             ${input("invoiceDate","Invoice Date",r.invoiceDate || today(),"date")}
             ${customerSelect(r.customerId)}
             ${input("quotationNo","Quotation Number",r.quotationNo || "")}
-            ${input("serviceTicketNo","Service Ticket No",r.serviceTicketNo || "")}
             ${input("itemDetails","Service / Product Details",r.itemDetails || "")}
             ${input("qty","Qty",r.qty || 1,"number")}
             ${input("rate","Rate",r.rate || 0,"number")}
@@ -1608,7 +1591,6 @@ function saveInvoice(){
         invoiceDate:document.getElementById("invoiceDate").value,
         customerId:cid,
         quotationNo:document.getElementById("quotationNo").value,
-        serviceTicketNo:document.getElementById("serviceTicketNo")?.value || "",
         itemDetails:document.getElementById("itemDetails").value,
         qty:qty,
         rate:rate,
@@ -1619,18 +1601,6 @@ function saveInvoice(){
         paymentStatus:document.getElementById("invoicePaymentStatus").value,
         remarks:document.getElementById("invoiceRemarks").value
     });
-
-    const serviceTicketNo = document.getElementById("serviceTicketNo")?.value || "";
-    if(serviceTicketNo){
-        const ticket = db.service.find(x => x.ticketNo === serviceTicketNo);
-        if(ticket){
-            ticket.invoiceStatus = "Invoice Raised";
-            ticket.invoiceNo = document.getElementById("invoiceNo").value;
-            ticket.invoiceDate = document.getElementById("invoiceDate").value;
-            ticket.invoiceAmount = totalInclVat;
-            ticket.paymentStatus = document.getElementById("invoicePaymentStatus").value;
-        }
-    }
 }
 
 
@@ -1853,61 +1823,6 @@ function printQuotation(quotationNo){
     document.getElementById("viewModal").style.display = "flex";
 }
 
-
-function createInvoiceFromTicket(ticketNo){
-    const ticket = db.service.find(x => x.ticketNo === ticketNo);
-    if(!ticket){
-        alert("Service Ticket not found.");
-        return;
-    }
-
-    if(ticket.invoiceNo){
-        alert("Tax Invoice already created for this ticket: " + ticket.invoiceNo);
-        setModule("invoices");
-        return;
-    }
-
-    if(!db.invoices) db.invoices = [];
-
-    const qty = 1;
-    const rate = Number(ticket.serviceCharges || 0);
-    const vatPercent = Number(db.settings.vatPercent || 10);
-    const amount = qty * rate;
-    const vatAmount = amount * vatPercent / 100;
-    const totalInclVat = amount + vatAmount;
-
-    const newInvoice = {
-        invoiceNo:uid("INV"),
-        invoiceDate:today(),
-        customerId:ticket.customerId,
-        quotationNo:"",
-        serviceTicketNo:ticket.ticketNo,
-        sourceType:"Service Ticket",
-        itemDetails:ticket.productService || "Service Charges",
-        serialNumber:ticket.serialNumber || "",
-        qty:qty,
-        rate:rate,
-        amount:amount,
-        vatPercent:vatPercent,
-        vatAmount:vatAmount,
-        totalInclVat:totalInclVat,
-        paymentStatus: rate > 0 ? "Pending" : "Paid",
-        remarks:"Created from Service Ticket " + ticket.ticketNo + (ticket.issueReported ? " - " + ticket.issueReported : "")
-    };
-
-    db.invoices.push(newInvoice);
-
-    ticket.invoiceStatus = "Invoice Raised";
-    ticket.invoiceNo = newInvoice.invoiceNo;
-    ticket.invoiceDate = newInvoice.invoiceDate;
-    ticket.invoiceAmount = newInvoice.totalInclVat;
-    ticket.paymentStatus = newInvoice.paymentStatus;
-
-    saveDB();
-    alert("Tax Invoice created from Service Ticket: " + newInvoice.invoiceNo);
-    setModule("invoices");
-}
-
 function createInvoiceFromQuotation(quotationNo){
     const q = (db.quotations || []).find(x => x.quotationNo === quotationNo);
     if(!q){
@@ -1962,8 +1877,7 @@ function printInvoice(invoiceNo){
                     <div class="invoice-title">TAX INVOICE</div>
                     <p><b>Invoice No:</b> ${escapeHtml(inv.invoiceNo)}</p>
                     <p><b>Invoice Date:</b> ${escapeHtml(inv.invoiceDate)}</p>
-                    <p><b>Quotation No:</b> ${escapeHtml(inv.quotationNo || "")}</p>
-                    <p><b>Service Ticket No:</b> ${escapeHtml(inv.serviceTicketNo || "")}</p>
+                    <p><b>Quotation No:</b> ${escapeHtml(inv.quotationNo)}</p>
                 </div>
             </div>
 
@@ -3955,6 +3869,133 @@ renderService = function(){
 
 v22SyncTicketInvoiceTracking();
 saveDB();
+
+
+
+/* =========================================================
+   FINAL WORKING PATCH - SERVICE TICKET ACTION TAX INVOICE
+   Added directly for Chetan requirement.
+   This patch runs LAST and overrides Service Ticket display.
+========================================================= */
+function FINAL_getLinkedInvoiceForTicket(ticketNo){
+    return (db.invoices || []).find(inv => inv.serviceTicketNo === ticketNo || inv.ticketNo === ticketNo || (inv.remarks || '').includes(ticketNo)) || null;
+}
+
+function FINAL_createTaxInvoiceFromTicket(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert('Service ticket not found.'); return; }
+
+    currentModule = 'invoices';
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    const active = document.getElementById('nav-invoices');
+    if(active) active.classList.add('active');
+    document.getElementById('pageTitle').innerText = 'Tax Invoices';
+    document.getElementById('addBtn').style.display = 'inline-block';
+    document.getElementById('addBtn').innerText = '+ Add Invoice';
+
+    openForm();
+
+    setTimeout(function(){
+        const c = getCustomer(t.customerId);
+        if(document.getElementById('customerId')) document.getElementById('customerId').value = t.customerId || '';
+        if(document.getElementById('serviceTicketNo')) document.getElementById('serviceTicketNo').value = t.ticketNo || '';
+        if(document.getElementById('quotationNo')) document.getElementById('quotationNo').value = '';
+        if(document.getElementById('itemDetails')) document.getElementById('itemDetails').value = (t.productService || '') + (t.issueReported ? ' - ' + t.issueReported : '');
+        if(document.getElementById('qty')) document.getElementById('qty').value = 1;
+        if(document.getElementById('rate')) document.getElementById('rate').value = Number(t.serviceCharges || 0);
+        if(document.getElementById('invoicePaymentStatus')) document.getElementById('invoicePaymentStatus').value = t.paymentStatus && t.paymentStatus !== 'Not Applicable' ? t.paymentStatus : 'Pending';
+        if(document.getElementById('invoiceRemarks')){
+            document.getElementById('invoiceRemarks').value =
+                'Created from Service Ticket: ' + (t.ticketNo || '') + '\n' +
+                'Customer: ' + (c.companyName || '') + '\n' +
+                'Serial Number: ' + (t.serialNumber || '') + '\n' +
+                'Issue Reported: ' + (t.issueReported || '') + '\n' +
+                'Solution Provided: ' + (t.solutionProvided || '');
+        }
+    }, 100);
+}
+
+const FINAL_originalInvoiceForm = invoiceForm;
+invoiceForm = function(id){
+    FINAL_originalInvoiceForm(id);
+    setTimeout(function(){
+        const formGrid = document.querySelector('#formArea .form-grid');
+        if(formGrid && !document.getElementById('serviceTicketNo')){
+            const box = document.createElement('div');
+            box.innerHTML = '<label>Service Ticket No</label><input id="serviceTicketNo" type="text" readonly>';
+            const quotationInput = document.getElementById('quotationNo');
+            if(quotationInput && quotationInput.parentElement){
+                formGrid.insertBefore(box, quotationInput.parentElement);
+            }else{
+                formGrid.insertBefore(box, formGrid.children[3] || null);
+            }
+        }
+    }, 10);
+};
+
+const FINAL_originalSaveInvoice = saveInvoice;
+saveInvoice = function(){
+    const serviceTicketNo = document.getElementById('serviceTicketNo') ? document.getElementById('serviceTicketNo').value : '';
+    FINAL_originalSaveInvoice();
+    if(serviceTicketNo){
+        const invoiceNo = document.getElementById('invoiceNo') ? document.getElementById('invoiceNo').value : '';
+        const inv = (db.invoices || []).find(i => i.invoiceNo === invoiceNo);
+        if(inv){ inv.serviceTicketNo = serviceTicketNo; }
+        const ticket = (db.service || []).find(t => t.ticketNo === serviceTicketNo);
+        if(ticket && inv){
+            ticket.invoiceStatus = 'Invoice Raised';
+            ticket.invoiceNo = inv.invoiceNo;
+            ticket.invoiceDate = inv.invoiceDate;
+            ticket.invoiceAmount = inv.totalInclVat;
+            ticket.paymentStatus = inv.paymentStatus;
+        }
+        saveDB();
+    }
+};
+
+renderService = function(){
+    document.getElementById('sectionTitle').innerText = 'Service Ticket Details - Tax Invoice Tracking';
+    const data = (db.service || []).filter(matchObject);
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        const linkedInvoice = FINAL_getLinkedInvoiceForTicket(s.ticketNo);
+        const invoiceNo = linkedInvoice ? linkedInvoice.invoiceNo : (s.invoiceNo || '');
+        const invoiceDate = linkedInvoice ? linkedInvoice.invoiceDate : (s.invoiceDate || '');
+        const invoiceAmount = linkedInvoice ? linkedInvoice.totalInclVat : (s.invoiceAmount || 0);
+        const invoiceStatus = linkedInvoice || invoiceNo ? 'Invoice Raised' : (Number(s.serviceCharges || 0) > 0 ? 'Pending Invoice' : 'Not Required');
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.companyName || '')}</td>
+            <td>${escapeHtml(c.contactPerson || '')}</td>
+            <td>${escapeHtml(c.mobile || '')}</td>
+            <td>${escapeHtml(s.location || '')}</td>
+            <td>${escapeHtml(s.productService || '')}</td>
+            <td>${escapeHtml(s.serialNumber || '')}</td>
+            <td>${escapeHtml(s.issueReported || '')}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${statusBadge(invoiceStatus)}</td>
+            <td>${escapeHtml(invoiceNo)}</td>
+            <td>${escapeHtml(invoiceDate)}</td>
+            <td>${money(invoiceAmount)}</td>
+            <td>${statusBadge(s.paymentStatus || (invoiceNo ? 'Pending' : 'Not Applicable'))}</td>
+            <td>
+                <button class="btn small green" onclick="FINAL_createTaxInvoiceFromTicket('${escapeHtml(s.ticketNo)}')">Tax Invoice</button>
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${escapeHtml(s.ticketNo)}','${escapeHtml(s.customerId)}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${escapeHtml(s.ticketNo)}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${escapeHtml(s.ticketNo)}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join('');
+    document.getElementById('content').innerHTML = table(
+        ['Ticket No','Ticket Date','Company','Contact Person','Mobile','Location','Product / Service','Serial No','Issue Reported','Service Status','Service Charges','Invoice Status','Invoice No','Invoice Date','Invoice Amount','Payment Status','Action'],
+        rows
+    );
+};
+
+saveDB();
+if(currentModule === 'service') renderService();
 
 </script>
 
