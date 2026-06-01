@@ -3205,6 +3205,400 @@ syncServiceInvoiceStatus();
 saveDB();
 
 
+
+/* =========================================================
+   V20 PATCH - BILLING TYPE, AMC CUSTOMER TRACKING & SERVICE REPORTS
+   Adds: Chargeable / Free / AMC / Warranty service handling
+========================================================= */
+function normalizeV20ServiceAndAMC(){
+    if(!db.customers) db.customers = [];
+    if(!db.service) db.service = [];
+    if(!db.invoices) db.invoices = [];
+    db.customers.forEach(c => {
+        if(!c.amcCustomer) c.amcCustomer = "No";
+        if(!c.amcStatus) c.amcStatus = c.amcCustomer === "Yes" ? "Active" : "Not Applicable";
+        if(!c.amcStartDate) c.amcStartDate = "";
+        if(!c.amcEndDate) c.amcEndDate = "";
+        if(!c.amcContractValue) c.amcContractValue = "";
+        if(!c.amcVisitFrequency) c.amcVisitFrequency = "";
+    });
+    db.service.forEach(t => {
+        if(!t.billingType){
+            if(t.amcAvailable === "Yes") t.billingType = "AMC Covered";
+            else if(Number(t.serviceCharges || 0) > 0) t.billingType = "Chargeable";
+            else t.billingType = "Free Support";
+        }
+        if(!t.nonChargeableReason) t.nonChargeableReason = "";
+        if(!t.paymentStatus){
+            t.paymentStatus = t.billingType === "Chargeable" ? "Pending" : "Not Applicable";
+        }
+    });
+}
+
+function getBillingTypeOptions(){
+    return ["Chargeable","Free Support","AMC Covered","Warranty Covered","Internal Support","Demo Support"];
+}
+function getServicePaymentStatusOptions(){
+    return ["Not Applicable","Pending","Partially Paid","Paid","Overdue","Bad Debt"];
+}
+function getInvoiceStatusOptions(){
+    return ["Not Required","Pending Invoice","Invoice Raised","Invoice Cancelled"];
+}
+function isChargeableTicket(t){
+    return (t.billingType || "Chargeable") === "Chargeable";
+}
+function getAutoInvoiceStatusForTicket(t){
+    const linkedInvoices = (db.invoices || []).filter(i => i.serviceTicketNo === t.ticketNo);
+    if(linkedInvoices.length) return "Invoice Raised";
+    if(!isChargeableTicket(t)) return "Not Required";
+    if(t.serviceStatus === "Closed" || Number(t.serviceCharges || 0) > 0) return "Pending Invoice";
+    return "Pending Invoice";
+}
+function getTicketInvoiceNo(t){
+    return (db.invoices || []).filter(i => i.serviceTicketNo === t.ticketNo).map(i => i.invoiceNo).join(", ");
+}
+
+customerForm = function(id){
+    const r = (db.customers || []).find(x => x.customerId === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Customer" : "Create Customer";
+    document.getElementById("formArea").innerHTML = `
+        <div class="form-grid">
+            ${input("customerId","Customer ID",r.customerId || uid("CUS"),"text",true)}
+            ${input("companyName","Company Name",r.companyName || "")}
+            ${input("contactPerson","Contact Person",r.contactPerson || "")}
+            ${input("mobile","Mobile Number",r.mobile || "")}
+            ${input("email","Email ID",r.email || "","email")}
+            ${input("crNo","CR Number",r.crNo || "")}
+            ${input("vatNo","VAT Number",r.vatNo || "")}
+            ${input("location","Location",r.location || "")}
+            ${input("documentLink","Document Link",r.documentLink || "")}
+            ${select("amcCustomer","AMC Customer",["No","Yes"],r.amcCustomer || "No")}
+            ${input("amcStartDate","AMC Start Date",r.amcStartDate || "","date")}
+            ${input("amcEndDate","AMC End Date",r.amcEndDate || "","date")}
+            ${input("amcContractValue","AMC Contract Value (BHD)",r.amcContractValue || "","number")}
+            ${select("amcVisitFrequency","AMC Visit Frequency",["","Monthly","Quarterly","Half Yearly","Yearly","As Required"],r.amcVisitFrequency || "")}
+            ${select("amcStatus","AMC Status",["Not Applicable","Active","Expired","Renewal Due","Renewed"],r.amcStatus || "Not Applicable")}
+            ${textarea("address","Address",r.address || "")}
+            ${textarea("customerRemarks","Remarks",r.remarks || "")}
+        </div>`;
+};
+
+saveCustomer = function(){
+    if(!document.getElementById("companyName").value.trim()){
+        alert("Company Name is required.");
+        throw new Error("Company Name missing");
+    }
+    upsert(db.customers,"customerId",{
+        customerId:document.getElementById("customerId").value,
+        companyName:document.getElementById("companyName").value,
+        contactPerson:document.getElementById("contactPerson").value,
+        mobile:document.getElementById("mobile").value,
+        email:document.getElementById("email").value,
+        crNo:document.getElementById("crNo").value,
+        vatNo:document.getElementById("vatNo").value,
+        location:document.getElementById("location").value,
+        documentLink:document.getElementById("documentLink").value,
+        amcCustomer:document.getElementById("amcCustomer")?.value || "No",
+        amcStartDate:document.getElementById("amcStartDate")?.value || "",
+        amcEndDate:document.getElementById("amcEndDate")?.value || "",
+        amcContractValue:document.getElementById("amcContractValue")?.value || "",
+        amcVisitFrequency:document.getElementById("amcVisitFrequency")?.value || "",
+        amcStatus:document.getElementById("amcStatus")?.value || "Not Applicable",
+        address:document.getElementById("address").value,
+        remarks:document.getElementById("customerRemarks").value
+    });
+};
+
+renderCustomers = function(){
+    document.getElementById("sectionTitle").innerText = "Customer Master / AMC Details";
+    const data = (db.customers || []).filter(matchObject);
+    const rows = data.map(c => {
+        const ticketCount = (db.service || []).filter(x => x.customerId === c.customerId).length;
+        const recordCount =
+            (db.leads || []).filter(x => x.customerId === c.customerId).length +
+            (db.quotations || []).filter(x => x.customerId === c.customerId).length +
+            ticketCount +
+            (db.followups || []).filter(x => x.customerId === c.customerId).length +
+            (db.invoices || []).filter(x => x.customerId === c.customerId).length +
+            (db.payments || []).filter(x => x.customerId === c.customerId).length;
+        return `<tr>
+            <td>${escapeHtml(c.customerId)}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(c.contactPerson)}</td>
+            <td>${escapeHtml(c.mobile)}</td>
+            <td>${escapeHtml(c.email)}</td>
+            <td>${escapeHtml(c.location)}</td>
+            <td>${statusBadge(c.amcCustomer || "No")}</td>
+            <td>${escapeHtml(c.amcStartDate || "")}</td>
+            <td>${escapeHtml(c.amcEndDate || "")}</td>
+            <td>${money(c.amcContractValue)}</td>
+            <td>${escapeHtml(c.amcVisitFrequency || "")}</td>
+            <td>${statusBadge(c.amcStatus || "Not Applicable")}</td>
+            <td>${ticketCount}</td>
+            <td>${recordCount}</td>
+            <td>
+                <button class="btn small" onclick="viewCustomer('${c.customerId}')">View</button>
+                <button class="btn small orange" onclick="openForm('${c.customerId}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('customers','${c.customerId}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+    document.getElementById("content").innerHTML = table(
+        ["Customer ID","Company Name","Contact Person","Mobile","Email","Location","AMC Customer","AMC Start","AMC End","AMC Value","Visit Frequency","AMC Status","Tickets","Linked Records","Action"],
+        rows
+    );
+};
+
+serviceForm = function(id){
+    const r = (db.service || []).find(x => x.ticketNo === id) || {};
+    const billingType = r.billingType || (r.amcAvailable === "Yes" ? "AMC Covered" : Number(r.serviceCharges || 0) > 0 ? "Chargeable" : "Free Support");
+    const invoiceStatus = r.invoiceStatus || getAutoInvoiceStatusForTicket({...r,billingType});
+    const paymentStatus = r.paymentStatus || (billingType === "Chargeable" ? "Pending" : "Not Applicable");
+    document.getElementById("formTitle").innerText = id ? "Edit Service Ticket" : "Add Service Ticket";
+    document.getElementById("formArea").innerHTML = `
+        <div class="notice">Use Billing Type to decide whether tax invoice is required. For Free / AMC / Warranty / Internal support, keep Payment Status as Not Applicable.</div>
+        <div class="form-grid">
+            ${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}
+            ${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${input("ticketLocation","Location",r.location || "")}
+            ${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}
+            ${productSelect(r.productName || "")}
+            ${serviceSelect(r.serviceName || "")}
+            ${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}
+            ${textarea("issueReported","Issue Reported",r.issueReported || "")}
+            ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
+            ${input("startTime","Start Time",r.startTime || "","time")}
+            ${input("endTime","End Time",r.endTime || "","time")}
+            ${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}
+            ${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}
+            ${select("billingType","Billing Type",getBillingTypeOptions(),billingType)}
+            ${input("serviceCharges","Service Charges",r.serviceCharges || "0","number")}
+            ${select("invoiceStatus","Invoice Status",getInvoiceStatusOptions(),invoiceStatus)}
+            ${select("paymentStatus","Payment Status",getServicePaymentStatusOptions(),paymentStatus)}
+            ${textarea("nonChargeableReason","Non-Chargeable / AMC Reason",r.nonChargeableReason || "",false)}
+            ${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}
+            ${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || (billingType === "AMC Covered" ? "Yes" : "No"))}
+            ${textarea("ticketRemarks","Remarks",r.remarks || "")}
+        </div>`;
+};
+
+saveService = function(){
+    const cid = document.getElementById("customerId").value;
+    if(!cid){ alert("Please create/select customer first."); throw new Error("Customer missing"); }
+    const productName = document.getElementById("productName")?.value || "";
+    const serviceName = document.getElementById("serviceName")?.value || "";
+    const agent = document.getElementById("assignedAgent")?.value || "";
+    const billingType = document.getElementById("billingType")?.value || "Chargeable";
+    const serviceCharges = document.getElementById("serviceCharges")?.value || "0";
+    let invoiceStatus = document.getElementById("invoiceStatus")?.value || "";
+    let paymentStatus = document.getElementById("paymentStatus")?.value || "";
+    if(billingType !== "Chargeable"){
+        invoiceStatus = "Not Required";
+        paymentStatus = "Not Applicable";
+    }else if(!invoiceStatus || invoiceStatus === "Not Required"){
+        invoiceStatus = "Pending Invoice";
+        if(!paymentStatus || paymentStatus === "Not Applicable") paymentStatus = "Pending";
+    }
+    upsert(db.service,"ticketNo",{
+        ticketNo:document.getElementById("ticketNo").value,
+        ticketDate:document.getElementById("ticketDate").value,
+        customerId:cid,
+        location:document.getElementById("ticketLocation").value,
+        assignedAgent:agent,
+        assignedEngineer:agent,
+        productName:productName,
+        serviceName:serviceName,
+        productService:[productName,serviceName].filter(Boolean).join(" / "),
+        serialNumber:document.getElementById("serialNumber")?.value || "",
+        issueReported:document.getElementById("issueReported").value,
+        priority:document.getElementById("ticketPriority").value,
+        startTime:document.getElementById("startTime").value,
+        endTime:document.getElementById("endTime").value,
+        solutionProvided:document.getElementById("solutionProvided").value,
+        serviceStatus:document.getElementById("serviceStatus").value,
+        billingType:billingType,
+        serviceCharges:serviceCharges,
+        invoiceStatus:invoiceStatus,
+        paymentStatus:paymentStatus,
+        nonChargeableReason:document.getElementById("nonChargeableReason")?.value || "",
+        nextServiceReminder:document.getElementById("nextServiceReminder").value,
+        amcAvailable:document.getElementById("amcAvailable")?.value || (billingType === "AMC Covered" ? "Yes" : "No"),
+        remarks:document.getElementById("ticketRemarks").value
+    });
+    syncServiceInvoiceStatus();
+};
+
+syncServiceInvoiceStatus = function(){
+    normalizeV20ServiceAndAMC();
+    (db.service || []).forEach(t => {
+        const linkedInvoices = (db.invoices || []).filter(i => i.serviceTicketNo === t.ticketNo);
+        if(linkedInvoices.length){
+            t.invoiceStatus = "Invoice Raised";
+            t.invoiceNo = linkedInvoices.map(i => i.invoiceNo).join(", ");
+        }else if(!isChargeableTicket(t)){
+            t.invoiceStatus = "Not Required";
+            t.invoiceNo = "";
+            t.paymentStatus = "Not Applicable";
+        }else{
+            t.invoiceStatus = t.invoiceStatus === "Invoice Cancelled" ? "Invoice Cancelled" : "Pending Invoice";
+            t.invoiceNo = "";
+            if(!t.paymentStatus || t.paymentStatus === "Not Applicable") t.paymentStatus = "Pending";
+        }
+    });
+};
+
+invoiceStatusBadge = function(status){
+    if(status === "Invoice Raised" || status === "Invoiced") return statusBadge("Paid").replace("Paid","Invoice Raised");
+    if(status === "Pending Invoice") return statusBadge("Pending Invoice");
+    if(status === "Not Required") return statusBadge("Done").replace("Done","Not Required");
+    if(status === "Invoice Cancelled") return statusBadge("Lost").replace("Lost","Invoice Cancelled");
+    return statusBadge(status || "Pending Invoice");
+};
+
+createInvoiceFromServiceTicket = function(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert("Service ticket not found."); return; }
+    if(!isChargeableTicket(t)){
+        alert("Invoice is not required for this ticket because Billing Type is " + (t.billingType || "Non-Chargeable") + ".");
+        return;
+    }
+    setModule("invoices");
+    openForm();
+    setTimeout(() => {
+        if(document.getElementById("serviceTicketNo")){
+            document.getElementById("serviceTicketNo").value = t.ticketNo;
+            fillFromServiceTicketForInvoice();
+        }
+    }, 50);
+};
+
+renderService = function(){
+    syncServiceInvoiceStatus();
+    document.getElementById("sectionTitle").innerText = activeFilter ? (activeFilter === "open" ? "Open Tickets" : activeFilter === "pending" ? "Pending Tickets" : activeFilter === "closed" ? "Closed Tickets" : activeFilter === "unbilled" ? "Pending Invoice Tickets" : "Service Ticket Details") : "Service Ticket Details";
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+    if(activeFilter === "unbilled") data = data.filter(x => x.invoiceStatus === "Pending Invoice");
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        const canInvoice = isChargeableTicket(s) && s.invoiceStatus !== "Invoice Raised";
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.companyName || "")}</td>
+            <td>${escapeHtml(c.mobile || "")}</td>
+            <td>${escapeHtml(s.location || "")}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported || "")}</td>
+            <td>${statusBadge(s.priority)}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${statusBadge(s.billingType || "Chargeable")}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${invoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || getTicketInvoiceNo(s) || "")}</td>
+            <td>${statusBadge(s.paymentStatus || "Not Applicable")}</td>
+            <td>${escapeHtml(s.nonChargeableReason || "")}</td>
+            <td>${escapeHtml(s.nextServiceReminder || "")}</td>
+            <td>${escapeHtml(s.amcAvailable || "No")}</td>
+            <td>${escapeHtml(s.remarks || "")}</td>
+            <td>
+                ${canInvoice ? `<button class="btn small green" onclick="createInvoiceFromServiceTicket('${s.ticketNo}')">Create Invoice</button>` : ""}
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Company","Contact","Location","Product / Service","Serial No","Issue","Priority","Assigned Agent","Service Status","Billing Type","Service Charges","Invoice Status","Invoice No","Payment Status","Non-Chargeable Reason","Next Reminder","AMC Available","Remarks","Action"],
+        rows
+    );
+};
+
+renderServiceBillingReport = function(){
+    syncServiceInvoiceStatus();
+    const rows = (db.service || []).map(t => {
+        const c = getCustomer(t.customerId);
+        const invs = (db.invoices || []).filter(i => i.serviceTicketNo === t.ticketNo);
+        const baseCols = `<td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.serialNumber || "")}</td><td>${escapeHtml(t.issueReported || "")}</td><td>${statusBadge(t.billingType || "Chargeable")}</td><td>${money(t.serviceCharges)}</td><td>${invoiceStatusBadge(t.invoiceStatus)}</td><td>${statusBadge(t.paymentStatus || "Not Applicable")}</td><td>${escapeHtml(t.nonChargeableReason || "")}</td>`;
+        if(!invs.length) return `<tr>${baseCols}<td></td><td></td><td></td></tr>`;
+        return invs.map(i => `<tr>${baseCols}<td>${escapeHtml(i.invoiceNo)}</td><td>${escapeHtml(i.invoiceDate)}</td><td>${money(i.totalInclVat)}</td></tr>`).join("");
+    }).join("");
+    return table(["Ticket No","Ticket Date","Customer","Product / Service","Serial No","Issue","Billing Type","Service Charges","Invoice Status","Payment Status","Reason","Invoice No","Invoice Date","Invoice Amount"], rows);
+};
+
+renderUnbilledServiceReport = function(){
+    syncServiceInvoiceStatus();
+    const rows = (db.service || []).filter(t => t.invoiceStatus === "Pending Invoice").map(t => {
+        const c = getCustomer(t.customerId);
+        return `<tr><td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.issueReported || "")}</td><td>${statusBadge(t.serviceStatus)}</td><td>${statusBadge(t.billingType || "Chargeable")}</td><td>${money(t.serviceCharges)}</td><td>${invoiceStatusBadge(t.invoiceStatus)}</td><td><button class="btn small green" onclick="createInvoiceFromServiceTicket('${t.ticketNo}')">Create Invoice</button></td></tr>`;
+    }).join("");
+    return table(["Ticket No","Ticket Date","Customer","Product / Service","Issue","Service Status","Billing Type","Service Charges","Invoice Status","Action"], rows);
+};
+
+function renderAMCReport(){
+    const rows = (db.customers || []).filter(c => c.amcCustomer === "Yes").map(c => {
+        const tickets = (db.service || []).filter(t => t.customerId === c.customerId);
+        const amcTickets = tickets.filter(t => t.billingType === "AMC Covered");
+        return `<tr><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(c.contactPerson || "")}</td><td>${escapeHtml(c.mobile || "")}</td><td>${escapeHtml(c.amcStartDate || "")}</td><td>${escapeHtml(c.amcEndDate || "")}</td><td>${money(c.amcContractValue)}</td><td>${escapeHtml(c.amcVisitFrequency || "")}</td><td>${statusBadge(c.amcStatus || "Active")}</td><td>${tickets.length}</td><td>${amcTickets.length}</td></tr>`;
+    }).join("");
+    return table(["Customer","Contact Person","Mobile","AMC Start","AMC End","Contract Value","Visit Frequency","AMC Status","Total Tickets","AMC Covered Tickets"], rows);
+}
+
+function renderAMCRenewalDueReport(){
+    const todayDate = new Date(today());
+    const rows = (db.customers || []).filter(c => c.amcCustomer === "Yes" && c.amcEndDate).map(c => {
+        const endDate = new Date(c.amcEndDate);
+        const daysLeft = Math.ceil((endDate - todayDate) / 86400000);
+        return {...c, daysLeft};
+    }).filter(c => c.daysLeft <= 30).sort((a,b) => a.daysLeft - b.daysLeft).map(c => `<tr><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(c.mobile || "")}</td><td>${escapeHtml(c.amcEndDate || "")}</td><td>${escapeHtml(c.daysLeft)}</td><td>${money(c.amcContractValue)}</td><td>${statusBadge(c.daysLeft < 0 ? "Expired" : "Renewal Due")}</td></tr>`).join("");
+    return table(["Customer","Mobile","AMC Expiry Date","Days Remaining","Contract Value","Status"], rows);
+}
+
+const _v20RenderReportsBase = renderReports;
+renderReports = function(){
+    syncServiceInvoiceStatus();
+    const pendingInvoiceTickets = (db.service || []).filter(t => t.invoiceStatus === "Pending Invoice").length;
+    const invoiceRaisedTickets = (db.service || []).filter(t => t.invoiceStatus === "Invoice Raised").length;
+    const notRequiredTickets = (db.service || []).filter(t => t.invoiceStatus === "Not Required").length;
+    const amcCustomers = (db.customers || []).filter(c => c.amcCustomer === "Yes").length;
+    const freeTickets = (db.service || []).filter(t => ["Free Support","Warranty Covered","Internal Support","Demo Support"].includes(t.billingType)).length;
+    const amcTickets = (db.service || []).filter(t => t.billingType === "AMC Covered").length;
+    const chargeableTickets = (db.service || []).filter(t => t.billingType === "Chargeable").length;
+    _v20RenderReportsBase();
+    document.getElementById("content").insertAdjacentHTML("beforeend", `
+        <hr>
+        <h3>Service / AMC Billing Control</h3>
+        <div class="cards">
+            <div class="card drill" onclick="setModule('service')"><div class="card-title">Total Service Tickets</div><div class="card-value">${(db.service || []).length}</div></div>
+            <div class="card drill" onclick="setModule('service','unbilled')"><div class="card-title">Pending Invoice Tickets</div><div class="card-value">${pendingInvoiceTickets}</div></div>
+            <div class="card"><div class="card-title">Invoice Raised Tickets</div><div class="card-value">${invoiceRaisedTickets}</div></div>
+            <div class="card"><div class="card-title">Invoice Not Required</div><div class="card-value">${notRequiredTickets}</div></div>
+            <div class="card"><div class="card-title">Chargeable Tickets</div><div class="card-value">${chargeableTickets}</div></div>
+            <div class="card"><div class="card-title">Free / Warranty / Internal</div><div class="card-value">${freeTickets}</div></div>
+            <div class="card"><div class="card-title">AMC Customers</div><div class="card-value">${amcCustomers}</div></div>
+            <div class="card"><div class="card-title">AMC Covered Tickets</div><div class="card-value">${amcTickets}</div></div>
+        </div>
+        <h3>Pending Invoice Service Tickets</h3>
+        ${renderUnbilledServiceReport()}
+        <h3>Service Billing Report</h3>
+        ${renderServiceBillingReport()}
+        <h3>AMC Customer Report</h3>
+        ${renderAMCReport()}
+        <h3>AMC Renewal Due / Expired Report</h3>
+        ${renderAMCRenewalDueReport()}
+    `);
+};
+
+normalizeV20ServiceAndAMC();
+syncServiceInvoiceStatus();
+saveDB();
+
+
 </script>
 
 </body>
