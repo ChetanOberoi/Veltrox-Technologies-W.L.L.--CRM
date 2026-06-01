@@ -3599,6 +3599,181 @@ syncServiceInvoiceStatus();
 saveDB();
 
 
+
+/* =========================================================
+   V22 FINAL PATCH - REAL SERVICE TICKET → TAX INVOICE TRACKING
+   This patch makes the tracking visible and functional:
+   Service Ticket stores Invoice No, Date, Amount and Payment Status.
+========================================================= */
+function v22IsChargeableTicket(t){
+    return (t.billingType || "Chargeable") === "Chargeable";
+}
+function v22LinkedInvoices(ticketNo){
+    return (db.invoices || []).filter(i => i.serviceTicketNo === ticketNo);
+}
+function v22LatestInvoice(ticketNo){
+    const list = v22LinkedInvoices(ticketNo);
+    if(!list.length) return null;
+    return list.slice().sort((a,b) => String(b.invoiceDate || "").localeCompare(String(a.invoiceDate || "")))[0];
+}
+function v22SyncTicketInvoiceTracking(){
+    if(!db.service) db.service = [];
+    if(!db.invoices) db.invoices = [];
+    db.service.forEach(t => {
+        const invoices = v22LinkedInvoices(t.ticketNo);
+        const latest = v22LatestInvoice(t.ticketNo);
+        if(invoices.length && latest){
+            t.invoiceStatus = "Invoice Raised";
+            t.invoiceNo = invoices.map(i => i.invoiceNo).filter(Boolean).join(", ");
+            t.invoiceDate = latest.invoiceDate || "";
+            t.invoiceAmount = invoices.reduce((sum,i) => sum + Number(i.totalInclVat || 0), 0);
+            t.paymentStatus = latest.paymentStatus || t.paymentStatus || "Pending";
+        }else if(!v22IsChargeableTicket(t)){
+            t.invoiceStatus = "Not Required";
+            t.invoiceNo = "";
+            t.invoiceDate = "";
+            t.invoiceAmount = 0;
+            t.paymentStatus = "Not Applicable";
+        }else{
+            t.invoiceStatus = "Pending Invoice";
+            t.invoiceNo = "";
+            t.invoiceDate = "";
+            t.invoiceAmount = 0;
+            if(!t.paymentStatus || t.paymentStatus === "Not Applicable") t.paymentStatus = "Pending";
+        }
+    });
+}
+function v22InvoiceStatusBadge(status){
+    if(status === "Invoice Raised") return `<span class="badge green">Invoice Raised</span>`;
+    if(status === "Pending Invoice") return `<span class="badge red">Pending Invoice</span>`;
+    if(status === "Not Required") return `<span class="badge gray">Not Required</span>`;
+    if(status === "Invoice Cancelled") return `<span class="badge red">Invoice Cancelled</span>`;
+    return statusBadge(status || "Pending Invoice");
+}
+
+const v22OriginalSaveService = saveService;
+saveService = function(){
+    v22OriginalSaveService();
+    v22SyncTicketInvoiceTracking();
+};
+
+const v22OriginalSaveInvoice = saveInvoice;
+saveInvoice = function(){
+    v22OriginalSaveInvoice();
+    v22SyncTicketInvoiceTracking();
+};
+
+createInvoiceFromServiceTicket = function(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert("Service ticket not found."); return; }
+    if(!v22IsChargeableTicket(t)){
+        alert("Invoice is not required for this ticket because Billing Type is " + (t.billingType || "Non-Chargeable") + ".");
+        return;
+    }
+    setModule("invoices");
+    openForm();
+    setTimeout(() => {
+        const ticketField = document.getElementById("serviceTicketNo");
+        if(ticketField){
+            ticketField.value = t.ticketNo;
+            fillFromServiceTicketForInvoice();
+        }
+    }, 50);
+};
+
+renderService = function(){
+    v22SyncTicketInvoiceTracking();
+    document.getElementById("sectionTitle").innerText = activeFilter === "unbilled" ? "Pending Invoice Service Tickets" : "Service Ticket Tracking";
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+    if(activeFilter === "unbilled") data = data.filter(x => x.invoiceStatus === "Pending Invoice");
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        const canInvoice = v22IsChargeableTicket(s) && s.invoiceStatus !== "Invoice Raised";
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.companyName || "")}</td>
+            <td>${escapeHtml(c.mobile || "")}</td>
+            <td>${escapeHtml(s.location || "")}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported || "")}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${statusBadge(s.billingType || "Chargeable")}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${v22InvoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || "")}</td>
+            <td>${escapeHtml(s.invoiceDate || "")}</td>
+            <td>${money(s.invoiceAmount || 0)}</td>
+            <td>${statusBadge(s.paymentStatus || "Not Applicable")}</td>
+            <td>${escapeHtml(s.nonChargeableReason || "")}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.amcAvailable || "No")}</td>
+            <td>
+                ${canInvoice ? `<button class="btn small green" onclick="createInvoiceFromServiceTicket('${s.ticketNo}')">Create Invoice</button>` : ""}
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer","Contact","Location","Product / Service","Serial No","Issue","Service Status","Billing Type","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status","Non-Chargeable Reason","Assigned Agent","AMC","Action"],
+        rows
+    );
+};
+
+function v22PendingInvoiceReport(){
+    v22SyncTicketInvoiceTracking();
+    const rows = (db.service || []).filter(t => t.invoiceStatus === "Pending Invoice").map(t => {
+        const c = getCustomer(t.customerId);
+        return `<tr><td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.issueReported || "")}</td><td>${money(t.serviceCharges)}</td><td>${v22InvoiceStatusBadge(t.invoiceStatus)}</td><td><button class="btn small green" onclick="createInvoiceFromServiceTicket('${t.ticketNo}')">Create Invoice</button></td></tr>`;
+    }).join("");
+    return table(["Ticket No","Date","Customer","Product / Service","Issue","Service Charges","Invoice Status","Action"], rows);
+}
+function v22ServiceBillingReport(){
+    v22SyncTicketInvoiceTracking();
+    const rows = (db.service || []).map(t => {
+        const c = getCustomer(t.customerId);
+        return `<tr><td>${escapeHtml(t.ticketNo)}</td><td>${escapeHtml(t.ticketDate)}</td><td>${escapeHtml(c.companyName || "")}</td><td>${escapeHtml(getProductServiceText(t))}</td><td>${escapeHtml(t.serialNumber || "")}</td><td>${statusBadge(t.billingType || "Chargeable")}</td><td>${money(t.serviceCharges)}</td><td>${v22InvoiceStatusBadge(t.invoiceStatus)}</td><td>${escapeHtml(t.invoiceNo || "")}</td><td>${escapeHtml(t.invoiceDate || "")}</td><td>${money(t.invoiceAmount || 0)}</td><td>${statusBadge(t.paymentStatus || "Not Applicable")}</td></tr>`;
+    }).join("");
+    return table(["Ticket No","Ticket Date","Customer","Product / Service","Serial No","Billing Type","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status"], rows);
+}
+
+const v22OriginalRenderReports = renderReports;
+renderReports = function(){
+    v22SyncTicketInvoiceTracking();
+    const pendingInvoiceTickets = (db.service || []).filter(t => t.invoiceStatus === "Pending Invoice").length;
+    const invoiceRaisedTickets = (db.service || []).filter(t => t.invoiceStatus === "Invoice Raised").length;
+    const notRequiredTickets = (db.service || []).filter(t => t.invoiceStatus === "Not Required").length;
+    const amcCustomers = (db.customers || []).filter(c => c.amcCustomer === "Yes").length;
+    const serviceRevenue = (db.service || []).reduce((sum,t) => sum + Number(t.invoiceAmount || 0), 0);
+    v22OriginalRenderReports();
+    document.getElementById("content").insertAdjacentHTML("afterbegin", `
+        <div class="notice"><b>Service Ticket Tracking Active:</b> Service Ticket → Tax Invoice → Payment Status is now tracked in Service Tickets and Reports.</div>
+        <div class="cards">
+            <div class="card drill" onclick="setModule('service')"><div class="card-title">Total Service Tickets</div><div class="card-value">${(db.service || []).length}</div></div>
+            <div class="card drill" onclick="setModule('service','unbilled')"><div class="card-title">Pending Invoice Tickets</div><div class="card-value">${pendingInvoiceTickets}</div></div>
+            <div class="card"><div class="card-title">Invoice Raised Tickets</div><div class="card-value">${invoiceRaisedTickets}</div></div>
+            <div class="card"><div class="card-title">Invoice Not Required</div><div class="card-value">${notRequiredTickets}</div></div>
+            <div class="card"><div class="card-title">AMC Customers</div><div class="card-value">${amcCustomers}</div></div>
+            <div class="card"><div class="card-title">Service Revenue</div><div class="card-value">${money(serviceRevenue)}</div></div>
+        </div>
+        <h3>Pending Invoice Tickets</h3>
+        ${v22PendingInvoiceReport()}
+        <h3>Service Ticket → Invoice Tracking Report</h3>
+        ${v22ServiceBillingReport()}
+        <hr>
+    `);
+};
+
+v22SyncTicketInvoiceTracking();
+saveDB();
+
 </script>
 
 </body>
