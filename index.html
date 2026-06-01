@@ -3774,6 +3774,102 @@ renderReports = function(){
 v22SyncTicketInvoiceTracking();
 saveDB();
 
+
+/* =========================================================
+   V23 PATCH - TAX INVOICE BUTTON INSIDE SERVICE TICKET ACTION
+   Purpose: Always show Tax Invoice option in Service Ticket action column.
+   If invoice already exists, button will print/view the linked invoice.
+   If not, button will create a tax invoice from the selected service ticket.
+========================================================= */
+function v23GetFirstLinkedInvoice(ticketNo){
+    return (db.invoices || []).find(i => i.serviceTicketNo === ticketNo) || null;
+}
+
+createInvoiceFromServiceTicket = function(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert("Service ticket not found."); return; }
+
+    setModule("invoices");
+    openForm();
+
+    setTimeout(() => {
+        const ticketField = document.getElementById("serviceTicketNo");
+        if(ticketField){
+            ticketField.value = t.ticketNo;
+            fillFromServiceTicketForInvoice();
+        }
+
+        if(document.getElementById("customerId")) document.getElementById("customerId").value = t.customerId || "";
+        if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = t.serialNumber || "";
+        if(document.getElementById("rate")) document.getElementById("rate").value = Number(t.serviceCharges || 0);
+        if(document.getElementById("qty")) document.getElementById("qty").value = 1;
+        if(document.getElementById("invoiceRemarks")){
+            document.getElementById("invoiceRemarks").value =
+                "Invoice created from Service Ticket: " + t.ticketNo + "\n" +
+                "Issue Reported: " + (t.issueReported || "") + "\n" +
+                "Solution Provided: " + (t.solutionProvided || "");
+        }
+    }, 80);
+};
+
+function v23ServiceInvoiceActionButton(s){
+    const linkedInvoice = v23GetFirstLinkedInvoice(s.ticketNo);
+    if(linkedInvoice){
+        return `<button class="btn small green" onclick="printInvoice('${linkedInvoice.invoiceNo}')">View Invoice</button>`;
+    }
+    return `<button class="btn small green" onclick="createInvoiceFromServiceTicket('${s.ticketNo}')">Tax Invoice</button>`;
+}
+
+renderService = function(){
+    v22SyncTicketInvoiceTracking();
+    document.getElementById("sectionTitle").innerText = activeFilter === "unbilled" ? "Pending Invoice Service Tickets" : "Service Ticket Tracking";
+
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+    if(activeFilter === "unbilled") data = data.filter(x => x.invoiceStatus === "Pending Invoice");
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.companyName || "")}</td>
+            <td>${escapeHtml(c.mobile || "")}</td>
+            <td>${escapeHtml(s.location || "")}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported || "")}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${statusBadge(s.billingType || "Chargeable")}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${v22InvoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || "")}</td>
+            <td>${escapeHtml(s.invoiceDate || "")}</td>
+            <td>${money(s.invoiceAmount || 0)}</td>
+            <td>${statusBadge(s.paymentStatus || "Not Applicable")}</td>
+            <td>${escapeHtml(s.nonChargeableReason || "")}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.amcAvailable || "No")}</td>
+            <td>
+                ${v23ServiceInvoiceActionButton(s)}
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer","Contact","Location","Product / Service","Serial No","Issue","Service Status","Billing Type","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status","Non-Chargeable Reason","Assigned Agent","AMC","Action"],
+        rows
+    );
+};
+
+v22SyncTicketInvoiceTracking();
+saveDB();
+
 </script>
 
 </body>
