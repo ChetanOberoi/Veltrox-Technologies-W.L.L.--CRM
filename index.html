@@ -1317,7 +1317,7 @@ ${productServiceOptions(r.productService || "")}
             ${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}
             ${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}
             ${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}
-            ${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}
+            ${select("paymentStatus","Payment Status",["No Charges","Pending","Partial","Paid"],r.paymentStatus || "Pending")}
             ${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}
             ${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}
             ${textarea("ticketRemarks","Remarks",r.remarks || "")}
@@ -2228,7 +2228,7 @@ quotationForm = function(id){
 serviceForm = function(id){
     const r = db.service.find(x => x.ticketNo === id) || {};
     document.getElementById("formTitle").innerText = id ? "Edit Service Ticket" : "Add Service Ticket";
-    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}${customerSelect(r.customerId)}${input("ticketLocation","Location",r.location || "")}${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || (r.productService || ""))}${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}${textarea("issueReported","Issue Reported",r.issueReported || "")}${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}${input("startTime","Start Time",r.startTime || "","time")}${input("endTime","End Time",r.endTime || "","time")}${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}${textarea("ticketRemarks","Remarks",r.remarks || "")}</div>`;
+    document.getElementById("formArea").innerHTML = `<div class="form-grid">${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}${customerSelect(r.customerId)}${input("ticketLocation","Location",r.location || "")}${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}${productSelect(r.productName || "")}${serviceSelect(r.serviceName || (r.productService || ""))}${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}${textarea("issueReported","Issue Reported",r.issueReported || "")}${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}${input("startTime","Start Time",r.startTime || "","time")}${input("endTime","End Time",r.endTime || "","time")}${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}${select("paymentStatus","Payment Status",["No Charges","Pending","Partial","Paid"],r.paymentStatus || "Pending")}${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}${textarea("ticketRemarks","Remarks",r.remarks || "")}</div>`;
 }
 followupForm = function(id){
     const r = db.followups.find(x => x.followupId === id) || {};
@@ -2794,7 +2794,7 @@ serviceForm = function(id){
             ${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}
             ${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}
             ${input("serviceCharges","Service Charges",r.serviceCharges || "","number")}
-            ${select("paymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}
+            ${select("paymentStatus","Payment Status",["No Charges","Pending","Partial","Paid"],r.paymentStatus || "Pending")}
             ${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}
             ${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || "No")}
             ${textarea("ticketRemarks","Remarks",r.remarks || "")}
@@ -3239,7 +3239,7 @@ function getBillingTypeOptions(){
     return ["Chargeable","Free Support","AMC Covered","Warranty Covered","Internal Support","Demo Support"];
 }
 function getServicePaymentStatusOptions(){
-    return ["Not Applicable","Pending","Partially Paid","Paid","Overdue","Bad Debt"];
+    return ["Not Applicable","No Charges","Pending","Partially Paid","Paid","Overdue","Bad Debt"];
 }
 function getInvoiceStatusOptions(){
     return ["Not Required","Pending Invoice","Invoice Raised","Invoice Cancelled"];
@@ -3868,6 +3868,267 @@ renderService = function(){
 };
 
 v22SyncTicketInvoiceTracking();
+saveDB();
+
+
+/* =========================================================
+   V24 PATCH - SERVICE TICKET TRACKING IN TAX INVOICE (mirrors Quotation tracking)
+   1. Tax Invoice table: Service Ticket No becomes a clickable "View Ticket" button
+      (same way Quotation No links back to quotations)
+   2. Quotations table: adds Invoice Status + Invoice No columns
+      (same way Service Ticket table shows Invoice Status + Invoice No)
+   3. Tax Invoice print: Service Ticket No shown prominently alongside Quotation No
+========================================================= */
+
+/* ---- Part 1: Upgrade renderInvoices to make Service Ticket No clickable ---- */
+renderInvoices = function(){
+    document.getElementById("sectionTitle").innerText = "Tax Invoice Details";
+    const data = (db.invoices || []).filter(matchObject);
+    const rows = data.map(i => {
+        const c = getCustomer(i.customerId);
+
+        // Service Ticket No: show as clickable button if linked, else plain text
+        const ticketNo = i.serviceTicketNo || "";
+        const ticketCell = ticketNo
+            ? `<button class="btn small purple" onclick="v24ViewLinkedTicket('${escapeHtml(ticketNo)}')" title="Go to Service Ticket">${escapeHtml(ticketNo)}</button>`
+            : `<span style="color:#9ca3af;font-size:12px;">—</span>`;
+
+        // Quotation No: show as clickable button if linked, else plain text
+        const quotationNo = i.quotationNo || "";
+        const quotationCell = quotationNo
+            ? `<button class="btn small" onclick="v24ViewLinkedQuotation('${escapeHtml(quotationNo)}')" title="Go to Quotation" style="background:#0891b2;">${escapeHtml(quotationNo)}</button>`
+            : `<span style="color:#9ca3af;font-size:12px;">—</span>`;
+
+        return `<tr>
+            <td>${escapeHtml(i.invoiceNo)}</td>
+            <td>${escapeHtml(i.invoiceDate)}</td>
+            <td>${ticketCell}</td>
+            <td>${quotationCell}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(getProductServiceText(i))}</td>
+            <td>${escapeHtml(i.serialNumber || "")}</td>
+            <td>${escapeHtml(i.qty)}</td>
+            <td>${money(i.rate)}</td>
+            <td>${money(i.amount)}</td>
+            <td>${escapeHtml(i.vatPercent)}%</td>
+            <td>${money(i.vatAmount)}</td>
+            <td><b>${money(i.totalInclVat)}</b></td>
+            <td>${escapeHtml(i.assignedAgent || "")}</td>
+            <td>${statusBadge(i.paymentStatus)}</td>
+            <td>${escapeHtml(i.remarks)}</td>
+            <td>
+                <button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button>
+                <button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('invoices','${i.invoiceNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Tax Invoice Number","Invoice Date","Service Ticket No","Quotation Number","Customer","Service / Product Details","Serial Number","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Salesman / Agent","Payment Status","Remarks","Action"],
+        rows
+    );
+};
+
+// Navigate to the linked service ticket and highlight it
+function v24ViewLinkedTicket(ticketNo){
+    setModule("service");
+    setTimeout(() => {
+        const searchBox = document.getElementById("searchBox");
+        if(searchBox){ searchBox.value = ticketNo; }
+        render();
+    }, 60);
+}
+
+// Navigate to the linked quotation and highlight it
+function v24ViewLinkedQuotation(quotationNo){
+    setModule("quotations");
+    setTimeout(() => {
+        const searchBox = document.getElementById("searchBox");
+        if(searchBox){ searchBox.value = quotationNo; }
+        render();
+    }, 60);
+}
+
+/* ---- Part 2: Upgrade renderQuotations to show Invoice Status + Invoice No (mirrors service ticket table) ---- */
+renderQuotations = function(){
+    document.getElementById("sectionTitle").innerText = "Quotation Details";
+    const data = (db.quotations || []).filter(matchObject);
+    const rows = data.map(q => {
+        const c = getCustomer(q.customerId);
+
+        // Find linked invoice for this quotation
+        const linkedInv = (db.invoices || []).find(i => i.quotationNo === q.quotationNo);
+        let invoiceStatusBadgeHtml, invoiceNoCell;
+        if(linkedInv){
+            invoiceStatusBadgeHtml = `<span class="badge green">Invoice Raised</span>`;
+            invoiceNoCell = `<button class="btn small green" onclick="printInvoice('${escapeHtml(linkedInv.invoiceNo)}')" title="View Invoice">${escapeHtml(linkedInv.invoiceNo)}</button>`;
+        } else {
+            invoiceStatusBadgeHtml = `<span class="badge yellow">Pending Invoice</span>`;
+            invoiceNoCell = `<span style="color:#9ca3af;font-size:12px;">—</span>`;
+        }
+
+        return `
+        <tr>
+            <td>${escapeHtml(q.quotationNo)}</td>
+            <td>${escapeHtml(q.quotationDate)}</td>
+            <td>${escapeHtml(q.leadId || "")}</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td>${escapeHtml(q.itemDetails)}</td>
+            <td>${escapeHtml(q.qty)}</td>
+            <td>${money(q.rate)}</td>
+            <td>${money(q.amount)}</td>
+            <td>${escapeHtml(q.vatPercent)}%</td>
+            <td>${money(q.vatAmount)}</td>
+            <td><b>${money(q.totalInclVat)}</b></td>
+            <td>${statusBadge(q.quotationStatus)}</td>
+            <td>${invoiceStatusBadgeHtml}</td>
+            <td>${invoiceNoCell}</td>
+            <td>${escapeHtml(q.validTill)}</td>
+            <td>${escapeHtml(q.remarks)}</td>
+            <td>
+                <button class="btn small green" onclick="printQuotation('${q.quotationNo}')">Print</button>
+                <button class="btn small purple" onclick="createInvoiceFromQuotation('${q.quotationNo}')">Create Invoice</button>
+                <button class="btn small orange" onclick="openForm('${q.quotationNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('quotations','${q.quotationNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Quotation No","Quotation Date","Lead ID","Customer","Product / Service Details","Qty","Rate","Amount","VAT %","VAT Amount","Total Including VAT","Status","Invoice Status","Invoice No","Valid Till","Remarks","Action"],
+        rows
+    );
+};
+
+/* ---- Part 3: Sync quotation status when invoice is saved/deleted ---- */
+const _v24SaveInvoice = saveInvoice;
+saveInvoice = function(){
+    _v24SaveInvoice();
+    // Sync quotation status when invoice linked to a quotation is saved
+    (db.invoices || []).forEach(i => {
+        if(i.quotationNo){
+            const q = (db.quotations || []).find(x => x.quotationNo === i.quotationNo);
+            if(q && q.quotationStatus !== "Converted to Invoice"){
+                q.quotationStatus = "Converted to Invoice";
+            }
+        }
+    });
+    saveDB();
+};
+
+const _v24DeleteRecord = deleteRecord;
+deleteRecord = function(module, id){
+    _v24DeleteRecord(module, id);
+    // Re-check quotation statuses after invoice deletion
+    if(module === "invoices"){
+        (db.quotations || []).forEach(q => {
+            const hasInvoice = (db.invoices || []).some(i => i.quotationNo === q.quotationNo);
+            if(!hasInvoice && q.quotationStatus === "Converted to Invoice"){
+                q.quotationStatus = "Sent";
+            }
+        });
+        saveDB();
+    }
+};
+
+saveDB();
+
+
+/* =========================================================
+   V25 PATCH - ALLOW TAX INVOICE FROM ANY SERVICE TICKET
+   Purpose: Remove the billing type restriction on creating a Tax Invoice
+   from a service ticket. Even free/AMC/warranty tickets can now have
+   a Tax Invoice created (e.g. zero-charge record keeping), exactly
+   like how every Quotation has a "Create Invoice" button regardless of value.
+========================================================= */
+
+// Override createInvoiceFromServiceTicket to remove the non-chargeable block
+createInvoiceFromServiceTicket = function(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert("Service ticket not found."); return; }
+
+    // No billing type restriction — open invoice form for ALL tickets
+    setModule("invoices");
+    openForm();
+
+    setTimeout(() => {
+        const ticketField = document.getElementById("serviceTicketNo");
+        if(ticketField){
+            ticketField.value = t.ticketNo;
+            fillFromServiceTicketForInvoice();
+        }
+        if(document.getElementById("customerId")) document.getElementById("customerId").value = t.customerId || "";
+        if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = t.serialNumber || "";
+        if(document.getElementById("rate")) document.getElementById("rate").value = Number(t.serviceCharges || 0);
+        if(document.getElementById("qty")) document.getElementById("qty").value = 1;
+        if(document.getElementById("invoiceRemarks")){
+            document.getElementById("invoiceRemarks").value =
+                "Invoice created from Service Ticket: " + t.ticketNo + "\n" +
+                "Billing Type: " + (t.billingType || "Chargeable") + "\n" +
+                "Issue Reported: " + (t.issueReported || "") + "\n" +
+                "Solution Provided: " + (t.solutionProvided || "");
+        }
+    }, 80);
+};
+
+// Also update the renderService action button so it always shows
+// "Tax Invoice" (or "View Invoice" if already created) — no billing type check
+function v25ServiceActionButton(s){
+    const linkedInvoice = (db.invoices || []).find(i => i.serviceTicketNo === s.ticketNo);
+    if(linkedInvoice){
+        return `<button class="btn small green" onclick="printInvoice('${linkedInvoice.invoiceNo}')">View Invoice</button>`;
+    }
+    return `<button class="btn small green" onclick="createInvoiceFromServiceTicket('${s.ticketNo}')">Tax Invoice</button>`;
+}
+
+renderService = function(){
+    v22SyncTicketInvoiceTracking();
+    document.getElementById("sectionTitle").innerText = activeFilter === "unbilled" ? "Pending Invoice Service Tickets" : "Service Ticket Tracking";
+
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open") data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed") data = data.filter(x => x.serviceStatus === "Closed");
+    if(activeFilter === "unbilled") data = data.filter(x => x.invoiceStatus === "Pending Invoice");
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.companyName || "")}</td>
+            <td>${escapeHtml(c.mobile || "")}</td>
+            <td>${escapeHtml(s.location || "")}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported || "")}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${statusBadge(s.billingType || "Chargeable")}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${v22InvoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || "")}</td>
+            <td>${escapeHtml(s.invoiceDate || "")}</td>
+            <td>${money(s.invoiceAmount || 0)}</td>
+            <td>${statusBadge(s.paymentStatus || "Not Applicable")}</td>
+            <td>${escapeHtml(s.nonChargeableReason || "")}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.amcAvailable || "No")}</td>
+            <td>
+                ${v25ServiceActionButton(s)}
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer","Contact","Location","Product / Service","Serial No","Issue","Service Status","Billing Type","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status","Non-Chargeable Reason","Assigned Agent","AMC","Action"],
+        rows
+    );
+};
+
 saveDB();
 
 </script>
