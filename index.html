@@ -4135,3 +4135,148 @@ saveDB();
 
 </body>
 </html>
+
+<!-- V26 PATCH injected below closing script - fixes billing type forcing payment status -->
+<script>
+/* =========================================================
+   V26 PATCH - FIX SERVICE TICKET WORKFLOW
+   Problem: saveService was forcing "Not Required" / "Not Applicable"
+   on any non-Chargeable ticket, overriding user's own selection.
+   Also v22SyncTicketInvoiceTracking was resetting paymentStatus
+   to "Not Applicable" for non-chargeable tickets even if user
+   selected "No Charges".
+
+   Fix:
+   1. saveService now respects whatever the user selects for
+      Invoice Status and Payment Status regardless of Billing Type.
+   2. v22SyncTicketInvoiceTracking no longer overwrites paymentStatus
+      on non-chargeable tickets that already have a value set.
+   3. Tax Invoice button always shows on every ticket (any billing type).
+
+   Workflow for your two scenarios:
+   - Ticket 1 (want to charge): Edit → Billing Type = Chargeable
+     → Save → Tax Invoice button appears → click to create invoice.
+   - Ticket 2 (no charge): Edit → Billing Type = Free Support
+     → Payment Status = No Charges → Save. No invoice needed.
+========================================================= */
+
+// Fix saveService - respect user's Invoice Status & Payment Status selection
+const _v26SaveService = saveService;
+saveService = function(){
+    const cid = document.getElementById("customerId")?.value;
+    if(!cid){ alert("Please create/select customer first."); throw new Error("Customer missing"); }
+    const productName = document.getElementById("productName")?.value || "";
+    const serviceName = document.getElementById("serviceName")?.value || "";
+    const agent = document.getElementById("assignedAgent")?.value || "";
+    const billingType = document.getElementById("billingType")?.value || "Chargeable";
+    const serviceCharges = document.getElementById("serviceCharges")?.value || "0";
+
+    // Respect whatever the user selected — no forced overrides
+    const invoiceStatus = document.getElementById("invoiceStatus")?.value || (billingType === "Chargeable" ? "Pending Invoice" : "Not Required");
+    const paymentStatus = document.getElementById("paymentStatus")?.value || (billingType === "Chargeable" ? "Pending" : "No Charges");
+
+    upsert(db.service,"ticketNo",{
+        ticketNo: document.getElementById("ticketNo").value,
+        ticketDate: document.getElementById("ticketDate").value,
+        customerId: cid,
+        location: document.getElementById("ticketLocation").value,
+        assignedAgent: agent,
+        assignedEngineer: agent,
+        productName: productName,
+        serviceName: serviceName,
+        productService: [productName,serviceName].filter(Boolean).join(" / "),
+        serialNumber: document.getElementById("serialNumber")?.value || "",
+        issueReported: document.getElementById("issueReported").value,
+        priority: document.getElementById("ticketPriority").value,
+        startTime: document.getElementById("startTime").value,
+        endTime: document.getElementById("endTime").value,
+        solutionProvided: document.getElementById("solutionProvided").value,
+        serviceStatus: document.getElementById("serviceStatus").value,
+        billingType: billingType,
+        serviceCharges: serviceCharges,
+        invoiceStatus: invoiceStatus,
+        paymentStatus: paymentStatus,
+        nonChargeableReason: document.getElementById("nonChargeableReason")?.value || "",
+        nextServiceReminder: document.getElementById("nextServiceReminder")?.value || "",
+        amcAvailable: document.getElementById("amcAvailable")?.value || "No",
+        remarks: document.getElementById("ticketRemarks")?.value || ""
+    });
+    v22SyncTicketInvoiceTracking();
+    saveDB();
+    closeForm();
+    render();
+};
+
+// Fix v22SyncTicketInvoiceTracking - don't wipe paymentStatus if user already set it
+const _v26OriginalSync = v22SyncTicketInvoiceTracking;
+v22SyncTicketInvoiceTracking = function(){
+    if(!db.service) db.service = [];
+    if(!db.invoices) db.invoices = [];
+    db.service.forEach(t => {
+        const invoices = (db.invoices || []).filter(i => i.serviceTicketNo === t.ticketNo);
+        const latest = invoices.slice().sort((a,b) => String(b.invoiceDate||"").localeCompare(String(a.invoiceDate||"")))[0];
+        if(invoices.length && latest){
+            // Invoice exists — always update invoice tracking fields
+            t.invoiceStatus = "Invoice Raised";
+            t.invoiceNo = invoices.map(i => i.invoiceNo).filter(Boolean).join(", ");
+            t.invoiceDate = latest.invoiceDate || "";
+            t.invoiceAmount = invoices.reduce((sum,i) => sum + Number(i.totalInclVat || 0), 0);
+            t.paymentStatus = latest.paymentStatus || t.paymentStatus || "Pending";
+        } else {
+            // No invoice — respect existing invoiceStatus & paymentStatus set by user
+            if(!t.invoiceStatus || t.invoiceStatus === "Invoice Raised"){
+                // Only auto-set if not already manually chosen
+                t.invoiceStatus = (t.billingType && t.billingType !== "Chargeable") ? "Not Required" : "Pending Invoice";
+            }
+            t.invoiceNo = "";
+            t.invoiceDate = "";
+            t.invoiceAmount = 0;
+            // Don't overwrite paymentStatus if user already selected something meaningful
+            if(!t.paymentStatus){
+                t.paymentStatus = (t.billingType && t.billingType !== "Chargeable") ? "No Charges" : "Pending";
+            }
+        }
+    });
+};
+
+// Also update the notice text in serviceForm to reflect the new workflow
+serviceForm = function(id){
+    const r = (db.service || []).find(x => x.ticketNo === id) || {};
+    const billingType = r.billingType || (r.amcAvailable === "Yes" ? "AMC Covered" : Number(r.serviceCharges || 0) > 0 ? "Chargeable" : "Free Support");
+    const invoiceStatus = r.invoiceStatus || (billingType === "Chargeable" ? "Pending Invoice" : "Not Required");
+    const paymentStatus = r.paymentStatus || (billingType === "Chargeable" ? "Pending" : "No Charges");
+    document.getElementById("formTitle").innerText = id ? "Edit Service Ticket" : "Add Service Ticket";
+    document.getElementById("formArea").innerHTML = `
+        <div class="notice">
+            <b>Ticket 1 (Want to charge):</b> Set Billing Type = <b>Chargeable</b> → Save → click <b>Tax Invoice</b> button.<br>
+            <b>Ticket 2 (No charge):</b> Set Billing Type = <b>Free Support</b> → Payment Status = <b>No Charges</b> → Save.
+        </div>
+        <div class="form-grid">
+            ${input("ticketNo","Ticket No",r.ticketNo || uid("TKT"),"text",true)}
+            ${input("ticketDate","Ticket Date",r.ticketDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${input("ticketLocation","Location",r.location || "")}
+            ${agentSelect("assignedAgent","Assigned Field Agent / Engineer",r.assignedAgent || r.assignedEngineer || "")}
+            ${productSelect(r.productName || "")}
+            ${serviceSelect(r.serviceName || "")}
+            ${input("serialNumber","Serial Number / Asset Number",r.serialNumber || "")}
+            ${textarea("issueReported","Issue Reported",r.issueReported || "")}
+            ${select("ticketPriority","Priority",["High","Medium","Low"],r.priority || "Medium")}
+            ${input("startTime","Start Time",r.startTime || "","time")}
+            ${input("endTime","End Time",r.endTime || "","time")}
+            ${textarea("solutionProvided","Solution Provided",r.solutionProvided || "")}
+            ${select("serviceStatus","Service Status",["Open","In Progress","Pending","Closed"],r.serviceStatus || "Open")}
+            ${select("billingType","Billing Type",getBillingTypeOptions(),billingType)}
+            ${input("serviceCharges","Service Charges",r.serviceCharges || "0","number")}
+            ${select("invoiceStatus","Invoice Status",getInvoiceStatusOptions(),invoiceStatus)}
+            ${select("paymentStatus","Payment Status",["No Charges","Not Applicable","Pending","Partially Paid","Paid","Overdue","Bad Debt"],paymentStatus)}
+            ${textarea("nonChargeableReason","Non-Chargeable / AMC Reason",r.nonChargeableReason || "")}
+            ${input("nextServiceReminder","Next Service Reminder",r.nextServiceReminder || "","date")}
+            ${select("amcAvailable","AMC Available",["Yes","No"],r.amcAvailable || (billingType === "AMC Covered" ? "Yes" : "No"))}
+            ${textarea("ticketRemarks","Remarks",r.remarks || "")}
+        </div>`;
+};
+
+v22SyncTicketInvoiceTracking();
+saveDB();
+</script>
