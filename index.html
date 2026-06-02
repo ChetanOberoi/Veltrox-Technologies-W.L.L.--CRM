@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="googlebot" content="noindex, nofollow" />
 <title>Veltrox CRM V2 - Zoho + Odoo Hybrid</title>
 <style>
 :root{
@@ -82,10 +84,66 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 <div id="printArea"></div>
 
 <script>
-const STORAGE_KEY='VELTROX_CRM_V2_HYBRID';
+const STORAGE_KEY='VELTROX_FULL_CRM_V2';
 let currentModule='dashboard';let editId=null;let customerTab='overview';
 const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TSS Renewal','Tally on Cloud','AWS Cloud'],services:['Customization','Training','Support Visit','VAT Filing','AMC','Mobile App Development','Website Development'],team:['Chetan','Support Team','Engineer 1']};
-let db=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')||structuredClone(defaultDB);
+
+function normalizeDB(raw){
+  const base=structuredClone(defaultDB);
+  if(!raw || typeof raw!=='object') return base;
+  base.settings={...base.settings,...(raw.settings||{})};
+  base.settings.company=raw.settings?.company || raw.settings?.supplierName || base.settings.company;
+  base.settings.address=raw.settings?.address || raw.settings?.supplierAddress || base.settings.address;
+  base.settings.vatNo=raw.settings?.vatNo || raw.settings?.supplierVAT || base.settings.vatNo;
+  base.settings.crNo=raw.settings?.crNo || raw.settings?.supplierCR || base.settings.crNo;
+  base.settings.vatPercent=raw.settings?.vatPercent || base.settings.vatPercent;
+  base.products=Array.isArray(raw.products)?raw.products:(Array.isArray(raw.settings?.productServices)?raw.settings.productServices:base.products);
+  base.services=Array.isArray(raw.services)?raw.services:(Array.isArray(raw.settings?.productServices)?raw.settings.productServices:base.services);
+  base.team=Array.isArray(raw.team)?raw.team:(Array.isArray(raw.agents)?raw.agents:base.team);
+  base.customers=(raw.customers||[]).map(c=>({
+    customerId:c.customerId||c.id||uidSafe('CUS'), companyName:c.companyName||c.customer||c.name||'', contactPerson:c.contactPerson||c.contact||'',
+    mobile:c.mobile||c.phone||'', email:c.email||'', vatNo:c.vatNo||'', crNo:c.crNo||'', location:c.location||'', documentLink:c.documentLink||'', address:c.address||'', remarks:c.remarks||''
+  }));
+  base.leads=(raw.leads||[]).map(l=>({
+    leadId:l.leadId||l.id||uidSafe('LEAD'), leadDate:l.leadDate||l.date||today(), customerId:l.customerId||findCustomerIdByName(base.customers,l.customer)||'',
+    leadSource:l.leadSource||l.source||'', product:l.product||l.productService||'', value:l.value||l.expectedDealValue||'', priority:l.priority||'Medium',
+    status:mapLeadStatus(l.status), nextFollowup:l.nextFollowup||l.nextFollowupDate||'', assignedTo:l.assignedTo||l.salesman||'',
+    requirement:l.requirement||l.requirementNotes||'', remarks:l.remarks||''
+  }));
+  base.quotations=(raw.quotations||[]).map(q=>({
+    quotationNo:q.quotationNo||q.no||uidSafe('QT'), date:q.date||q.quotationDate||today(), customerId:q.customerId||'', leadId:q.leadId||'',
+    item:q.item||q.itemDetails||q.productService||'', qty:q.qty||1, rate:q.rate||0, amount:q.amount||0, vatPercent:q.vatPercent||base.settings.vatPercent,
+    vat:q.vat||q.vatAmount||0, total:q.total||q.totalInclVat||0, validTill:q.validTill||'', status:mapQuotationStatus(q.status||q.quotationStatus), terms:q.terms||'', remarks:q.remarks||''
+  }));
+  base.tickets=(raw.tickets||raw.service||[]).map(t=>({
+    ticketNo:t.ticketNo||uidSafe('TKT'), date:t.date||t.ticketDate||today(), customerId:t.customerId||'', product:t.product||t.productService||'',
+    serial:t.serial||t.serialNumber||'', priority:t.priority||'Medium', engineer:t.engineer||t.assignedEngineer||'', status:mapTicketStatus(t.status||t.serviceStatus),
+    amc:t.amc||t.amcAvailable||'No', charges:t.charges||t.serviceCharges||'', issue:t.issue||t.issueReported||'', solution:t.solution||t.solutionProvided||'', remarks:t.remarks||''
+  }));
+  base.renewals=(raw.renewals||[]).map(r=>({
+    renewalId:r.renewalId||uidSafe('REN'), customerId:r.customerId||'', type:r.type||'TSS Renewal', license:r.license||'', expiryDate:r.expiryDate||'', amount:r.amount||'', assignedTo:r.assignedTo||'', status:r.status||'Upcoming', remarks:r.remarks||''
+  }));
+  base.invoices=(raw.invoices||[]).map(i=>({
+    invoiceNo:i.invoiceNo||uidSafe('INV'), date:i.date||i.invoiceDate||today(), customerId:i.customerId||'', quotationNo:i.quotationNo||'',
+    item:i.item||i.itemDetails||'', qty:i.qty||1, rate:i.rate||0, amount:i.amount||0, vatPercent:i.vatPercent||base.settings.vatPercent,
+    vat:i.vat||i.vatAmount||0, total:i.total||i.totalInclVat||0, status:i.status||i.paymentStatus||'Pending', remarks:i.remarks||''
+  }));
+  base.payments=(raw.payments||[]).map(p=>({
+    paymentId:p.paymentId||uidSafe('PAY'), date:p.date||p.paymentDate||today(), customerId:p.customerId||'', invoiceNo:p.invoiceNo||'',
+    invoiceAmount:p.invoiceAmount||'', received:p.received||p.receivedAmount||'', dueDate:p.dueDate||'', status:p.status||p.paymentStatus||'Pending', mode:p.mode||p.paymentMode||'', referenceNo:p.referenceNo||'', remarks:p.remarks||''
+  }));
+  // Keep original followups safely for export/backward history even though V2 UI does not have a separate menu yet.
+  base.followups=raw.followups||[];
+  return base;
+}
+function uidSafe(p){return `${p}-${Math.floor(Math.random()*900000+100000)}`}
+function findCustomerIdByName(customers,name){if(!name)return'';let c=customers.find(x=>(x.companyName||'').toLowerCase()===String(name).toLowerCase());return c?c.customerId:''}
+function mapLeadStatus(s){s=String(s||'New'); if(s==='Follow-up')return'Contacted'; if(s==='Quotation Sent')return'Quotation Sent'; if(['New','Contacted','Demo Scheduled','Negotiation','Won','Lost'].includes(s))return s; return 'New'}
+function mapQuotationStatus(s){s=String(s||'Draft'); if(s==='Accepted')return'Approved'; if(s==='Converted to Invoice')return'Converted'; if(['Draft','Sent','Follow-up','Approved','Rejected','Converted'].includes(s))return s; return 'Draft'}
+function mapTicketStatus(s){s=String(s||'Open'); if(s==='Pending')return'Waiting Customer'; if(s==='In Progress')return'In Progress'; if(['Open','Assigned','Waiting Customer','Resolved','Closed'].includes(s))return s; return 'Open'}
+let db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
+saveDB();
+
 function saveDB(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db))}function today(){return new Date().toISOString().slice(0,10)}function money(v){return Number(v||0).toFixed(3)}function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}function uid(p){const y=new Date().getFullYear();const map={CUS:'customers',LEAD:'leads',QT:'quotations',TKT:'tickets',REN:'renewals',INV:'invoices',PAY:'payments'};const n=String((db[map[p]]||[]).length+1).padStart(4,'0');return `${p}-${n}/${y}`}function q(){return (document.getElementById('searchBox').value||'').toLowerCase()}function match(o){return JSON.stringify(o).toLowerCase().includes(q())}function upsert(arr,key,obj){const i=arr.findIndex(x=>x[key]===obj[key]);i>=0?arr[i]=obj:arr.push(obj)}function customer(id){return db.customers.find(c=>c.customerId===id)||{}}function badge(s){let cls='badge';let x=String(s||'').toLowerCase();if(['won','paid','closed','renewed','approved','resolved'].includes(x))cls+=' b-green';else if(['lost','rejected','overdue'].includes(x))cls+=' b-red';else if(['pending','partial','quotation sent','negotiation','in progress','waiting customer','contacted'].includes(x))cls+=' b-orange';else if(['demo scheduled','assigned'].includes(x))cls+=' b-purple';else if(!s)cls+=' b-gray';return `<span class="${cls}">${esc(s||'-')}</span>`}
 function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.nav').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m)?.classList.add('active');const titles={dashboard:'Dashboard',leads:'Leads Pipeline',customers:'Customers 360°',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals Center',invoices:'Tax Invoices',payments:'Payment Collection',products:'Product Master',services:'Service Master',team:'Team Master',reports:'Reports',settings:'Settings / Backup'};document.getElementById('pageTitle').innerText=titles[m]||'CRM';document.getElementById('addBtn').style.display=['dashboard','reports','settings'].includes(m)?'none':'inline-block';document.getElementById('addBtn').innerText='+ Add '+(titles[m]||'');render()}
 function render(){cards();document.getElementById('sectionActions').innerHTML='';({dashboard:renderDashboard,leads:renderLeads,customers:renderCustomers,quotations:renderQuotations,tickets:renderTickets,renewals:renderRenewals,invoices:renderInvoices,payments:renderPayments,products:renderProducts,services:renderServices,team:renderTeam,reports:renderReports,settings:renderSettings}[currentModule]||renderDashboard)()}
