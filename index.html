@@ -4280,3 +4280,223 @@ serviceForm = function(id){
 v22SyncTicketInvoiceTracking();
 saveDB();
 </script>
+
+<script>
+/* =========================================================
+   V27 PATCH - FINAL DEFINITIVE renderService
+   Supersedes all previous renderService definitions.
+   Tax Invoice button shows on EVERY ticket, always.
+========================================================= */
+renderService = function(){
+    v22SyncTicketInvoiceTracking();
+    document.getElementById("sectionTitle").innerText = activeFilter === "unbilled" ? "Pending Invoice Service Tickets" : "Service Ticket Details";
+
+    let data = (db.service || []).filter(matchObject);
+    if(activeFilter === "open")    data = data.filter(x => x.serviceStatus === "Open");
+    if(activeFilter === "pending") data = data.filter(x => x.serviceStatus === "Pending" || x.serviceStatus === "In Progress");
+    if(activeFilter === "closed")  data = data.filter(x => x.serviceStatus === "Closed");
+    if(activeFilter === "unbilled")data = data.filter(x => x.invoiceStatus !== "Invoice Raised");
+
+    const rows = data.map(s => {
+        const c = getCustomer(s.customerId);
+
+        // Tax Invoice button — always visible on every ticket
+        const linkedInvoice = (db.invoices || []).find(i => i.serviceTicketNo === s.ticketNo);
+        const invoiceBtn = linkedInvoice
+            ? `<button class="btn small green" onclick="printInvoice('${linkedInvoice.invoiceNo}')">View Invoice</button>`
+            : `<button class="btn small green" onclick="createInvoiceFromServiceTicket('${s.ticketNo}')">Tax Invoice</button>`;
+
+        return `<tr>
+            <td>${escapeHtml(s.ticketNo)}</td>
+            <td>${escapeHtml(s.ticketDate)}</td>
+            <td>${escapeHtml(c.companyName || "")}</td>
+            <td>${escapeHtml(c.mobile || "")}</td>
+            <td>${escapeHtml(s.location || "")}</td>
+            <td>${escapeHtml(getProductServiceText(s))}</td>
+            <td>${escapeHtml(s.serialNumber || "")}</td>
+            <td>${escapeHtml(s.issueReported || "")}</td>
+            <td>${statusBadge(s.serviceStatus)}</td>
+            <td>${statusBadge(s.billingType || "Chargeable")}</td>
+            <td>${money(s.serviceCharges)}</td>
+            <td>${v22InvoiceStatusBadge(s.invoiceStatus)}</td>
+            <td>${escapeHtml(s.invoiceNo || "")}</td>
+            <td>${escapeHtml(s.invoiceDate || "")}</td>
+            <td>${money(s.invoiceAmount || 0)}</td>
+            <td>${statusBadge(s.paymentStatus || "No Charges")}</td>
+            <td>${escapeHtml(s.nonChargeableReason || "")}</td>
+            <td>${escapeHtml(s.assignedAgent || s.assignedEngineer || "")}</td>
+            <td>${escapeHtml(s.amcAvailable || "No")}</td>
+            <td>
+                ${invoiceBtn}
+                <button class="btn small purple" onclick="addFollowupFrom('Service','${s.ticketNo}','${s.customerId}')">Follow-up</button>
+                <button class="btn small orange" onclick="openForm('${s.ticketNo}')">Edit</button>
+                <button class="btn small red" onclick="deleteRecord('service','${s.ticketNo}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    document.getElementById("content").innerHTML = table(
+        ["Ticket No","Ticket Date","Customer","Contact","Location","Product / Service","Serial No","Issue","Service Status","Billing Type","Service Charges","Invoice Status","Invoice No","Invoice Date","Invoice Amount","Payment Status","Non-Chargeable Reason","Assigned Agent","AMC","Action"],
+        rows
+    );
+};
+
+// Also fix createInvoiceFromServiceTicket — no restrictions, works for all billing types
+createInvoiceFromServiceTicket = function(ticketNo){
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t){ alert("Service ticket not found."); return; }
+    setModule("invoices");
+    openForm();
+    setTimeout(() => {
+        if(document.getElementById("serviceTicketNo")){
+            document.getElementById("serviceTicketNo").value = t.ticketNo;
+            fillFromServiceTicketForInvoice();
+        }
+        if(document.getElementById("customerId")) document.getElementById("customerId").value = t.customerId || "";
+        if(document.getElementById("invoiceSerialNumber")) document.getElementById("invoiceSerialNumber").value = t.serialNumber || "";
+        if(document.getElementById("rate")) document.getElementById("rate").value = Number(t.serviceCharges || 0);
+        if(document.getElementById("qty")) document.getElementById("qty").value = 1;
+        if(document.getElementById("invoiceRemarks")){
+            document.getElementById("invoiceRemarks").value =
+                "Invoice from Service Ticket: " + t.ticketNo + "\n" +
+                "Billing Type: " + (t.billingType || "Chargeable") + "\n" +
+                "Issue: " + (t.issueReported || "") + "\n" +
+                "Solution: " + (t.solutionProvided || "");
+        }
+    }, 80);
+};
+
+v22SyncTicketInvoiceTracking();
+saveDB();
+</script>
+
+<script>
+/* =========================================================
+   V28 PATCH - FULL AUTO-FILL FOR TAX INVOICE
+   When Service Ticket is selected → captures ALL service details
+   When Quotation is selected → captures ALL quotation details
+   Invoice form also updated with better layout & remarks preview
+========================================================= */
+
+// Override invoiceForm with improved layout and notices
+invoiceForm = function(id){
+    const r = (db.invoices || []).find(x => x.invoiceNo === id) || {};
+    document.getElementById("formTitle").innerText = id ? "Edit Tax Invoice" : "Add Tax Invoice";
+    document.getElementById("formArea").innerHTML = `
+        <div class="notice">
+            <b>Select Service Ticket</b> to auto-fill all service details &nbsp;|&nbsp;
+            <b>Select Quotation</b> to auto-fill all quotation details.
+            Both cannot be selected at the same time.
+        </div>
+        <div class="form-grid">
+            ${input("invoiceNo","Tax Invoice Number",r.invoiceNo || uid("INV"),"text",true)}
+            ${input("invoiceDate","Invoice Date",r.invoiceDate || today(),"date")}
+            ${customerSelect(r.customerId)}
+            ${serviceTicketSelect(r.serviceTicketNo || "")}
+            ${quotationSelect(r.quotationNo || "")}
+            ${agentSelect("assignedAgent","Salesman / Field Agent",r.assignedAgent || "")}
+            ${productSelect(r.productName || "")}
+            ${serviceSelect(r.serviceName || "")}
+            ${input("invoiceSerialNumber","Serial Number / Asset Number",r.serialNumber || "")}
+            ${input("qty","Qty",r.qty || 1,"number")}
+            ${input("rate","Rate (BHD)",r.rate || 0,"number")}
+            ${input("vatPercent","VAT %",r.vatPercent || db.settings.vatPercent || 10,"number")}
+            ${select("invoicePaymentStatus","Payment Status",["Pending","Partial","Paid"],r.paymentStatus || "Pending")}
+            <div class="full">
+                <label>Remarks / Notes</label>
+                <textarea id="invoiceRemarks" rows="4">${r.remarks || ""}</textarea>
+            </div>
+        </div>`;
+};
+
+// Full capture from Service Ticket
+fillFromServiceTicketForInvoice = function(){
+    const ticketNo = document.getElementById("serviceTicketNo")?.value;
+    if(!ticketNo){ return; }
+    const t = (db.service || []).find(x => x.ticketNo === ticketNo);
+    if(!t) return;
+
+    // Clear quotation selection when ticket is selected
+    if(document.getElementById("quotationNo")) document.getElementById("quotationNo").value = "";
+
+    const c = getCustomer(t.customerId);
+
+    // Customer & agent
+    if(document.getElementById("customerId"))         document.getElementById("customerId").value         = t.customerId || "";
+    if(document.getElementById("assignedAgent"))      document.getElementById("assignedAgent").value      = t.assignedAgent || t.assignedEngineer || "";
+
+    // Product & service
+    if(document.getElementById("productName"))        document.getElementById("productName").value        = t.productName || "";
+    if(document.getElementById("serviceName"))        document.getElementById("serviceName").value        = t.serviceName || "";
+
+    // Serial number & charges
+    if(document.getElementById("invoiceSerialNumber"))document.getElementById("invoiceSerialNumber").value= t.serialNumber || "";
+    if(document.getElementById("qty"))                document.getElementById("qty").value                = 1;
+    if(document.getElementById("rate"))               document.getElementById("rate").value               = Number(t.serviceCharges || 0);
+
+    // VAT — keep existing default
+    if(document.getElementById("vatPercent") && !document.getElementById("vatPercent").value)
+        document.getElementById("vatPercent").value = db.settings.vatPercent || 10;
+
+    // Full remarks with all service details
+    if(document.getElementById("invoiceRemarks")){
+        document.getElementById("invoiceRemarks").value =
+            "Service Ticket No : " + t.ticketNo + "\n" +
+            "Ticket Date       : " + (t.ticketDate || "") + "\n" +
+            "Customer          : " + (c.companyName || "") + "\n" +
+            "Location          : " + (t.location || "") + "\n" +
+            "Product / Service : " + (t.productService || [t.productName, t.serviceName].filter(Boolean).join(" / ") || "") + "\n" +
+            "Serial Number     : " + (t.serialNumber || "") + "\n" +
+            "Issue Reported    : " + (t.issueReported || "") + "\n" +
+            "Solution Provided : " + (t.solutionProvided || "") + "\n" +
+            "Billing Type      : " + (t.billingType || "Chargeable") + "\n" +
+            "Engineer          : " + (t.assignedAgent || t.assignedEngineer || "");
+    }
+};
+
+// Full capture from Quotation
+fillFromQuotation = function(){
+    const qNo = document.getElementById("quotationNo")?.value;
+    if(!qNo){ return; }
+    const q = (db.quotations || []).find(x => x.quotationNo === qNo);
+    if(!q) return;
+
+    // Clear service ticket selection when quotation is selected
+    if(document.getElementById("serviceTicketNo")) document.getElementById("serviceTicketNo").value = "";
+
+    const c = getCustomer(q.customerId);
+
+    // Customer & agent
+    if(document.getElementById("customerId"))         document.getElementById("customerId").value         = q.customerId || "";
+    if(document.getElementById("assignedAgent"))      document.getElementById("assignedAgent").value      = q.assignedAgent || "";
+
+    // Product & service
+    if(document.getElementById("productName"))        document.getElementById("productName").value        = q.productName || "";
+    if(document.getElementById("serviceName"))        document.getElementById("serviceName").value        = q.serviceName || "";
+
+    // Serial, qty, rate, VAT
+    if(document.getElementById("invoiceSerialNumber"))document.getElementById("invoiceSerialNumber").value= q.serialNumber || "";
+    if(document.getElementById("qty"))                document.getElementById("qty").value                = q.qty || 1;
+    if(document.getElementById("rate"))               document.getElementById("rate").value               = q.rate || 0;
+    if(document.getElementById("vatPercent"))         document.getElementById("vatPercent").value         = q.vatPercent || db.settings.vatPercent || 10;
+
+    // Full remarks with all quotation details
+    if(document.getElementById("invoiceRemarks")){
+        document.getElementById("invoiceRemarks").value =
+            "Quotation No      : " + q.quotationNo + "\n" +
+            "Quotation Date    : " + (q.quotationDate || "") + "\n" +
+            "Customer          : " + (c.companyName || "") + "\n" +
+            "Product / Service : " + (q.itemDetails || [q.productName, q.serviceName].filter(Boolean).join(" / ") || "") + "\n" +
+            "Serial Number     : " + (q.serialNumber || "") + "\n" +
+            "Qty               : " + (q.qty || "") + "\n" +
+            "Rate (BHD)        : " + (q.rate || "") + "\n" +
+            "VAT %             : " + (q.vatPercent || "") + "\n" +
+            "Total Incl. VAT   : BHD " + money(q.totalInclVat) + "\n" +
+            "Valid Till        : " + (q.validTill || "") + "\n" +
+            "Terms             : " + (q.terms || "") + "\n" +
+            "Remarks           : " + (q.remarks || "");
+    }
+};
+
+saveDB();
+</script>
