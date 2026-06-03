@@ -1,520 +1,194 @@
-import React, { useState } from 'react';
-import { Search, Bell, Settings, Users, Ticket, BarChart3, Plus, Filter, Download, Edit2, Trash2, Eye, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="googlebot" content="noindex, nofollow" />
+<title>Veltrox CRM V2 - Zoho + Odoo Hybrid</title>
+<style>
+:root{
+  --bg:#f5f7fb;--panel:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
+  --primary:#2563eb;--primary2:#1d4ed8;--dark:#0f172a;--dark2:#1e293b;
+  --green:#16a34a;--orange:#f59e0b;--red:#dc2626;--purple:#7c3aed;--cyan:#0891b2;
+  --shadow:0 10px 28px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font-family:inherit}
+.app{display:flex;min-height:100vh}
+.sidebar{width:280px;background:linear-gradient(180deg,var(--dark),var(--dark2));color:#fff;position:fixed;inset:0 auto 0 0;padding:22px 16px;overflow:auto}
+.brand{font-size:24px;font-weight:900;letter-spacing:.2px}.brand-sub{font-size:12px;color:#cbd5e1;margin:5px 0 22px}
+.group-title{font-size:11px;text-transform:uppercase;color:#94a3b8;margin:18px 10px 6px;font-weight:800;letter-spacing:.8px}
+.nav{width:100%;border:0;background:transparent;color:#dbe4ef;text-align:left;padding:11px 12px;border-radius:11px;margin:3px 0;cursor:pointer;font-weight:700;display:flex;gap:9px;align-items:center}
+.nav:hover,.nav.active{background:var(--primary);color:#fff}
+.main{margin-left:280px;width:calc(100% - 280px);padding:22px}
+.topbar{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
+h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.search{width:330px;max-width:100%;padding:11px 13px;border:1px solid #d1d5db;border-radius:12px;outline:none;background:#fff}.search:focus{border-color:var(--primary)}
+.btn{border:0;border-radius:10px;padding:10px 13px;background:var(--primary);color:#fff;font-weight:800;cursor:pointer}.btn:hover{opacity:.9}.btn.small{padding:7px 9px;font-size:12px}.btn.gray{background:#64748b}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.red{background:var(--red)}.btn.purple{background:var(--purple)}.btn.cyan{background:var(--cyan)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:13px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow)}.card.click{cursor:pointer}.card.click:hover{transform:translateY(-2px)}.card-title{font-size:12px;color:var(--muted);font-weight:800}.card-value{font-size:25px;font-weight:900;margin-top:7px}.card-foot{font-size:11px;color:var(--muted);margin-top:6px}
+.grid-2{display:grid;grid-template-columns:1.5fr .8fr;gap:16px}.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.panel h2,.panel h3{margin:0}.hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;padding:11px;margin-bottom:12px;font-size:13px}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:1100px}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:13px;vertical-align:top}th{background:#f8fafc;color:#334155;white-space:nowrap}tr:hover td{background:#fafafa}.link{color:var(--primary);font-weight:800;cursor:pointer;text-decoration:none}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:900;background:#dbeafe;color:#1d4ed8}.b-green{background:#dcfce7;color:#166534}.b-red{background:#fee2e2;color:#991b1b}.b-orange{background:#fef3c7;color:#92400e}.b-gray{background:#e5e7eb;color:#374151}.b-purple{background:#ede9fe;color:#5b21b6}
+.kanban{display:grid;grid-template-columns:repeat(7,minmax(220px,1fr));gap:12px;overflow:auto;padding-bottom:6px}.kanban.service{grid-template-columns:repeat(6,minmax(220px,1fr))}.kanban.pay{grid-template-columns:repeat(4,minmax(230px,1fr))}.lane{background:#f8fafc;border:1px solid var(--border);border-radius:16px;padding:10px;min-height:280px}.lane-title{font-weight:900;font-size:13px;margin:3px 4px 10px;display:flex;justify-content:space-between}.kcard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 6px 14px rgba(15,23,42,.06)}.kcard b{display:block;margin-bottom:5px}.kmeta{font-size:12px;color:var(--muted);line-height:1.55}.k-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.tab{border:1px solid var(--border);background:#fff;color:#334155;border-radius:999px;padding:8px 12px;cursor:pointer;font-weight:800}.tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;align-items:center;justify-content:center;padding:14px}.drawer{background:#fff;width:980px;max-width:100%;max-height:94vh;overflow:auto;border-radius:20px;padding:22px}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.modal-head h2{margin:0}.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.full{grid-column:1/-1}label{display:block;font-size:12px;font-weight:900;color:#374151;margin:0 0 5px}input,select,textarea{width:100%;padding:10px 11px;border:1px solid #d1d5db;border-radius:10px;background:#fff}textarea{min-height:78px;resize:vertical}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.customer-head{display:grid;grid-template-columns:1fr auto;gap:12px}.timeline{border-left:3px solid #dbeafe;margin-left:8px;padding-left:16px}.event{position:relative;margin-bottom:13px}.event:before{content:"";position:absolute;left:-25px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--primary)}
+@media(max-width:950px){.sidebar{position:relative;width:100%;height:auto}.app{display:block}.main{margin-left:0;width:100%;padding:14px}.topbar,.grid-2,.customer-head{display:block}.actions{justify-content:flex-start;margin-top:10px}.form-grid{grid-template-columns:1fr}.kanban,.kanban.service,.kanban.pay{grid-template-columns:repeat(1,1fr)}}
+@media print{body *{visibility:hidden!important}#printArea,#printArea *{visibility:visible!important}#printArea{position:absolute;left:0;top:0;width:100%;padding:20px}.no-print{display:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Veltrox CRM V2</div>
+    <div class="brand-sub">Zoho UI + Odoo Workflow for Tally Business</div>
+    <button class="nav" id="nav-dashboard" onclick="setModule('dashboard')">🏠 Dashboard</button>
+    <div class="group-title">Sales</div>
+    <button class="nav" id="nav-leads" onclick="setModule('leads')">🎯 Leads Pipeline</button>
+    <button class="nav" id="nav-customers" onclick="setModule('customers')">🏢 Customers 360°</button>
+    <button class="nav" id="nav-quotations" onclick="setModule('quotations')">📄 Quotations</button>
+    <div class="group-title">Service</div>
+    <button class="nav" id="nav-tickets" onclick="setModule('tickets')">🛠 Service Tickets</button>
+    <button class="nav" id="nav-renewals" onclick="setModule('renewals')">🔁 Renewals Center</button>
+    <div class="group-title">Finance</div>
+    <button class="nav" id="nav-invoices" onclick="setModule('invoices')">🧾 Tax Invoices</button>
+    <button class="nav" id="nav-payments" onclick="setModule('payments')">💳 Payment Collection</button>
+    <div class="group-title">Masters</div>
+    <button class="nav" id="nav-products" onclick="setModule('products')">📦 Product Master</button>
+    <button class="nav" id="nav-services" onclick="setModule('services')">⚙ Service Master</button>
+    <button class="nav" id="nav-team" onclick="setModule('team')">👥 Team Master</button>
+    <div class="group-title">Reports</div>
+    <button class="nav" id="nav-reports" onclick="setModule('reports')">📊 Reports</button>
+    <button class="nav" id="nav-settings" onclick="setModule('settings')">⚙ Settings / Backup</button>
+  </aside>
 
-export default function CRMSystem() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedTicket, setSelectedTicket] = useState(null);
-
-  // Sample data
-  const tickets = [
-    {
-      id: 'TKT-001',
-      date: '2026-02-10',
-      customerSerial: 'TALLY-2024-5678',
-      customerName: 'Acme Corporation',
-      query: 'Unable to sync data with tally server',
-      solution: 'Updated server configuration and restarted sync service',
-      reportedTime: '09:30 AM',
-      solvedTime: '11:45 AM',
-      status: 'Resolved',
-      assignedTo: 'John Doe',
-      pendingReason: ''
-    },
-    {
-      id: 'TKT-002',
-      date: '2026-02-11',
-      customerSerial: 'TALLY-2024-1234',
-      customerName: 'Tech Solutions Ltd',
-      query: 'Error in generating financial reports',
-      solution: '',
-      reportedTime: '02:15 PM',
-      solvedTime: '',
-      status: 'Pending',
-      assignedTo: 'Sarah Smith',
-      pendingReason: 'Waiting for customer database backup'
-    },
-    {
-      id: 'TKT-003',
-      date: '2026-02-11',
-      customerSerial: 'TALLY-2024-9012',
-      customerName: 'Global Enterprises',
-      query: 'License activation issues',
-      solution: 'Reissued license key and verified activation',
-      reportedTime: '10:00 AM',
-      solvedTime: '10:30 AM',
-      status: 'Resolved',
-      assignedTo: 'John Doe',
-      pendingReason: ''
-    }
-  ];
-
-  const customers = [
-    { id: 1, name: 'Acme Corporation', serial: 'TALLY-2024-5678', email: 'contact@acme.com', phone: '+1-555-0123', totalTickets: 12 },
-    { id: 2, name: 'Tech Solutions Ltd', serial: 'TALLY-2024-1234', email: 'support@techsol.com', phone: '+1-555-0456', totalTickets: 8 },
-    { id: 3, name: 'Global Enterprises', serial: 'TALLY-2024-9012', email: 'info@global.com', phone: '+1-555-0789', totalTickets: 15 }
-  ];
-
-  const users = [
-    { id: 1, name: 'John Doe', role: 'Senior Support', activeTickets: 5, resolvedTickets: 45 },
-    { id: 2, name: 'Sarah Smith', role: 'Support Specialist', activeTickets: 3, resolvedTickets: 38 },
-    { id: 3, name: 'Mike Johnson', role: 'Team Lead', activeTickets: 2, resolvedTickets: 67 }
-  ];
-
-  // Main Dashboard
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Ticket className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900">ServiceCRM</h1>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search tickets, customers..." 
-                  className="pl-10 pr-4 py-2 w-80 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <button className="p-2 hover:bg-gray-100 rounded-lg relative">
-                <Bell className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              <button className="p-2 hover:bg-gray-100 rounded-lg">
-                <Settings className="w-6 h-6 text-gray-600" />
-              </button>
-              <div className="flex items-center space-x-3 pl-4 border-l border-gray-200">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                  AD
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Admin User</p>
-                  <p className="text-xs text-gray-500">admin@company.com</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-6">
-          <nav className="space-y-2">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-                activeTab === 'dashboard' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <BarChart3 className="w-5 h-5" />
-              <span className="font-medium">Dashboard</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('tickets')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-                activeTab === 'tickets' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Ticket className="w-5 h-5" />
-              <span className="font-medium">Service Tickets</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('customers')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-                activeTab === 'customers' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Users className="w-5 h-5" />
-              <span className="font-medium">Customers</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-                activeTab === 'users' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Users className="w-5 h-5" />
-              <span className="font-medium">User Tickets</span>
-            </button>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          {/* Dashboard Tab */}
-          {activeTab === 'dashboard' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard Overview</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Ticket className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <span className="text-green-600 text-sm font-medium">+12%</span>
-                  </div>
-                  <h3 className="text-gray-600 text-sm mb-1">Total Tickets</h3>
-                  <p className="text-3xl font-bold text-gray-900">248</p>
-                </div>
-                
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-yellow-600" />
-                    </div>
-                    <span className="text-yellow-600 text-sm font-medium">Active</span>
-                  </div>
-                  <h3 className="text-gray-600 text-sm mb-1">Pending</h3>
-                  <p className="text-3xl font-bold text-gray-900">18</p>
-                </div>
-                
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    </div>
-                    <span className="text-green-600 text-sm font-medium">94%</span>
-                  </div>
-                  <h3 className="text-gray-600 text-sm mb-1">Resolved</h3>
-                  <p className="text-3xl font-bold text-gray-900">230</p>
-                </div>
-                
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <span className="text-green-600 text-sm font-medium">+5</span>
-                  </div>
-                  <h3 className="text-gray-600 text-sm mb-1">Customers</h3>
-                  <p className="text-3xl font-bold text-gray-900">86</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-                <div className="space-y-4">
-                  {tickets.slice(0, 3).map(ticket => (
-                    <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          ticket.status === 'Resolved' ? 'bg-green-100' : 'bg-yellow-100'
-                        }`}>
-                          {ticket.status === 'Resolved' ? 
-                            <CheckCircle className="w-5 h-5 text-green-600" /> : 
-                            <AlertCircle className="w-5 h-5 text-yellow-600" />
-                          }
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{ticket.id} - {ticket.customerName}</p>
-                          <p className="text-sm text-gray-600">{ticket.query}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          ticket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {ticket.status}
-                        </span>
-                        <p className="text-sm text-gray-500 mt-1">{ticket.date}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Service Tickets Tab */}
-          {activeTab === 'tickets' && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Service Tickets</h2>
-                <div className="flex items-center space-x-3">
-                  <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-                    <Filter className="w-4 h-4" />
-                    <span>Filter</span>
-                  </button>
-                  <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-                    <Download className="w-4 h-4" />
-                    <span>Export</span>
-                  </button>
-                  <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition">
-                    <Plus className="w-4 h-4" />
-                    <span>New Ticket</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticket Number</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tally Serial</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Query</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {tickets.map(ticket => (
-                        <tr key={ticket.id} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-medium text-blue-600">{ticket.id}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{ticket.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{ticket.customerSerial}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticket.customerName}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{ticket.query}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              ticket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              {ticket.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <div className="flex items-center space-x-2">
-                              <button 
-                                onClick={() => setSelectedTicket(ticket)}
-                                className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition">
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Ticket Detail Modal */}
-              {selectedTicket && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                      <h3 className="text-2xl font-bold text-gray-900">Ticket Details - {selectedTicket.id}</h3>
-                      <button 
-                        onClick={() => setSelectedTicket(null)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Ticket Number</label>
-                          <p className="mt-1 text-lg font-semibold text-gray-900">{selectedTicket.id}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Ticket Date</label>
-                          <p className="mt-1 text-lg text-gray-900">{selectedTicket.date}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Customer Tally Serial</label>
-                          <p className="mt-1 text-lg font-semibold text-gray-900">{selectedTicket.customerSerial}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Customer Name</label>
-                          <p className="mt-1 text-lg text-gray-900">{selectedTicket.customerName}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Issue Reported Time</label>
-                          <p className="mt-1 text-lg text-gray-900">{selectedTicket.reportedTime}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Issue Solving Time</label>
-                          <p className="mt-1 text-lg text-gray-900">{selectedTicket.solvedTime || 'In Progress'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Assigned To</label>
-                          <p className="mt-1 text-lg text-gray-900">{selectedTicket.assignedTo}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Status</label>
-                          <span className={`inline-block mt-1 px-4 py-1 rounded-full text-sm font-medium ${
-                            selectedTicket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {selectedTicket.status}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Customer Query</label>
-                        <p className="mt-2 p-4 bg-gray-50 rounded-lg text-gray-900">{selectedTicket.query}</p>
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">Solution</label>
-                        <p className="mt-2 p-4 bg-gray-50 rounded-lg text-gray-900">
-                          {selectedTicket.solution || 'Solution pending...'}
-                        </p>
-                      </div>
-                      
-                      {selectedTicket.pendingReason && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-600">Reason for Keeping Issue Pending</label>
-                          <p className="mt-2 p-4 bg-yellow-50 rounded-lg text-gray-900">{selectedTicket.pendingReason}</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-                      <button 
-                        onClick={() => setSelectedTicket(null)}
-                        className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                      >
-                        Close
-                      </button>
-                      <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition">
-                        Edit Ticket
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Customers Tab */}
-          {activeTab === 'customers' && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Customer Details</h2>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition">
-                  <Plus className="w-4 h-4" />
-                  <span>Add Customer</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {customers.map(customer => (
-                  <div key={customer.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {customer.name.charAt(0)}
-                      </div>
-                      <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
-                        {customer.totalTickets} Tickets
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">{customer.name}</h3>
-                    <p className="text-sm font-medium text-gray-600 mb-4">{customer.serial}</p>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <span className="font-medium w-16">Email:</span>
-                        <span className="text-gray-900">{customer.email}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <span className="font-medium w-16">Phone:</span>
-                        <span className="text-gray-900">{customer.phone}</span>
-                      </div>
-                    </div>
-                    
-                    <button className="w-full py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition font-medium">
-                      View Details
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* User-wise Tickets Tab */}
-          {activeTab === 'users' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">User-wise Ticket Assignment</h2>
-
-              <div className="space-y-6">
-                {users.map(user => (
-                  <div key={user.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                            {user.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
-                            <p className="text-gray-600">{user.role}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-6">
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-yellow-600">{user.activeTickets}</p>
-                            <p className="text-sm text-gray-600">Active</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-green-600">{user.resolvedTickets}</p>
-                            <p className="text-sm text-gray-600">Resolved</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="p-6">
-                      <h4 className="font-semibold text-gray-900 mb-4">Assigned Tickets</h4>
-                      <div className="space-y-3">
-                        {tickets.filter(t => t.assignedTo === user.name).map(ticket => (
-                          <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-1">
-                                <span className="font-medium text-blue-600">{ticket.id}</span>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  ticket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                }`}>
-                                  {ticket.status}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-900">{ticket.customerName}</p>
-                              <p className="text-sm text-gray-600">{ticket.query}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm text-gray-600">{ticket.date}</p>
-                              <p className="text-xs text-gray-500">{ticket.reportedTime}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </main>
+  <main class="main">
+    <div class="topbar">
+      <div><h1 id="pageTitle">Dashboard</h1><p class="sub" id="pageSub">Sales → Quotation → Invoice → Payment | Service → Renewal → Collection</p></div>
+      <div class="actions">
+        <input class="search" id="searchBox" placeholder="Search customer, mobile, lead, invoice..." onkeyup="render()" />
+        <button class="btn" id="addBtn" onclick="openForm()">+ Add</button>
+        <button class="btn gray" onclick="exportBackup()">Backup</button>
+        <button class="btn green" onclick="exportCSV()">Export Excel CSV</button>
       </div>
     </div>
-  );
+    <div id="summaryCards" class="cards"></div>
+    <section class="panel"><div class="panel-head"><h2 id="sectionTitle">Dashboard</h2><div id="sectionActions"></div></div><div id="content"></div></section>
+  </main>
+</div>
+
+<div class="modal" id="formModal"><div class="drawer"><div class="modal-head"><h2 id="formTitle">Add</h2><button class="btn gray" onclick="closeForm()">X</button></div><div id="formArea"></div><div class="form-actions"><button class="btn gray" onclick="closeForm()">Cancel</button><button class="btn green" onclick="saveForm()">Save</button></div></div></div>
+<div class="modal" id="viewModal"><div class="drawer" id="viewArea"></div></div>
+<div id="printArea"></div>
+
+<script>
+const STORAGE_KEY='VELTROX_FULL_CRM_V2';
+let currentModule='dashboard';let editId=null;let customerTab='overview';
+const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TSS Renewal','Tally on Cloud','AWS Cloud'],services:['Customization','Training','Support Visit','VAT Filing','AMC','Mobile App Development','Website Development'],team:['Chetan','Support Team','Engineer 1']};
+
+function normalizeDB(raw){
+  const base=structuredClone(defaultDB);
+  if(!raw || typeof raw!=='object') return base;
+  base.settings={...base.settings,...(raw.settings||{})};
+  base.settings.company=raw.settings?.company || raw.settings?.supplierName || base.settings.company;
+  base.settings.address=raw.settings?.address || raw.settings?.supplierAddress || base.settings.address;
+  base.settings.vatNo=raw.settings?.vatNo || raw.settings?.supplierVAT || base.settings.vatNo;
+  base.settings.crNo=raw.settings?.crNo || raw.settings?.supplierCR || base.settings.crNo;
+  base.settings.vatPercent=raw.settings?.vatPercent || base.settings.vatPercent;
+  base.products=Array.isArray(raw.products)?raw.products:(Array.isArray(raw.settings?.productServices)?raw.settings.productServices:base.products);
+  base.services=Array.isArray(raw.services)?raw.services:(Array.isArray(raw.settings?.productServices)?raw.settings.productServices:base.services);
+  base.team=Array.isArray(raw.team)?raw.team:(Array.isArray(raw.agents)?raw.agents:base.team);
+  base.customers=(raw.customers||[]).map(c=>({
+    customerId:c.customerId||c.id||uidSafe('CUS'), companyName:c.companyName||c.customer||c.name||'', contactPerson:c.contactPerson||c.contact||'',
+    mobile:c.mobile||c.phone||'', email:c.email||'', vatNo:c.vatNo||'', crNo:c.crNo||'', location:c.location||'', documentLink:c.documentLink||'', address:c.address||'', remarks:c.remarks||''
+  }));
+  base.leads=(raw.leads||[]).map(l=>({
+    leadId:l.leadId||l.id||uidSafe('LEAD'), leadDate:l.leadDate||l.date||today(), customerId:l.customerId||findCustomerIdByName(base.customers,l.customer)||'',
+    leadSource:l.leadSource||l.source||'', product:l.product||l.productService||'', value:l.value||l.expectedDealValue||'', priority:l.priority||'Medium',
+    status:mapLeadStatus(l.status), nextFollowup:l.nextFollowup||l.nextFollowupDate||'', assignedTo:l.assignedTo||l.salesman||'',
+    requirement:l.requirement||l.requirementNotes||'', remarks:l.remarks||''
+  }));
+  base.quotations=(raw.quotations||[]).map(q=>({
+    quotationNo:q.quotationNo||q.no||uidSafe('QT'), date:q.date||q.quotationDate||today(), customerId:q.customerId||'', leadId:q.leadId||'',
+    item:q.item||q.itemDetails||q.productService||'', qty:q.qty||1, rate:q.rate||0, amount:q.amount||0, vatPercent:q.vatPercent||base.settings.vatPercent,
+    vat:q.vat||q.vatAmount||0, total:q.total||q.totalInclVat||0, validTill:q.validTill||'', status:mapQuotationStatus(q.status||q.quotationStatus), terms:q.terms||'', remarks:q.remarks||''
+  }));
+  base.tickets=(raw.tickets||raw.service||[]).map(t=>({
+    ticketNo:t.ticketNo||uidSafe('TKT'), date:t.date||t.ticketDate||today(), customerId:t.customerId||'', product:t.product||t.productService||'',
+    serial:t.serial||t.serialNumber||'', priority:t.priority||'Medium', engineer:t.engineer||t.assignedEngineer||'', status:mapTicketStatus(t.status||t.serviceStatus),
+    amc:t.amc||t.amcAvailable||'No', charges:t.charges||t.serviceCharges||'', issue:t.issue||t.issueReported||'', solution:t.solution||t.solutionProvided||'', remarks:t.remarks||''
+  }));
+  base.renewals=(raw.renewals||[]).map(r=>({
+    renewalId:r.renewalId||uidSafe('REN'), customerId:r.customerId||'', type:r.type||'TSS Renewal', license:r.license||'', expiryDate:r.expiryDate||'', amount:r.amount||'', assignedTo:r.assignedTo||'', status:r.status||'Upcoming', remarks:r.remarks||''
+  }));
+  base.invoices=(raw.invoices||[]).map(i=>({
+    invoiceNo:i.invoiceNo||uidSafe('INV'), date:i.date||i.invoiceDate||today(), customerId:i.customerId||'', quotationNo:i.quotationNo||'',
+    item:i.item||i.itemDetails||'', qty:i.qty||1, rate:i.rate||0, amount:i.amount||0, vatPercent:i.vatPercent||base.settings.vatPercent,
+    vat:i.vat||i.vatAmount||0, total:i.total||i.totalInclVat||0, status:i.status||i.paymentStatus||'Pending', remarks:i.remarks||''
+  }));
+  base.payments=(raw.payments||[]).map(p=>({
+    paymentId:p.paymentId||uidSafe('PAY'), date:p.date||p.paymentDate||today(), customerId:p.customerId||'', invoiceNo:p.invoiceNo||'',
+    invoiceAmount:p.invoiceAmount||'', received:p.received||p.receivedAmount||'', dueDate:p.dueDate||'', status:p.status||p.paymentStatus||'Pending', mode:p.mode||p.paymentMode||'', referenceNo:p.referenceNo||'', remarks:p.remarks||''
+  }));
+  // Keep original followups safely for export/backward history even though V2 UI does not have a separate menu yet.
+  base.followups=raw.followups||[];
+  return base;
 }
+function uidSafe(p){return `${p}-${Math.floor(Math.random()*900000+100000)}`}
+function findCustomerIdByName(customers,name){if(!name)return'';let c=customers.find(x=>(x.companyName||'').toLowerCase()===String(name).toLowerCase());return c?c.customerId:''}
+function mapLeadStatus(s){s=String(s||'New'); if(s==='Follow-up')return'Contacted'; if(s==='Quotation Sent')return'Quotation Sent'; if(['New','Contacted','Demo Scheduled','Negotiation','Won','Lost'].includes(s))return s; return 'New'}
+function mapQuotationStatus(s){s=String(s||'Draft'); if(s==='Accepted')return'Approved'; if(s==='Converted to Invoice')return'Converted'; if(['Draft','Sent','Follow-up','Approved','Rejected','Converted'].includes(s))return s; return 'Draft'}
+function mapTicketStatus(s){s=String(s||'Open'); if(s==='Pending')return'Waiting Customer'; if(s==='In Progress')return'In Progress'; if(['Open','Assigned','Waiting Customer','Resolved','Closed'].includes(s))return s; return 'Open'}
+let db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
+saveDB();
+
+function saveDB(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db))}function today(){return new Date().toISOString().slice(0,10)}function money(v){return Number(v||0).toFixed(3)}function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}function uid(p){const y=new Date().getFullYear();const map={CUS:'customers',LEAD:'leads',QT:'quotations',TKT:'tickets',REN:'renewals',INV:'invoices',PAY:'payments'};const n=String((db[map[p]]||[]).length+1).padStart(4,'0');return `${p}-${n}/${y}`}function q(){return (document.getElementById('searchBox').value||'').toLowerCase()}function match(o){return JSON.stringify(o).toLowerCase().includes(q())}function upsert(arr,key,obj){const i=arr.findIndex(x=>x[key]===obj[key]);i>=0?arr[i]=obj:arr.push(obj)}function customer(id){return db.customers.find(c=>c.customerId===id)||{}}function badge(s){let cls='badge';let x=String(s||'').toLowerCase();if(['won','paid','closed','renewed','approved','resolved'].includes(x))cls+=' b-green';else if(['lost','rejected','overdue'].includes(x))cls+=' b-red';else if(['pending','partial','quotation sent','negotiation','in progress','waiting customer','contacted'].includes(x))cls+=' b-orange';else if(['demo scheduled','assigned'].includes(x))cls+=' b-purple';else if(!s)cls+=' b-gray';return `<span class="${cls}">${esc(s||'-')}</span>`}
+function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.nav').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m)?.classList.add('active');const titles={dashboard:'Dashboard',leads:'Leads Pipeline',customers:'Customers 360°',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals Center',invoices:'Tax Invoices',payments:'Payment Collection',products:'Product Master',services:'Service Master',team:'Team Master',reports:'Reports',settings:'Settings / Backup'};document.getElementById('pageTitle').innerText=titles[m]||'CRM';document.getElementById('addBtn').style.display=['dashboard','reports','settings'].includes(m)?'none':'inline-block';document.getElementById('addBtn').innerText='+ Add '+(titles[m]||'');render()}
+function render(){cards();document.getElementById('sectionActions').innerHTML='';({dashboard:renderDashboard,leads:renderLeads,customers:renderCustomers,quotations:renderQuotations,tickets:renderTickets,renewals:renderRenewals,invoices:renderInvoices,payments:renderPayments,products:renderProducts,services:renderServices,team:renderTeam,reports:renderReports,settings:renderSettings}[currentModule]||renderDashboard)()}
+function cards(){let invTotal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),rec=db.payments.reduce((s,x)=>s+Number(x.received||0),0);let dueRen=db.renewals.filter(x=>x.expiryDate&&x.expiryDate<=new Date(Date.now()+30*86400000).toISOString().slice(0,10)&&x.status!=='Renewed').length;document.getElementById('summaryCards').innerHTML=`<div class="card click" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value">${db.leads.length}</div><div class="card-foot">Pipeline opportunities</div></div><div class="card click" onclick="setModule('quotations')"><div class="card-title">Open Quotations</div><div class="card-value">${db.quotations.filter(x=>!['Approved','Rejected','Converted'].includes(x.status)).length}</div><div class="card-foot">Pending conversion</div></div><div class="card click" onclick="setModule('tickets')"><div class="card-title">Open Tickets</div><div class="card-value">${db.tickets.filter(x=>x.status!=='Closed').length}</div><div class="card-foot">Service workload</div></div><div class="card click" onclick="setModule('payments')"><div class="card-title">Pending Collection</div><div class="card-value">${money(invTotal-rec)}</div><div class="card-foot">BHD outstanding</div></div><div class="card click" onclick="setModule('renewals')"><div class="card-title">Renewals Due</div><div class="card-value">${dueRen}</div><div class="card-foot">Next 30 days</div></div>`}
+function table(h,r){return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r||`<tr><td colspan="${h.length}">No records found.</td></tr>`}</tbody></table></div>`}
+function renderDashboard(){document.getElementById('sectionTitle').innerText='Hybrid CRM Dashboard';const recent=[...db.leads.map(x=>['Lead',x.leadDate,x.leadId,x.customerId,x.status,x.product]),...db.quotations.map(x=>['Quotation',x.date,x.quotationNo,x.customerId,x.status,x.item]),...db.tickets.map(x=>['Ticket',x.date,x.ticketNo,x.customerId,x.status,x.issue]),...db.invoices.map(x=>['Invoice',x.date,x.invoiceNo,x.customerId,x.status,x.item])].sort((a,b)=>String(b[1]).localeCompare(String(a[1]))).slice(0,12).map(a=>`<tr><td>${a[1]||''}</td><td>${a[0]}</td><td>${esc(customer(a[3]).companyName||'')}</td><td>${esc(a[2])}</td><td>${esc(a[5]||'')}</td><td>${badge(a[4])}</td></tr>`).join('');document.getElementById('content').innerHTML=`<div class="grid-2"><div class="panel"><h3>Sales Pipeline</h3><br>${leadKanban()}</div><div class="panel"><h3>Today / Pending Actions</h3><br>${alerts()}</div></div><div class="panel"><h3>Recent Activities</h3><br>${table(['Date','Type','Customer','Reference','Details','Status'],recent)}</div>`}
+function alerts(){let rows=[...db.leads.filter(x=>x.nextFollowup&&x.nextFollowup<=today()&& !['Won','Lost'].includes(x.status)).map(x=>`<tr><td>Lead Follow-up</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.nextFollowup)}</td><td>${badge(x.status)}</td></tr>`),...db.payments.filter(x=>x.dueDate&&x.dueDate<=today()&&x.status!=='Paid').map(x=>`<tr><td>Payment</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.dueDate)}</td><td>${badge(x.status)}</td></tr>`)].join('');return table(['Type','Customer','Due Date','Status'],rows)}
+function leadKanban(){const stages=['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];return `<div class="kanban">${stages.map(st=>{let cards=db.leads.filter(x=>x.status===st&&match(x)).map(l=>{let c=customer(l.customerId);return `<div class="kcard"><b>${esc(c.companyName||'No Customer')}</b><div class="kmeta">${esc(l.leadId)}<br>${esc(c.mobile||'')}<br>${esc(l.product||'')} | BHD ${money(l.value)}<br>Next: ${esc(l.nextFollowup||'-')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button><button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button><button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quote</button></div></div>`}).join('');return `<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.leads.filter(x=>x.status===st).length}</span></div>${cards}</div>`}).join('')}</div>`}
+function renderLeads(){document.getElementById('sectionTitle').innerText='Zoho Style Leads Pipeline';document.getElementById('sectionActions').innerHTML='<button class="btn gray" onclick="leadTableView()">Table View</button>';document.getElementById('content').innerHTML='<div class="hint">Use this pipeline to track sales stage: New → Contacted → Demo → Quotation → Negotiation → Won/Lost.</div>'+leadKanban()}
+function leadTableView(){let rows=db.leads.filter(match).map(l=>{let c=customer(l.customerId);return `<tr><td>${esc(l.leadId)}</td><td>${esc(l.leadDate)}</td><td>${esc(c.companyName)}</td><td>${esc(c.contactPerson)}</td><td>${esc(c.mobile)}</td><td>${esc(l.product)}</td><td>${money(l.value)}</td><td>${esc(l.nextFollowup)}</td><td>${badge(l.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button><button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button><button class="btn small red" onclick="del('leads','leadId','${l.leadId}')">Delete</button></td></tr>`}).join('');document.getElementById('content').innerHTML=table(['Lead No','Date','Company','Contact','Mobile','Product','Value','Next Follow-up','Status','Action'],rows)}
+function renderCustomers(){document.getElementById('sectionTitle').innerText='Customer 360°';let rows=db.customers.filter(match).map(c=>`<tr><td><a class="link" onclick="viewCustomer('${c.customerId}')">${esc(c.companyName)}</a></td><td>${esc(c.contactPerson)}</td><td>${esc(c.mobile)}</td><td>${esc(c.email)}</td><td>${esc(c.vatNo)}</td><td>${esc(c.location)}</td><td><button class="btn small" onclick="viewCustomer('${c.customerId}')">360 View</button><button class="btn small orange" onclick="openForm('${c.customerId}')">Edit</button><button class="btn small red" onclick="del('customers','customerId','${c.customerId}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['Company','Contact','Mobile','Email','VAT No','Location','Action'],rows)}
+function renderQuotations(){document.getElementById('sectionTitle').innerText='Odoo Style Quotations';let rows=db.quotations.filter(match).map(x=>`<tr><td>${esc(x.quotationNo)}</td><td>${esc(x.date)}</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.item)}</td><td>${money(x.total)}</td><td>${badge(x.status)}</td><td>${esc(x.validTill)}</td><td><button class="btn small green" onclick="createInvoiceFromQuotation('${x.quotationNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${x.quotationNo}')">Edit</button><button class="btn small red" onclick="del('quotations','quotationNo','${x.quotationNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['Quotation No','Date','Customer','Item','Total BHD','Status','Valid Till','Action'],rows)}
+function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Board';const stages=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];document.getElementById('content').innerHTML=`<div class="kanban service">${stages.map(st=>`<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.tickets.filter(x=>x.status===st).length}</span></div>${db.tickets.filter(x=>x.status===st&&match(x)).map(t=>`<div class="kcard"><b>${esc(customer(t.customerId).companyName)}</b><div class="kmeta">${esc(t.ticketNo)}<br>${esc(t.issue)}<br>Engineer: ${esc(t.engineer||'-')}<br>AMC: ${esc(t.amc||'No')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button></div></div>`).join('')}</div>`).join('')}</div>`}
+function renderRenewals(){document.getElementById('sectionTitle').innerText='TSS / AMC / Cloud Renewal Center';let rows=db.renewals.filter(match).map(r=>{let days=r.expiryDate?Math.ceil((new Date(r.expiryDate)-new Date(today()))/86400000):'';return `<tr><td>${esc(customer(r.customerId).companyName)}</td><td>${esc(r.type)}</td><td>${esc(r.license)}</td><td>${esc(r.expiryDate)}</td><td>${days}</td><td>${money(r.amount)}</td><td>${esc(r.assignedTo)}</td><td>${badge(r.status)}</td><td><button class="btn small orange" onclick="openForm('${r.renewalId}')">Edit</button><button class="btn small red" onclick="del('renewals','renewalId','${r.renewalId}')">Delete</button></td></tr>`}).join('');document.getElementById('content').innerHTML=table(['Customer','Renewal Type','License','Expiry Date','Days Left','Amount','Assigned To','Status','Action'],rows)}
+function renderInvoices(){document.getElementById('sectionTitle').innerText='Tax Invoices';let rows=db.invoices.filter(match).map(i=>`<tr><td>${esc(i.invoiceNo)}</td><td>${esc(i.date)}</td><td>${esc(customer(i.customerId).companyName)}</td><td>${esc(i.item)}</td><td>${money(i.amount)}</td><td>${money(i.vat)}</td><td><b>${money(i.total)}</b></td><td>${badge(i.status)}</td><td><button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button><button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button><button class="btn small red" onclick="del('invoices','invoiceNo','${i.invoiceNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['Invoice No','Date','Customer','Item','Amount','VAT','Total','Status','Action'],rows)}
+function renderPayments(){document.getElementById('sectionTitle').innerText='Payment Collection Board';const statuses=['Pending','Partial','Paid','Overdue'];document.getElementById('content').innerHTML=`<div class="kanban pay">${statuses.map(st=>`<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.payments.filter(x=>x.status===st).length}</span></div>${db.payments.filter(x=>x.status===st&&match(x)).map(p=>`<div class="kcard"><b>${esc(customer(p.customerId).companyName)}</b><div class="kmeta">${esc(p.invoiceNo)}<br>Invoice: BHD ${money(p.invoiceAmount)}<br>Received: BHD ${money(p.received)}<br>Balance: BHD ${money(Number(p.invoiceAmount||0)-Number(p.received||0))}<br>Due: ${esc(p.dueDate||'-')}</div><div class="k-actions"><button class="btn small orange" onclick="openForm('${p.paymentId}')">Edit</button></div></div>`).join('')}</div>`).join('')}</div>`}
+function renderProducts(){masterRender('products','Product Master')}function renderServices(){masterRender('services','Service Master')}function renderTeam(){masterRender('team','Team Master')}function masterRender(key,title){document.getElementById('sectionTitle').innerText=title;let rows=(db[key]||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td><button class="btn small red" onclick="db['${key}'].splice(${i},1);saveDB();render()">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['No','Name','Action'],rows)}
+function renderReports(){document.getElementById('sectionTitle').innerText='Reports';let leadVal=db.leads.reduce((s,x)=>s+Number(x.value||0),0),quoteVal=db.quotations.reduce((s,x)=>s+Number(x.total||0),0),invVal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),received=db.payments.reduce((s,x)=>s+Number(x.received||0),0);document.getElementById('content').innerHTML=`<div class="cards"><div class="card"><div class="card-title">Lead Value</div><div class="card-value">${money(leadVal)}</div></div><div class="card"><div class="card-title">Quotation Value</div><div class="card-value">${money(quoteVal)}</div></div><div class="card"><div class="card-title">Invoice Value</div><div class="card-value">${money(invVal)}</div></div><div class="card"><div class="card-title">Received</div><div class="card-value">${money(received)}</div></div></div>${alerts()}`}
+function renderSettings(){document.getElementById('sectionTitle').innerText='Settings / Backup';document.getElementById('content').innerHTML=`<div class="hint">Data is saved in this browser local storage. Export backup regularly. For multi-user usage, connect Firebase later.</div><div class="form-grid">${inp('setCompany','Company',db.settings.company)}${inp('setAddress','Address',db.settings.address)}${inp('setVatNo','VAT No',db.settings.vatNo)}${inp('setCrNo','CR No',db.settings.crNo)}${inp('setVat','VAT %',db.settings.vatPercent,'number')}</div><br><button class="btn green" onclick="saveSettings()">Save Settings</button><hr><button class="btn gray" onclick="exportBackup()">Export JSON Backup</button> <input type="file" id="backupFile" accept=".json"> <button class="btn orange" onclick="importBackup()">Import Backup</button> <button class="btn red" onclick="clearAll()">Clear All Data</button>`}
+function inp(id,l,v='',type='text',ro=false){return `<div><label>${l}</label><input id="${id}" type="${type}" value="${esc(v)}" ${ro?'readonly':''}></div>`}function txt(id,l,v=''){return `<div class="full"><label>${l}</label><textarea id="${id}">${esc(v)}</textarea></div>`}function sel(id,l,opts,v=''){return `<div><label>${l}</label><select id="${id}">${opts.map(o=>`<option value="${esc(o)}" ${o==v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`}function custSel(v=''){return `<div><label>Customer</label><select id="customerId"><option value="">Select Customer</option>${db.customers.map(c=>`<option value="${c.customerId}" ${c.customerId==v?'selected':''}>${esc(c.companyName)} - ${esc(c.mobile)}</option>`).join('')}</select></div>`}function productSel(v=''){return sel('product','Product',[...db.products,...db.services,'Other'],v)}
+function openForm(id=null){editId=id;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm}[currentModule]||leadForm)(id)}function closeForm(){document.getElementById('formModal').style.display='none';editId=null}
+function customerForm(id){let r=db.customers.find(x=>x.customerId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Customer':'Add Customer';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('customerId','Customer ID',r.customerId||uid('CUS'),'text',true)}${inp('companyName','Company Name',r.companyName||'')}${inp('contactPerson','Contact Person',r.contactPerson||'')}${inp('mobile','Mobile',r.mobile||'')}${inp('email','Email',r.email||'','email')}${inp('vatNo','VAT No',r.vatNo||'')}${inp('crNo','CR No',r.crNo||'')}${inp('location','Location',r.location||'')}${inp('documentLink','Document Link',r.documentLink||'')}${txt('address','Address',r.address||'')}${txt('remarks','Remarks',r.remarks||'')}</div>`}
+function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${sel('leadSource','Lead Source',['Cold Call','WhatsApp','Reference','Existing Customer','Website','Walk-In','Google','Email','Other'],r.leadSource||'Cold Call')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('status','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
+function quotationForm(id){let r=db.quotations.find(x=>x.quotationNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Quotation':'Add Quotation';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('quotationNo','Quotation No',r.quotationNo||uid('QT'),'text',true)}${inp('qdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('leadIdRef','Lead Ref',r.leadId||'')}${productSel(r.item||'')}${inp('qty','Qty',r.qty||1,'number')}${inp('rate','Rate',r.rate||0,'number')}${inp('vat','VAT %',r.vatPercent||db.settings.vatPercent,'number')}${inp('validTill','Valid Till',r.validTill||'','date')}${sel('qstatus','Status',['Draft','Sent','Follow-up','Approved','Rejected','Converted'],r.status||'Draft')}${txt('terms','Terms',r.terms||'60% advance on confirmation, balance on delivery.')}${txt('qremarks','Remarks',r.remarks||'')}</div>`}
+function ticketForm(id){let r=db.tickets.find(x=>x.ticketNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Ticket':'Add Ticket';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('ticketNo','Ticket No',r.ticketNo||uid('TKT'),'text',true)}${inp('tdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${productSel(r.product||'')}${inp('serial','Serial / Asset No',r.serial||'')}${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('engineer','Engineer',db.team,r.engineer||'')}${sel('tstatus','Status',['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'],r.status||'Open')}${sel('amc','AMC Covered',['Yes','No'],r.amc||'No')}${inp('charges','Service Charges',r.charges||'','number')}${txt('issue','Issue Reported',r.issue||'')}${txt('solution','Solution',r.solution||'')}${txt('tremarks','Remarks',r.remarks||'')}</div>`}
+function renewalForm(id){let r=db.renewals.find(x=>x.renewalId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Renewal':'Add Renewal';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('renewalId','Renewal ID',r.renewalId||uid('REN'),'text',true)}${custSel(r.customerId)}${sel('rtype','Renewal Type',['TSS Renewal','AMC Renewal','Cloud Renewal'],r.type||'TSS Renewal')}${inp('license','License Type / Serial No',r.license||'')}${inp('expiryDate','Expiry Date',r.expiryDate||'','date')}${inp('amount','Renewal Amount',r.amount||'','number')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||'')}${sel('rstatus','Status',['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'],r.status||'Upcoming')}${txt('rremarks','Remarks',r.remarks||'')}</div>`}
+function invoiceForm(id){let r=db.invoices.find(x=>x.invoiceNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Invoice':'Add Invoice';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('invoiceNo','Invoice No',r.invoiceNo||uid('INV'),'text',true)}${inp('idate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('quotationNo','Quotation Ref',r.quotationNo||'')}${productSel(r.item||'')}${inp('iqty','Qty',r.qty||1,'number')}${inp('irate','Rate',r.rate||0,'number')}${inp('ivat','VAT %',r.vatPercent||db.settings.vatPercent,'number')}${sel('istatus','Payment Status',['Pending','Partial','Paid'],r.status||'Pending')}${txt('iremarks','Remarks',r.remarks||'')}</div>`}
+function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Payment':'Add Payment';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('paymentId','Payment ID',r.paymentId||uid('PAY'),'text',true)}${inp('pdate','Payment Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('pinvoiceNo','Invoice No',r.invoiceNo||'')}${inp('invoiceAmount','Invoice Amount',r.invoiceAmount||'','number')}${inp('received','Received Amount',r.received||'','number')}${inp('dueDate','Due Date',r.dueDate||'','date')}${sel('pstatus','Status',['Pending','Partial','Paid','Overdue'],r.status||'Pending')}${sel('mode','Mode',['Cash','BenefitPay','Bank Transfer','Cheque','Card','Other'],r.mode||'Bank Transfer')}${inp('referenceNo','Reference No',r.referenceNo||'')}${txt('premarks','Remarks',r.remarks||'')}</div>`}
+function productForm(){document.getElementById('formTitle').innerText='Add Product';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Product Name','')}</div>`}function serviceMasterForm(){document.getElementById('formTitle').innerText='Add Service';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Service Name','')}</div>`}function teamForm(){document.getElementById('formTitle').innerText='Add Team Member';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Team Member Name','')}</div>`}
+function saveForm(){if(currentModule==='customers')saveCustomer();if(currentModule==='leads')saveLead();if(currentModule==='quotations')saveQuotation();if(currentModule==='tickets')saveTicket();if(currentModule==='renewals')saveRenewal();if(currentModule==='invoices')saveInvoice();if(currentModule==='payments')savePayment();if(['products','services','team'].includes(currentModule))saveMaster();saveDB();closeForm();render()}
+function saveCustomer(){let name=document.getElementById('companyName').value.trim();if(!name)return alert('Company Name required');upsert(db.customers,'customerId',{customerId:customerId.value,companyName:name,contactPerson:contactPerson.value,mobile:mobile.value,email:email.value,vatNo:vatNo.value,crNo:crNo.value,location:location.value,documentLink:documentLink.value,address:address.value,remarks:remarks.value})}
+function saveLead(){if(!customerId.value)return alert('Select customer');upsert(db.leads,'leadId',{leadId:leadId.value,leadDate:leadDate.value,customerId:customerId.value,leadSource:leadSource.value,product:product.value,value:value.value,priority:priority.value,status:status.value,nextFollowup:nextFollowup.value,assignedTo:assignedTo.value,requirement:requirement.value,remarks:leadRemarks.value})}
+function saveQuotation(){if(!customerId.value)return alert('Select customer');let amount=Number(qty.value||0)*Number(rate.value||0),vatAmt=amount*Number(vat.value||0)/100;upsert(db.quotations,'quotationNo',{quotationNo:quotationNo.value,date:qdate.value,customerId:customerId.value,leadId:leadIdRef.value,item:product.value,qty:qty.value,rate:rate.value,amount,vatPercent:vat.value,vat:vatAmt,total:amount+vatAmt,validTill:validTill.value,status:qstatus.value,terms:terms.value,remarks:qremarks.value})}
+function saveTicket(){if(!customerId.value)return alert('Select customer');upsert(db.tickets,'ticketNo',{ticketNo:ticketNo.value,date:tdate.value,customerId:customerId.value,product:product.value,serial:serial.value,priority:priority.value,engineer:engineer.value,status:tstatus.value,amc:amc.value,charges:charges.value,issue:issue.value,solution:solution.value,remarks:tremarks.value})}
+function saveRenewal(){if(!customerId.value)return alert('Select customer');upsert(db.renewals,'renewalId',{renewalId:renewalId.value,customerId:customerId.value,type:rtype.value,license:license.value,expiryDate:expiryDate.value,amount:amount.value,assignedTo:assignedTo.value,status:rstatus.value,remarks:rremarks.value})}
+function saveInvoice(){if(!customerId.value)return alert('Select customer');let amount=Number(iqty.value||0)*Number(irate.value||0),vatAmt=amount*Number(ivat.value||0)/100;upsert(db.invoices,'invoiceNo',{invoiceNo:invoiceNo.value,date:idate.value,customerId:customerId.value,quotationNo:quotationNo.value,item:product.value,qty:iqty.value,rate:irate.value,amount,vatPercent:ivat.value,vat:vatAmt,total:amount+vatAmt,status:istatus.value,remarks:iremarks.value})}
+function savePayment(){if(!customerId.value)return alert('Select customer');upsert(db.payments,'paymentId',{paymentId:paymentId.value,date:pdate.value,customerId:customerId.value,invoiceNo:pinvoiceNo.value,invoiceAmount:invoiceAmount.value,received:received.value,dueDate:dueDate.value,status:pstatus.value,mode:mode.value,referenceNo:referenceNo.value,remarks:premarks.value})}
+function saveMaster(){let v=masterName.value.trim();if(!v)return alert('Name required');let key=currentModule;db[key].push(v)}
+function del(arr,key,id){if(confirm('Delete this record?')){db[arr]=db[arr].filter(x=>x[key]!==id);saveDB();render()}}
+function viewCustomer(id){let c=customer(id);customerTab='overview';drawCustomer(c)}function drawCustomer(c){let tabs=['overview','timeline','leads','quotations','tickets','invoices','payments','renewals'];let content='';if(customerTab==='overview')content=`<div class="customer-head"><div><h2>${esc(c.companyName)}</h2><p><b>Contact:</b> ${esc(c.contactPerson)} | <b>Mobile:</b> ${esc(c.mobile)} | <b>Email:</b> ${esc(c.email)}</p><p><b>VAT:</b> ${esc(c.vatNo)} | <b>CR:</b> ${esc(c.crNo)} | <b>Location:</b> ${esc(c.location)}</p></div><button class="btn orange no-print" onclick="currentModule='customers';openForm('${c.customerId}')">Edit Customer</button></div>`;if(customerTab==='timeline')content=timeline(c.customerId);if(customerTab==='leads')content=miniTable(db.leads.filter(x=>x.customerId===c.customerId));if(customerTab==='quotations')content=miniTable(db.quotations.filter(x=>x.customerId===c.customerId));if(customerTab==='tickets')content=miniTable(db.tickets.filter(x=>x.customerId===c.customerId));if(customerTab==='invoices')content=miniTable(db.invoices.filter(x=>x.customerId===c.customerId));if(customerTab==='payments')content=miniTable(db.payments.filter(x=>x.customerId===c.customerId));if(customerTab==='renewals')content=miniTable(db.renewals.filter(x=>x.customerId===c.customerId));document.getElementById('viewArea').innerHTML=`<div class="modal-head no-print"><h2>Customer 360°</h2><button class="btn gray" onclick="document.getElementById('viewModal').style.display='none'">X</button></div><div class="tabs no-print">${tabs.map(t=>`<button class="tab ${customerTab===t?'active':''}" onclick="customerTab='${t}';drawCustomer(customer('${c.customerId}'))">${t.toUpperCase()}</button>`).join('')}</div>${content}`;document.getElementById('viewModal').style.display='flex'}
+function miniTable(arr){let rows=arr.map(x=>`<tr>${Object.entries(x).slice(0,7).map(([k,v])=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('');return table(['1','2','3','4','5','6','7'],rows)}function timeline(id){let ev=[...db.leads.filter(x=>x.customerId===id).map(x=>['Lead',x.leadDate,x.status,x.product]),...db.quotations.filter(x=>x.customerId===id).map(x=>['Quotation',x.date,x.status,x.item]),...db.tickets.filter(x=>x.customerId===id).map(x=>['Ticket',x.date,x.status,x.issue]),...db.invoices.filter(x=>x.customerId===id).map(x=>['Invoice',x.date,x.status,x.item])].sort((a,b)=>String(b[1]).localeCompare(String(a[1])));return `<div class="timeline">${ev.map(e=>`<div class="event"><b>${esc(e[0])}</b> - ${esc(e[1])}<br>${esc(e[3])}<br>${badge(e[2])}</div>`).join('')}</div>`}
+function quickFollowup(type,ref,cid){setModule('leads');alert('Follow-up noted for '+type+' '+ref+'. You can update next follow-up date in the record.')}function createQuotationFromLead(id){let l=db.leads.find(x=>x.leadId===id);if(!l)return;currentModule='quotations';openForm();customerId.value=l.customerId;leadIdRef.value=l.leadId;product.value=l.product;rate.value=l.value||0}function createInvoiceFromQuotation(no){let q=db.quotations.find(x=>x.quotationNo===no);if(!q)return;currentModule='invoices';openForm();customerId.value=q.customerId;quotationNo.value=q.quotationNo;product.value=q.item;iqty.value=q.qty;irate.value=q.rate;ivat.value=q.vatPercent}function createInvoiceFromTicket(no){let t=db.tickets.find(x=>x.ticketNo===no);if(!t)return;currentModule='invoices';openForm();customerId.value=t.customerId;product.value=t.product;irate.value=t.charges||0}
+function printInvoice(no){let i=db.invoices.find(x=>x.invoiceNo===no),c=customer(i.customerId);document.getElementById('printArea').innerHTML=`<h1>TAX INVOICE</h1><h2>${esc(db.settings.company)}</h2><p>${esc(db.settings.address)}</p><hr><p><b>Invoice:</b> ${esc(i.invoiceNo)} | <b>Date:</b> ${esc(i.date)}</p><p><b>Customer:</b> ${esc(c.companyName)}</p>${table(['Item','Qty','Rate','Amount','VAT','Total'],`<tr><td>${esc(i.item)}</td><td>${esc(i.qty)}</td><td>${money(i.rate)}</td><td>${money(i.amount)}</td><td>${money(i.vat)}</td><td>${money(i.total)}</td></tr>`)}`;window.print()}
+function saveSettings(){db.settings={company:setCompany.value,address:setAddress.value,vatNo:setVatNo.value,crNo:setCrNo.value,vatPercent:setVat.value};saveDB();alert('Settings saved')}function exportBackup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='veltrox-crm-backup.json';a.click()}function importBackup(){let f=backupFile.files[0];if(!f)return alert('Select backup file');let r=new FileReader();r.onload=()=>{db=JSON.parse(r.result);saveDB();render();alert('Backup imported')};r.readAsText(f)}function clearAll(){if(confirm('Clear all CRM data?')){db=structuredClone(defaultDB);saveDB();render()}}function exportCSV(){let rows=[['Module','Date','Customer','Reference','Status','Amount'],...db.leads.map(x=>['Lead',x.leadDate,customer(x.customerId).companyName,x.leadId,x.status,x.value]),...db.quotations.map(x=>['Quotation',x.date,customer(x.customerId).companyName,x.quotationNo,x.status,x.total]),...db.invoices.map(x=>['Invoice',x.date,customer(x.customerId).companyName,x.invoiceNo,x.status,x.total]),...db.payments.map(x=>['Payment',x.date,customer(x.customerId).companyName,x.invoiceNo,x.status,x.received])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='veltrox-crm-export.csv';a.click()}
+setModule('dashboard');
+</script>
+</body>
+</html>
