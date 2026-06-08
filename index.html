@@ -186,7 +186,25 @@ function productForm(){document.getElementById('formTitle').innerText='Add Produ
 function saveForm(){if(currentModule==='customers')saveCustomer();if(currentModule==='leads')saveLead();if(currentModule==='followups')saveFollowup();if(currentModule==='quotations')saveQuotation();if(currentModule==='tickets')saveTicket();if(currentModule==='renewals')saveRenewal();if(currentModule==='invoices')saveInvoice();if(currentModule==='payments')savePayment();if(['products','services','team'].includes(currentModule))saveMaster();saveDB();closeForm();render()}
 function saveFollowup(){if(!customerId.value)return alert('Select customer');upsert(db.followups,'followupId',{followupId:followupId.value,date:fdate.value,type:ftype.value,refNo:refNo.value,customerId:customerId.value,discussion:fdiscussion.value,nextFollowup:fnext.value,updatedBy:fupdatedBy.value,status:fstatus.value,remarks:fremarks.value})}
 function saveCustomer(){let name=document.getElementById('companyName').value.trim();if(!name)return alert('Company Name required');upsert(db.customers,'customerId',{customerId:customerId.value,companyName:name,contactPerson:contactPerson.value,mobile:mobile.value,email:email.value,vatNo:vatNo.value,crNo:crNo.value,location:location.value,documentLink:documentLink.value,address:address.value,remarks:remarks.value})}
-function saveLead(){if(!customerId.value)return alert('Select customer');upsert(db.leads,'leadId',{leadId:leadId.value,leadDate:leadDate.value,customerId:customerId.value,leadSource:leadSource.value,product:product.value,value:value.value,priority:priority.value,status:status.value,nextFollowup:nextFollowup.value,assignedTo:assignedTo.value,requirement:requirement.value,remarks:leadRemarks.value})}
+function saveLead(){
+  const leadStatusValue = document.getElementById('status').value;
+  const leadPriorityValue = document.getElementById('priority').value;
+  if(!customerId.value)return alert('Select customer');
+  upsert(db.leads,'leadId',{
+    leadId:leadId.value,
+    leadDate:leadDate.value,
+    customerId:customerId.value,
+    leadSource:leadSource.value,
+    product:product.value,
+    value:value.value,
+    priority:leadPriorityValue,
+    status:leadStatusValue,
+    nextFollowup:nextFollowup.value,
+    assignedTo:assignedTo.value,
+    requirement:requirement.value,
+    remarks:leadRemarks.value
+  })
+}
 function saveQuotation(){if(!customerId.value)return alert('Select customer');let amount=Number(qty.value||0)*Number(rate.value||0),vatAmt=amount*Number(vat.value||0)/100;upsert(db.quotations,'quotationNo',{quotationNo:quotationNo.value,date:qdate.value,customerId:customerId.value,leadId:leadIdRef.value,item:product.value,qty:qty.value,rate:rate.value,amount,vatPercent:vat.value,vat:vatAmt,total:amount+vatAmt,validTill:validTill.value,status:qstatus.value,terms:terms.value,remarks:qremarks.value})}
 function saveTicket(){if(!customerId.value)return alert('Select customer');upsert(db.tickets,'ticketNo',{ticketNo:ticketNo.value,date:tdate.value,customerId:customerId.value,product:product.value,serial:serial.value,priority:priority.value,engineer:engineer.value,status:tstatus.value,amc:amc.value,charges:charges.value,issue:issue.value,solution:solution.value,remarks:tremarks.value})}
 function saveRenewal(){if(!customerId.value)return alert('Select customer');upsert(db.renewals,'renewalId',{renewalId:renewalId.value,customerId:customerId.value,type:rtype.value,license:license.value,expiryDate:expiryDate.value,amount:amount.value,assignedTo:assignedTo.value,status:rstatus.value,remarks:rremarks.value})}
