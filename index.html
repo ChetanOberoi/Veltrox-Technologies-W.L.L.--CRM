@@ -71,6 +71,13 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
       <div class="actions">
         <input class="search" id="searchBox" placeholder="Search customer, mobile, lead, invoice..." onkeyup="render()" />
         <button class="btn" id="addBtn" onclick="openForm()">+ Add</button>
+        <div style="position:relative;display:inline-block">
+          <button class="btn gray" id="bellBtn" onclick="toggleNotifPanel()" title="Notifications" style="font-size:18px;padding:9px 14px;position:relative">&#128276;<span id="notifBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:999px;font-size:11px;font-weight:900;min-width:20px;height:20px;line-height:20px;text-align:center;padding:0 5px"></span></button>
+          <div id="notifPanel" style="display:none;position:absolute;right:0;top:48px;width:380px;max-height:480px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 16px 40px rgba(15,23,42,.15);z-index:999">
+            <div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">&#128276; Notifications</b><button onclick="clearAllNotifs()" style="border:0;background:#fee2e2;color:#991b1b;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800;cursor:pointer">Clear All</button></div>
+            <div id="notifList" style="padding:8px 0"></div>
+          </div>
+        </div>
         <button class="btn gray" onclick="exportBackup()">Backup</button>
         <button class="btn green" onclick="exportCSV()">Export Excel CSV</button>
       </div>
@@ -260,6 +267,137 @@ function miniTable(arr){let rows=arr.map(x=>`<tr>${Object.entries(x).slice(0,7).
 function quickFollowup(type,ref,cid){currentModule='followups';openForm();ftype.value=type;refNo.value=ref;customerId.value=cid;fdiscussion.value='Follow-up call / WhatsApp discussion';fstatus.value='Open'}function createQuotationFromLead(id){let l=db.leads.find(x=>x.leadId===id);if(!l)return;l.status='Quotation Sent';saveDB();currentModule='quotations';openForm();customerId.value=l.customerId;leadIdRef.value=l.leadId;product.value=l.product;rate.value=l.value||0;qstatus.value='Sent'}function createInvoiceFromQuotation(no){let q=db.quotations.find(x=>x.quotationNo===no);if(!q)return;currentModule='invoices';openForm();customerId.value=q.customerId;quotationNo.value=q.quotationNo;product.value=q.item;iqty.value=q.qty;irate.value=q.rate;ivat.value=q.vatPercent}function createInvoiceFromTicket(no){let t=db.tickets.find(x=>x.ticketNo===no);if(!t)return;currentModule='invoices';openForm();customerId.value=t.customerId;product.value=t.product;irate.value=t.charges||0}
 function printInvoice(no){let i=db.invoices.find(x=>x.invoiceNo===no),c=customer(i.customerId);document.getElementById('printArea').innerHTML=`<h1>TAX INVOICE</h1><h2>${esc(db.settings.company)}</h2><p>${esc(db.settings.address)}</p><hr><p><b>Invoice:</b> ${esc(i.invoiceNo)} | <b>Date:</b> ${esc(i.date)}</p><p><b>Customer:</b> ${esc(c.companyName)}</p>${table(['Item','Qty','Rate','Amount','VAT','Total'],`<tr><td>${esc(i.item)}</td><td>${esc(i.qty)}</td><td>${money(i.rate)}</td><td>${money(i.amount)}</td><td>${money(i.vat)}</td><td>${money(i.total)}</td></tr>`)}`;window.print()}
 function saveSettings(){db.settings={company:setCompany.value,address:setAddress.value,vatNo:setVatNo.value,crNo:setCrNo.value,vatPercent:setVat.value};saveDB();alert('Settings saved')}function exportBackup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='veltrox-crm-backup.json';a.click()}function importBackup(){let f=backupFile.files[0];if(!f)return alert('Select backup file');let r=new FileReader();r.onload=()=>{db=JSON.parse(r.result);saveDB();render();alert('Backup imported')};r.readAsText(f)}function clearAll(){if(confirm('Clear all CRM data?')){db=structuredClone(defaultDB);saveDB();render()}}function exportCSV(){let rows=[['Module','Date','Customer','Reference','Status','Amount'],...db.leads.map(x=>['Lead',x.leadDate,customer(x.customerId).companyName,x.leadId,x.status,x.value]),...db.followups.map(x=>['Follow-up',x.date,customer(x.customerId).companyName,x.refNo||x.followupId,x.status,x.discussion]),...db.quotations.map(x=>['Quotation',x.date,customer(x.customerId).companyName,x.quotationNo,x.status,x.total]),...db.invoices.map(x=>['Invoice',x.date,customer(x.customerId).companyName,x.invoiceNo,x.status,x.total]),...db.payments.map(x=>['Payment',x.date,customer(x.customerId).companyName,x.invoiceNo,x.status,x.received])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='veltrox-crm-export.csv';a.click()}
+// ── NOTIFICATION SYSTEM ──────────────────────────────────────────
+const NOTIF_KEY = 'VELTROX_NOTIFS_DISMISSED';
+function getDismissed(){try{return JSON.parse(localStorage.getItem(NOTIF_KEY)||'[]');}catch(e){return[];}}
+function dismiss(id){const d=getDismissed();if(!d.includes(id)){d.push(id);localStorage.setItem(NOTIF_KEY,JSON.stringify(d));}}
+function clearAllNotifs(){const ids=buildNotifications().map(n=>n.id);const d=getDismissed();ids.forEach(id=>{if(!d.includes(id))d.push(id);});localStorage.setItem(NOTIF_KEY,JSON.stringify(d));renderNotifPanel();}
+
+function buildNotifications(){
+  const t=today(); const notifs=[];
+  const in7=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+  const in30=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+  // Follow-ups due today or overdue
+  db.leads.filter(x=>x.nextFollowup&&x.nextFollowup<=t&&!['Won','Lost'].includes(x.status)).forEach(x=>{
+    const c=customer(x.customerId);
+    notifs.push({id:'FU-'+x.leadId,type:'followup',icon:'📞',color:'#fef3c7',tc:'#92400e',title:'Follow-up Due',body:`${c.companyName||x.leadId} — Lead follow-up was due on ${x.nextFollowup}`,date:x.nextFollowup,module:'leads'});
+  });
+  // Follow-ups due in next 7 days
+  db.leads.filter(x=>x.nextFollowup&&x.nextFollowup>t&&x.nextFollowup<=in7&&!['Won','Lost'].includes(x.status)).forEach(x=>{
+    const c=customer(x.customerId);
+    notifs.push({id:'FU7-'+x.leadId,type:'followup',icon:'📅',color:'#eff6ff',tc:'#1d4ed8',title:'Follow-up Upcoming',body:`${c.companyName||x.leadId} — Follow-up due on ${x.nextFollowup}`,date:x.nextFollowup,module:'leads'});
+  });
+  // Payments overdue
+  db.payments.filter(x=>x.dueDate&&x.dueDate<=t&&x.status!=='Paid').forEach(x=>{
+    const c=customer(x.customerId);
+    notifs.push({id:'PAY-'+x.paymentId,type:'payment',icon:'💳',color:'#fee2e2',tc:'#991b1b',title:'Payment Overdue',body:`${c.companyName||x.invoiceNo} — BHD ${money(Number(x.invoiceAmount||0)-Number(x.received||0))} due since ${x.dueDate}`,date:x.dueDate,module:'payments'});
+  });
+  // Payments due in next 7 days
+  db.payments.filter(x=>x.dueDate&&x.dueDate>t&&x.dueDate<=in7&&x.status!=='Paid').forEach(x=>{
+    const c=customer(x.customerId);
+    notifs.push({id:'PAY7-'+x.paymentId,type:'payment',icon:'💰',color:'#fef3c7',tc:'#92400e',title:'Payment Due Soon',body:`${c.companyName||x.invoiceNo} — BHD ${money(Number(x.invoiceAmount||0)-Number(x.received||0))} due on ${x.dueDate}`,date:x.dueDate,module:'payments'});
+  });
+  // Renewals expired
+  db.renewals.filter(x=>x.expiryDate&&x.expiryDate<=t&&x.status!=='Renewed').forEach(x=>{
+    const c=customer(x.customerId);
+    notifs.push({id:'REN-'+x.renewalId,type:'renewal',icon:'🔁',color:'#fee2e2',tc:'#991b1b',title:'Renewal Expired',body:`${c.companyName||x.type} — ${x.type} expired on ${x.expiryDate}`,date:x.expiryDate,module:'renewals'});
+  });
+  // Renewals due in next 30 days
+  db.renewals.filter(x=>x.expiryDate&&x.expiryDate>t&&x.expiryDate<=in30&&x.status!=='Renewed').forEach(x=>{
+    const c=customer(x.customerId);
+    notifs.push({id:'REN30-'+x.renewalId,type:'renewal',icon:'⏰',color:'#fef9c3',tc:'#854d0e',title:'Renewal Due Soon',body:`${c.companyName||x.type} — ${x.type} expires on ${x.expiryDate}`,date:x.expiryDate,module:'renewals'});
+  });
+  return notifs;
+}
+
+function getActiveNotifs(){
+  const dismissed=getDismissed();
+  return buildNotifications().filter(n=>!dismissed.includes(n.id));
+}
+
+function renderNotifPanel(){
+  const active=getActiveNotifs();
+  const badge=document.getElementById('notifBadge');
+  const list=document.getElementById('notifList');
+  if(!badge||!list)return;
+  if(active.length>0){badge.style.display='inline-block';badge.innerText=active.length;}
+  else{badge.style.display='none';}
+  if(active.length===0){
+    list.innerHTML='<div style="padding:24px;text-align:center;color:#6b7280;font-size:13px">&#10003; All caught up! No pending alerts.</div>';
+    return;
+  }
+  list.innerHTML=active.map(n=>`
+    <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:20px;margin-top:2px">${n.icon}</span>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span style="display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:900;background:${n.color};color:${n.tc}">${n.title}</span>
+          <span style="font-size:11px;color:#9ca3af">${n.date}</span>
+        </div>
+        <div style="font-size:12px;color:#374151;margin-top:5px;line-height:1.5">${n.body}</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button onclick="setModule('${n.module}');toggleNotifPanel()" style="border:0;background:#2563eb;color:#fff;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">View</button>
+          <button onclick="dismiss('${n.id}');renderNotifPanel()" style="border:0;background:#e5e7eb;color:#374151;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">Dismiss</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleNotifPanel(){
+  const p=document.getElementById('notifPanel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  if(p.style.display==='block')renderNotifPanel();
+}
+// Close panel when clicking outside
+document.addEventListener('click',function(e){
+  const panel=document.getElementById('notifPanel');
+  const btn=document.getElementById('bellBtn');
+  if(panel&&btn&&!panel.contains(e.target)&&!btn.contains(e.target)){panel.style.display='none';}
+});
+
+// Browser push notification
+function requestPushPermission(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default'){Notification.requestPermission();}
+}
+function sendPushNotif(title,body,icon=''){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  new Notification(title,{body,icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔔</text></svg>'});
+}
+
+// In-app toast popup
+function showToast(icon,title,body,color,tc){
+  let toast=document.getElementById('crmToast');
+  if(!toast){toast=document.createElement('div');toast.id='crmToast';document.body.appendChild(toast);}
+  toast.innerHTML=`<div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:22px">${icon}</span><div><div style="font-weight:900;font-size:13px;color:${tc}">${title}</div><div style="font-size:12px;color:#374151;margin-top:3px">${body}</div></div><button onclick="document.getElementById('crmToast').style.display='none'" style="border:0;background:transparent;font-size:16px;cursor:pointer;color:#6b7280;margin-left:auto">&#10005;</button></div>`;
+  toast.style.cssText=`position:fixed;bottom:24px;right:24px;background:#fff;border:1.5px solid ${color};border-radius:14px;padding:14px 16px;box-shadow:0 8px 30px rgba(15,23,42,.15);z-index:9999;max-width:340px;display:flex;animation:slideIn .3s ease`;
+  clearTimeout(toast._timer);
+  toast._timer=setTimeout(()=>{toast.style.display='none';},6000);
+}
+
+// Run notification check on load and every 60s
+function runNotifCheck(){
+  renderNotifPanel();
+  const active=getActiveNotifs();
+  if(active.length>0){
+    // Show toast for the most urgent one
+    const top=active[0];
+    showToast(top.icon,top.title,top.body,top.color,top.tc);
+    // Send browser push if permitted
+    sendPushNotif('Veltrox CRM — '+top.title, top.body);
+  }
+}
+
+// Add slide-in animation
+const notifStyle=document.createElement('style');
+notifStyle.textContent='@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}';
+document.head.appendChild(notifStyle);
+
+requestPushPermission();
+setTimeout(runNotifCheck, 1200);
+setInterval(runNotifCheck, 60000);
+// ─────────────────────────────────────────────────────────────────
+
 setModule('dashboard');
 </script>
 </body>
