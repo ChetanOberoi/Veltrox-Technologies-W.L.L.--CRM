@@ -167,30 +167,21 @@ function alerts(){let rows=[...db.leads.filter(x=>x.nextFollowup&&x.nextFollowup
 function leadKanban(){const stages=['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];return `<div class="kanban">${stages.map(st=>{let cards=db.leads.filter(x=>x.status===st&&match(x)).map(l=>{let c=customer(l.customerId);return `<div class="kcard"><b>${esc(c.companyName||'No Customer')}</b><div class="kmeta">${esc(l.leadId)}<br>${esc(c.mobile||'')}<br>${esc(l.product||'')} | BHD ${money(l.value)}<br>Next: ${esc(l.nextFollowup||'-')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button><button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button><button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quote</button></div></div>`}).join('');return `<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.leads.filter(x=>x.status===st).length}</span></div>${cards}</div>`}).join('')}</div>`}
 function serviceKanban(){const stages=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];return `<div class="kanban service">${stages.map(st=>`<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.tickets.filter(x=>x.status===st).length}</span></div>${db.tickets.filter(x=>x.status===st&&match(x)).map(t=>`<div class="kcard"><b>${esc(customer(t.customerId).companyName)}</b><div class="kmeta">${esc(t.ticketNo)}<br>${esc(t.issue)}<br>Engineer: ${esc(t.engineer||'-')}<br>AMC: ${esc(t.amc||'No')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button></div></div>`).join('')}</div>`).join('')}</div>`}
 
-// ── FIX 1: leadStatusSelect – color-coded dropdown, no separate badge needed ──
-function leadStatusSelect(id, current) {
-  const opts = ['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];
+// ── STATUS BADGE: read-only colored pill shown in table; editing happens inside Edit form ──
+function leadStatusBadge(current) {
   const bgMap = {
-    'New':'#e5e7eb', 'Contacted':'#fef3c7', 'Demo Scheduled':'#ede9fe',
-    'Quotation Sent':'#fef9c3', 'Negotiation':'#fed7aa', 'Won':'#dcfce7', 'Lost':'#fee2e2'
+    'New':'#e5e7eb','Contacted':'#fef3c7','Demo Scheduled':'#ede9fe',
+    'Quotation Sent':'#fef9c3','Negotiation':'#fed7aa','Won':'#dcfce7','Lost':'#fee2e2'
   };
   const tcMap = {
-    'New':'#374151', 'Contacted':'#92400e', 'Demo Scheduled':'#5b21b6',
-    'Quotation Sent':'#854d0e', 'Negotiation':'#9a3412', 'Won':'#166534', 'Lost':'#991b1b'
+    'New':'#374151','Contacted':'#92400e','Demo Scheduled':'#5b21b6',
+    'Quotation Sent':'#854d0e','Negotiation':'#9a3412','Won':'#166534','Lost':'#991b1b'
   };
   const bg = bgMap[current] || '#e5e7eb';
   const tc = tcMap[current] || '#374151';
-  const options = opts.map(o => `<option value="${esc(o)}" ${o === current ? 'selected' : ''}>${esc(o)}</option>`).join('');
-  return `<select class="lead-status-select" onchange="updateLeadStatus('${id}', this.value)" style="min-width:148px;padding:7px 9px;border-radius:10px;font-weight:800;background:${bg};color:${tc};border:2px solid rgba(0,0,0,.08);cursor:pointer">${options}</select>`;
+  return `<span style="display:inline-block;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:900;background:${bg};color:${tc};border:1.5px solid rgba(0,0,0,.07);white-space:nowrap">${esc(current||'New')}</span>`;
 }
 
-function updateLeadStatus(id, newStatus) {
-  let l = db.leads.find(x => x.leadId === id);
-  if (!l) return;
-  l.status = newStatus;
-  saveDB();
-  render();
-}
 
 function renderLeads() {
   document.getElementById('sectionTitle').innerText = 'Leads Register - Table View';
@@ -212,7 +203,7 @@ function leadTableView() {
       <td>${money(l.value)}</td>
       <td>${esc(l.nextFollowup)}</td>
       <td>${esc(l.assignedTo)}</td>
-      <td>${leadStatusSelect(l.leadId, l.status || 'New')}</td>
+      <td>${leadStatusBadge(l.status || 'New')}</td>
       <td>
         <button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button>
         <button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quotation</button>
