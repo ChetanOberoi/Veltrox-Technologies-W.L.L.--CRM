@@ -169,7 +169,198 @@ function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.na
 function render(){cards();document.getElementById('sectionActions').innerHTML='';({dashboard:renderDashboard,leads:renderLeads,followups:renderFollowups,customers:renderCustomers,quotations:renderQuotations,tickets:renderTickets,renewals:renderRenewals,invoices:renderInvoices,payments:renderPayments,products:renderProducts,services:renderServices,team:renderTeam,reports:renderReports,settings:renderSettings}[currentModule]||renderDashboard)()}
 function cards(){let invTotal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),rec=db.payments.reduce((s,x)=>s+Number(x.received||0),0);let dueRen=db.renewals.filter(x=>x.expiryDate&&x.expiryDate<=new Date(Date.now()+30*86400000).toISOString().slice(0,10)&&x.status!=='Renewed').length;document.getElementById('summaryCards').innerHTML=`<div class="card click" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value">${db.leads.length}</div><div class="card-foot">Pipeline opportunities</div></div><div class="card click" onclick="setModule('quotations')"><div class="card-title">Open Quotations</div><div class="card-value">${db.quotations.filter(x=>!['Approved','Rejected','Converted'].includes(x.status)).length}</div><div class="card-foot">Pending conversion</div></div><div class="card click" onclick="setModule('tickets')"><div class="card-title">Open Tickets</div><div class="card-value">${db.tickets.filter(x=>x.status!=='Closed').length}</div><div class="card-foot">Service workload</div></div><div class="card click" onclick="setModule('payments')"><div class="card-title">Pending Collection</div><div class="card-value">${money(invTotal-rec)}</div><div class="card-foot">BHD outstanding</div></div><div class="card click" onclick="setModule('renewals')"><div class="card-title">Renewals Due</div><div class="card-value">${dueRen}</div><div class="card-foot">Next 30 days</div></div>`}
 function table(h,r){return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r||`<tr><td colspan="${h.length}">No records found.</td></tr>`}</tbody></table></div>`}
-function renderDashboard(){document.getElementById('sectionTitle').innerText='Zoho Style CRM Dashboard - Kanban View';document.getElementById('sectionActions').innerHTML='<span class="badge">Dashboard Kanban only</span>';const recent=[...db.leads.map(x=>['Lead',x.leadDate,x.leadId,x.customerId,x.status,x.product]),...db.followups.map(x=>['Follow-up',x.date,x.followupId,x.customerId,x.status,x.discussion]),...db.quotations.map(x=>['Quotation',x.date,x.quotationNo,x.customerId,x.status,x.item]),...db.tickets.map(x=>['Ticket',x.date,x.ticketNo,x.customerId,x.status,x.issue]),...db.invoices.map(x=>['Invoice',x.date,x.invoiceNo,x.customerId,x.status,x.item])].sort((a,b)=>String(b[1]).localeCompare(String(a[1]))).slice(0,10).map(a=>`<tr><td>${a[1]||''}</td><td>${a[0]}</td><td>${esc(customer(a[3]).companyName||'')}</td><td>${esc(a[2])}</td><td>${esc(a[5]||'')}</td><td>${badge(a[4])}</td></tr>`).join('');document.getElementById('content').innerHTML=`<div class="hint">Dashboard is kept in Kanban style for quick management overview. All other modules remain in table/register format.</div><div class="panel"><h3>Lead Pipeline Kanban</h3><br>${leadKanban()}</div><div class="panel"><h3>Service Ticket Kanban</h3><br>${serviceKanban()}</div><div class="grid-2"><div class="panel"><h3>Today / Pending Actions</h3><br>${alerts()}</div><div class="panel"><h3>Recent Activities</h3><br>${table(['Date','Type','Customer','Reference','Details','Status'],recent)}</div></div>`}
+function renderDashboard(){
+  document.getElementById('sectionTitle').innerText='Dashboard — Charts & Kanban';
+  document.getElementById('sectionActions').innerHTML='';
+  const recent=[...db.leads.map(x=>['Lead',x.leadDate,x.leadId,x.customerId,x.status,x.product]),...db.followups.map(x=>['Follow-up',x.date,x.followupId,x.customerId,x.status,x.discussion]),...db.quotations.map(x=>['Quotation',x.date,x.quotationNo,x.customerId,x.status,x.item]),...db.tickets.map(x=>['Ticket',x.date,x.ticketNo,x.customerId,x.status,x.issue]),...db.invoices.map(x=>['Invoice',x.date,x.invoiceNo,x.customerId,x.status,x.item])].sort((a,b)=>String(b[1]).localeCompare(String(a[1]))).slice(0,10).map(a=>`<tr><td>${a[1]||''}</td><td>${a[0]}</td><td>${esc(customer(a[3]).companyName||'')}</td><td>${esc(a[2])}</td><td>${esc(a[5]||'')}</td><td>${badge(a[4])}</td></tr>`).join('');
+  document.getElementById('content').innerHTML=`
+    <div class="hint">Live charts built from your CRM data. Scroll down for Kanban and recent activity.</div>
+
+    <!-- ROW 1: Funnel + Revenue Trend -->
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:16px">
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">🎯 Lead Pipeline Funnel</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px;color:#6b7280">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2563eb;margin-right:3px;vertical-align:middle"></span>Stages</span>
+        </div>
+        <div style="position:relative;width:100%;height:210px"><canvas id="ch_funnel" role="img" aria-label="Lead pipeline funnel">Lead funnel</canvas></div>
+      </div>
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">💰 Invoiced vs Collected (BHD)</h3>
+        <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#6b7280">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2563eb;margin-right:3px;vertical-align:middle"></span>Invoiced</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Collected</span>
+        </div>
+        <div style="position:relative;width:100%;height:210px"><canvas id="ch_revenue" role="img" aria-label="Revenue trend chart">Revenue trend</canvas></div>
+      </div>
+    </div>
+
+    <!-- ROW 2: Win Rate + Ticket Status + Salesman -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:16px;margin-bottom:16px">
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">🏆 Lead Win Rate</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:11px;color:#6b7280">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Won</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px;vertical-align:middle"></span>Lost</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#94a3b8;margin-right:3px;vertical-align:middle"></span>Active</span>
+        </div>
+        <div style="position:relative;width:100%;height:170px"><canvas id="ch_win" role="img" aria-label="Lead win rate donut">Win rate</canvas></div>
+      </div>
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">🛠 Ticket Status</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:11px;color:#6b7280">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px;vertical-align:middle"></span>Open</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f59e0b;margin-right:3px;vertical-align:middle"></span>In Progress</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Resolved/Closed</span>
+        </div>
+        <div style="position:relative;width:100%;height:170px"><canvas id="ch_ticket" role="img" aria-label="Ticket status donut">Ticket status</canvas></div>
+      </div>
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">👤 Salesman Performance (BHD)</h3>
+        <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#6b7280">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#7c3aed;margin-right:3px;vertical-align:middle"></span>Leads Value</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Won Value</span>
+        </div>
+        <div style="position:relative;width:100%;height:170px"><canvas id="ch_sales" role="img" aria-label="Salesman performance bar chart">Salesman performance</canvas></div>
+      </div>
+    </div>
+
+    <!-- ROW 3: Renewals Timeline -->
+    <div class="panel" style="margin-bottom:16px">
+      <h3 style="margin-bottom:10px">🔁 Renewals Due — Next 90 Days (BHD)</h3>
+      <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#6b7280">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px;vertical-align:middle"></span>Overdue</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f59e0b;margin-right:3px;vertical-align:middle"></span>This Month</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2563eb;margin-right:3px;vertical-align:middle"></span>30–90 Days</span>
+      </div>
+      <div style="position:relative;width:100%;height:160px"><canvas id="ch_renewal" role="img" aria-label="Renewals timeline bar chart">Renewals timeline</canvas></div>
+    </div>
+
+    <!-- ROW 4: Kanban + Alerts + Recent -->
+    <div class="panel"><h3>Lead Pipeline Kanban</h3><br>${leadKanban()}</div>
+    <div class="panel"><h3>Service Ticket Kanban</h3><br>${serviceKanban()}</div>
+    <div class="grid-2">
+      <div class="panel"><h3>Today / Pending Actions</h3><br>${alerts()}</div>
+      <div class="panel"><h3>Recent Activities</h3><br>${table(['Date','Type','Customer','Reference','Details','Status'],recent)}</div>
+    </div>
+  `;
+  // Draw charts after DOM is ready
+  setTimeout(drawDashboardCharts, 50);
+}
+
+function drawDashboardCharts(){
+  if(typeof Chart==='undefined') return;
+  // Destroy existing charts to avoid canvas reuse errors
+  ['ch_funnel','ch_revenue','ch_win','ch_ticket','ch_sales','ch_renewal'].forEach(id=>{
+    const c=Chart.getChart(id); if(c) c.destroy();
+  });
+
+  const gridC='rgba(0,0,0,0.06)';
+
+  // 1. FUNNEL — lead stage counts from real data
+  const stages=['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];
+  const stageCounts=stages.map(s=>db.leads.filter(x=>x.status===s).length);
+  new Chart(document.getElementById('ch_funnel'),{
+    type:'bar',
+    data:{
+      labels:stages,
+      datasets:[{
+        label:'Leads',
+        data:stageCounts,
+        backgroundColor:['#93c5fd','#fcd34d','#c4b5fd','#67e8f9','#fdba74','#86efac','#fca5a5'],
+        borderRadius:5,borderSkipped:false
+      }]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.raw+' leads'}}},
+      scales:{x:{grid:{color:gridC},ticks:{stepSize:1}},y:{grid:{display:false}}}
+    }
+  });
+
+  // 2. REVENUE TREND — group invoices and payments by month
+  const months=[];const now=new Date();
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:d.toISOString().slice(0,7),label:d.toLocaleString('default',{month:'short'})});}
+  const invByMonth=months.map(m=>db.invoices.filter(x=>(x.date||'').startsWith(m.key)).reduce((s,x)=>s+Number(x.total||0),0));
+  const recByMonth=months.map(m=>db.payments.filter(x=>(x.date||'').startsWith(m.key)).reduce((s,x)=>s+Number(x.received||0),0));
+  new Chart(document.getElementById('ch_revenue'),{
+    type:'line',
+    data:{
+      labels:months.map(m=>m.label),
+      datasets:[
+        {label:'Invoiced',data:invByMonth,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.08)',tension:0.4,fill:true,pointStyle:'circle',pointRadius:4,pointBackgroundColor:'#2563eb'},
+        {label:'Collected',data:recByMonth,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,0.08)',tension:0.4,fill:true,pointStyle:'rect',pointRadius:4,pointBackgroundColor:'#16a34a'}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' BHD '+Number(c.raw).toFixed(3)}}},
+      scales:{x:{grid:{color:gridC}},y:{grid:{color:gridC},ticks:{callback:v=>'BD '+v}}}
+    }
+  });
+
+  // 3. WIN RATE DONUT — real lead data
+  const won=db.leads.filter(x=>x.status==='Won').length;
+  const lost=db.leads.filter(x=>x.status==='Lost').length;
+  const active=db.leads.filter(x=>!['Won','Lost'].includes(x.status)).length;
+  new Chart(document.getElementById('ch_win'),{
+    type:'doughnut',
+    data:{labels:['Won','Lost','Active'],datasets:[{data:[won,lost,active],backgroundColor:['#16a34a','#dc2626','#94a3b8'],borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw}`}}}}
+  });
+
+  // 4. TICKET STATUS DONUT — real ticket data
+  const tOpen=db.tickets.filter(x=>['Open','Assigned'].includes(x.status)).length;
+  const tProg=db.tickets.filter(x=>['In Progress','Waiting Customer'].includes(x.status)).length;
+  const tDone=db.tickets.filter(x=>['Resolved','Closed'].includes(x.status)).length;
+  new Chart(document.getElementById('ch_ticket'),{
+    type:'doughnut',
+    data:{labels:['Open','In Progress','Resolved/Closed'],datasets:[{data:[tOpen,tProg,tDone],backgroundColor:['#dc2626','#f59e0b','#16a34a'],borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw}`}}}}
+  });
+
+  // 5. SALESMAN PERFORMANCE — group leads by assignedTo
+  const salesmen=[...new Set(db.leads.map(x=>x.assignedTo).filter(Boolean))];
+  const salesLeadVal=salesmen.map(s=>db.leads.filter(x=>x.assignedTo===s).reduce((t,x)=>t+Number(x.value||0),0));
+  const salesWonVal=salesmen.map(s=>db.leads.filter(x=>x.assignedTo===s&&x.status==='Won').reduce((t,x)=>t+Number(x.value||0),0));
+  new Chart(document.getElementById('ch_sales'),{
+    type:'bar',
+    data:{
+      labels:salesmen.length?salesmen:['No data'],
+      datasets:[
+        {label:'Leads Value',data:salesmen.length?salesLeadVal:[0],backgroundColor:'#c4b5fd',borderRadius:3,borderSkipped:false},
+        {label:'Won Value',data:salesmen.length?salesWonVal:[0],backgroundColor:'#16a34a',borderRadius:3,borderSkipped:false}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` BHD ${Number(c.raw).toFixed(3)}`}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:gridC},ticks:{callback:v=>'BD '+v}}}
+    }
+  });
+
+  // 6. RENEWALS TIMELINE — bucket by urgency
+  const t=today();
+  const in30=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+  const in90=new Date(Date.now()+90*86400000).toISOString().slice(0,10);
+  const rOverdue=db.renewals.filter(x=>x.expiryDate&&x.expiryDate<t&&x.status!=='Renewed').reduce((s,x)=>s+Number(x.amount||0),0);
+  const rMonth=db.renewals.filter(x=>x.expiryDate&&x.expiryDate>=t&&x.expiryDate<=in30&&x.status!=='Renewed').reduce((s,x)=>s+Number(x.amount||0),0);
+  const r90=db.renewals.filter(x=>x.expiryDate&&x.expiryDate>in30&&x.expiryDate<=in90&&x.status!=='Renewed').reduce((s,x)=>s+Number(x.amount||0),0);
+  new Chart(document.getElementById('ch_renewal'),{
+    type:'bar',
+    data:{
+      labels:['Overdue','This Month (0–30 days)','Next 30–90 Days'],
+      datasets:[{
+        label:'BHD',data:[rOverdue,rMonth,r90],
+        backgroundColor:['#fca5a5','#fcd34d','#93c5fd'],
+        borderRadius:5,borderSkipped:false
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` BHD ${Number(c.raw).toFixed(3)}`}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:gridC},ticks:{callback:v=>'BD '+v}}}
+    }
+  });
+}
 function alerts(){let rows=[...db.leads.filter(x=>x.nextFollowup&&x.nextFollowup<=today()&&!['Won','Lost'].includes(x.status)).map(x=>`<tr><td>Lead Follow-up</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.nextFollowup)}</td><td>${badge(x.status)}</td></tr>`),...db.payments.filter(x=>x.dueDate&&x.dueDate<=today()&&x.status!=='Paid').map(x=>`<tr><td>Payment</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.dueDate)}</td><td>${badge(x.status)}</td></tr>`)].join('');return table(['Type','Customer','Due Date','Status'],rows)}
 function leadKanban(){const stages=['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];return `<div class="kanban">${stages.map(st=>{let cards=db.leads.filter(x=>x.status===st&&match(x)).map(l=>{let c=customer(l.customerId);return `<div class="kcard"><b>${esc(c.companyName||'No Customer')}</b><div class="kmeta">${esc(l.leadId)}<br>${esc(c.mobile||'')}<br>${esc(l.product||'')} | BHD ${money(l.value)}<br>Next: ${esc(l.nextFollowup||'-')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button><button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button><button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quote</button></div></div>`}).join('');return `<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.leads.filter(x=>x.status===st).length}</span></div>${cards}</div>`}).join('')}</div>`}
 function serviceKanban(){const stages=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];return `<div class="kanban service">${stages.map(st=>`<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.tickets.filter(x=>x.status===st).length}</span></div>${db.tickets.filter(x=>x.status===st&&match(x)).map(t=>`<div class="kcard"><b>${esc(customer(t.customerId).companyName)}</b><div class="kmeta">${esc(t.ticketNo)}<br>${esc(t.issue)}<br>Engineer: ${esc(t.engineer||'-')}<br>AMC: ${esc(t.amc||'No')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button></div></div>`).join('')}</div>`).join('')}</div>`}
@@ -227,7 +418,7 @@ function leadTableView() {
 function renderFollowups(){document.getElementById('sectionTitle').innerText='Follow-up Register';let rows=db.followups.filter(match).map(f=>`<tr><td>${esc(f.followupId)}</td><td>${esc(f.date)}</td><td>${esc(f.type)}</td><td>${esc(f.refNo)}</td><td>${esc(customer(f.customerId).companyName)}</td><td>${esc(f.discussion)}</td><td>${esc(f.nextFollowup)}</td><td>${esc(f.updatedBy)}</td><td>${badge(f.status)}</td><td><button class="btn small orange" onclick="openForm('${f.followupId}')">Edit</button><button class="btn small red" onclick="del('followups','followupId','${f.followupId}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Use this register to keep the full history of customer calls, WhatsApp discussions, quotation follow-ups, and service updates.</div>'+table(['Follow-up No','Date','Type','Reference','Customer','Discussion','Next Follow-up','Updated By','Status','Action'],rows)}
 function renderCustomers(){document.getElementById('sectionTitle').innerText='Customer 360°';let rows=db.customers.filter(match).map(c=>`<tr><td><a class="link" onclick="viewCustomer('${c.customerId}')">${esc(c.companyName)}</a></td><td>${esc(c.contactPerson)}</td><td>${esc(c.mobile)}</td><td>${esc(c.email)}</td><td>${esc(c.vatNo)}</td><td>${esc(c.location)}</td><td><button class="btn small" onclick="viewCustomer('${c.customerId}')">360 View</button><button class="btn small orange" onclick="openForm('${c.customerId}')">Edit</button><button class="btn small red" onclick="del('customers','customerId','${c.customerId}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['Company','Contact','Mobile','Email','VAT No','Location','Action'],rows)}
 function renderQuotations(){document.getElementById('sectionTitle').innerText='Odoo Style Quotations';let rows=db.quotations.filter(match).map(x=>`<tr><td>${esc(x.quotationNo)}</td><td>${esc(x.date)}</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.item)}</td><td>${money(x.total)}</td><td>${badge(x.status)}</td><td>${esc(x.validTill)}</td><td><button class="btn small green" onclick="createInvoiceFromQuotation('${x.quotationNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${x.quotationNo}')">Edit</button><button class="btn small red" onclick="del('quotations','quotationNo','${x.quotationNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['Quotation No','Date','Customer','Item','Total BHD','Status','Valid Till','Action'],rows)}
-function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Register';let rows=db.tickets.filter(match).map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.product)}</td><td>${esc(t.serial)}</td><td>${esc(t.issue)}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets are now displayed in a Tally-style register with invoice and follow-up actions.</div>'+table(['Ticket No','Date','Customer','Product','Serial No','Issue','Engineer','Priority','AMC','Charges','Status','Action'],rows)}
+function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Register';let rows=db.tickets.filter(match).map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.serial)}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.issue)}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets register with service type, start/end time tracking.</div>'+table(['Ticket No','Date','Customer','Product','Service Type','Serial No','Start Time','End Time','Issue','Engineer','Priority','AMC','Charges','Status','Action'],rows)}
 function renderRenewals(){document.getElementById('sectionTitle').innerText='TSS / AMC / Cloud Renewal Center';let rows=db.renewals.filter(match).map(r=>{let days=r.expiryDate?Math.ceil((new Date(r.expiryDate)-new Date(today()))/86400000):'';return `<tr><td>${esc(customer(r.customerId).companyName)}</td><td>${esc(r.type)}</td><td>${esc(r.license)}</td><td>${esc(r.expiryDate)}</td><td>${days}</td><td>${money(r.amount)}</td><td>${esc(r.assignedTo)}</td><td>${badge(r.status)}</td><td><button class="btn small orange" onclick="openForm('${r.renewalId}')">Edit</button><button class="btn small red" onclick="del('renewals','renewalId','${r.renewalId}')">Delete</button></td></tr>`}).join('');document.getElementById('content').innerHTML=table(['Customer','Renewal Type','License','Expiry Date','Days Left','Amount','Assigned To','Status','Action'],rows)}
 function renderInvoices(){document.getElementById('sectionTitle').innerText='Tax Invoices';let rows=db.invoices.filter(match).map(i=>`<tr><td>${esc(i.invoiceNo)}</td><td>${esc(i.date)}</td><td>${esc(customer(i.customerId).companyName)}</td><td>${esc(i.item)}</td><td>${money(i.amount)}</td><td>${money(i.vat)}</td><td><b>${money(i.total)}</b></td><td>${badge(i.status)}</td><td><button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button><button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button><button class="btn small red" onclick="del('invoices','invoiceNo','${i.invoiceNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['Invoice No','Date','Customer','Item','Amount','VAT','Total','Status','Action'],rows)}
 function renderPayments(){document.getElementById('sectionTitle').innerText='Payment Collection Register';let rows=db.payments.filter(match).map(p=>{let bal=Number(p.invoiceAmount||0)-Number(p.received||0);return `<tr><td>${esc(p.paymentId)}</td><td>${esc(p.date)}</td><td>${esc(customer(p.customerId).companyName)}</td><td>${esc(p.invoiceNo)}</td><td>${money(p.invoiceAmount)}</td><td>${money(p.received)}</td><td><b>${money(bal)}</b></td><td>${esc(p.dueDate)}</td><td>${esc(p.mode)}</td><td>${esc(p.referenceNo)}</td><td>${badge(p.status)}</td><td><button class="btn small orange" onclick="openForm('${p.paymentId}')">Edit</button><button class="btn small red" onclick="del('payments','paymentId','${p.paymentId}')">Delete</button></td></tr>`}).join('');document.getElementById('content').innerHTML='<div class="hint">Payment tracking register with invoice amount, received amount, balance, due date, and status.</div>'+table(['Payment No','Date','Customer','Invoice No','Invoice Amount','Received','Balance','Due Date','Mode','Reference','Status','Action'],rows)}
@@ -241,7 +432,7 @@ function followupForm(id){let r=db.followups.find(x=>x.followupId===id)||{};docu
 function customerForm(id){let r=db.customers.find(x=>x.customerId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Customer':'Add Customer';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('customerId','Customer ID',r.customerId||uid('CUS'),'text',true)}${inp('companyName','Company Name',r.companyName||'')}${inp('contactPerson','Contact Person',r.contactPerson||'')}${inp('mobile','Mobile',r.mobile||'')}${inp('email','Email',r.email||'','email')}${inp('vatNo','VAT No',r.vatNo||'')}${inp('crNo','CR No',r.crNo||'')}${inp('location','Location',r.location||'')}${inp('documentLink','Document Link',r.documentLink||'')}${txt('address','Address',r.address||'')}${txt('remarks','Remarks',r.remarks||'')}</div>`}
 function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${sel('leadSource','Lead Source',['Cold Call','WhatsApp','Reference','Existing Customer','Website','Walk-In','Google','Email','Other'],r.leadSource||'Cold Call')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('leadPriority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('leadStatus','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
 function quotationForm(id){let r=db.quotations.find(x=>x.quotationNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Quotation':'Add Quotation';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('quotationNo','Quotation No',r.quotationNo||uid('QT'),'text',true)}${inp('qdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('leadIdRef','Lead Ref',r.leadId||'')}${productSel(r.item||'')}${inp('qty','Qty',r.qty||1,'number')}${inp('rate','Rate',r.rate||0,'number')}${inp('vat','VAT %',r.vatPercent||db.settings.vatPercent,'number')}${inp('validTill','Valid Till',r.validTill||'','date')}${sel('qstatus','Status',['Draft','Sent','Follow-up','Approved','Rejected','Converted'],r.status||'Draft')}${txt('terms','Terms',r.terms||'60% advance on confirmation, balance on delivery.')}${txt('qremarks','Remarks',r.remarks||'')}</div>`}
-function ticketForm(id){let r=db.tickets.find(x=>x.ticketNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Ticket':'Add Ticket';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('ticketNo','Ticket No',r.ticketNo||uid('TKT'),'text',true)}${inp('tdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${productSel(r.product||'')}${inp('serial','Serial / Asset No',r.serial||'')}${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('engineer','Engineer',db.team,r.engineer||'')}${sel('tstatus','Status',['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'],r.status||'Open')}${sel('amc','AMC Covered',['Yes','No'],r.amc||'No')}${inp('charges','Service Charges',r.charges||'','number')}${txt('issue','Issue Reported',r.issue||'')}${txt('solution','Solution',r.solution||'')}${txt('tremarks','Remarks',r.remarks||'')}</div>`}
+function ticketForm(id){let r=db.tickets.find(x=>x.ticketNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Ticket':'Add Ticket';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('ticketNo','Ticket No',r.ticketNo||uid('TKT'),'text',true)}${inp('tdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${productSel(r.product||'')}${sel('serviceType','Service Type',['On-Site Visit','Remote Support','Phone Support','WhatsApp Support','Email Support','Training','Installation','Customization','AMC Visit','Other'],r.serviceType||'On-Site Visit')}${inp('serial','Serial / Asset No',r.serial||'')}${inp('startTime','Start Time',r.startTime||'','time')}${inp('endTime','End Time',r.endTime||'','time')}${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('engineer','Engineer',db.team,r.engineer||'')}${sel('tstatus','Status',['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'],r.status||'Open')}${sel('amc','AMC Covered',['Yes','No'],r.amc||'No')}${inp('charges','Service Charges',r.charges||'','number')}${txt('issue','Issue Reported',r.issue||'')}${txt('solution','Solution',r.solution||'')}${txt('tremarks','Remarks',r.remarks||'')}</div>`}
 function renewalForm(id){let r=db.renewals.find(x=>x.renewalId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Renewal':'Add Renewal';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('renewalId','Renewal ID',r.renewalId||uid('REN'),'text',true)}${custSel(r.customerId)}${sel('rtype','Renewal Type',['TSS Renewal','AMC Renewal','Cloud Renewal'],r.type||'TSS Renewal')}${inp('license','License Type / Serial No',r.license||'')}${inp('expiryDate','Expiry Date',r.expiryDate||'','date')}${inp('amount','Renewal Amount',r.amount||'','number')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||'')}${sel('rstatus','Status',['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'],r.status||'Upcoming')}${txt('rremarks','Remarks',r.remarks||'')}</div>`}
 function invoiceForm(id){let r=db.invoices.find(x=>x.invoiceNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Invoice':'Add Invoice';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('invoiceNo','Invoice No',r.invoiceNo||uid('INV'),'text',true)}${inp('idate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('quotationNo','Quotation Ref',r.quotationNo||'')}${productSel(r.item||'')}${inp('iqty','Qty',r.qty||1,'number')}${inp('irate','Rate',r.rate||0,'number')}${inp('ivat','VAT %',r.vatPercent||db.settings.vatPercent,'number')}${sel('istatus','Payment Status',['Pending','Partial','Paid'],r.status||'Pending')}${txt('iremarks','Remarks',r.remarks||'')}</div>`}
 function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Payment':'Add Payment';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('paymentId','Payment ID',r.paymentId||uid('PAY'),'text',true)}${inp('pdate','Payment Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('pinvoiceNo','Invoice No',r.invoiceNo||'')}${inp('invoiceAmount','Invoice Amount',r.invoiceAmount||'','number')}${inp('received','Received Amount',r.received||'','number')}${inp('dueDate','Due Date',r.dueDate||'','date')}${sel('pstatus','Status',['Pending','Partial','Paid','Overdue'],r.status||'Pending')}${sel('mode','Mode',['Cash','BenefitPay','Bank Transfer','Cheque','Card','Other'],r.mode||'Bank Transfer')}${inp('referenceNo','Reference No',r.referenceNo||'')}${txt('premarks','Remarks',r.remarks||'')}</div>`}
@@ -256,7 +447,7 @@ function saveLead(){
   upsert(db.leads,'leadId',{leadId:document.getElementById('leadId').value,leadDate:document.getElementById('leadDate').value,customerId:document.getElementById('customerId').value,leadSource:document.getElementById('leadSource').value,product:document.getElementById('product').value,value:document.getElementById('value').value,priority:leadPriorityValue,status:leadStatusValue,nextFollowup:document.getElementById('nextFollowup').value,assignedTo:document.getElementById('assignedTo').value,requirement:document.getElementById('requirement').value,remarks:document.getElementById('leadRemarks').value})
 }
 function saveQuotation(){if(!customerId.value)return alert('Select customer');let amount=Number(qty.value||0)*Number(rate.value||0),vatAmt=amount*Number(vat.value||0)/100;upsert(db.quotations,'quotationNo',{quotationNo:quotationNo.value,date:qdate.value,customerId:customerId.value,leadId:leadIdRef.value,item:product.value,qty:qty.value,rate:rate.value,amount,vatPercent:vat.value,vat:vatAmt,total:amount+vatAmt,validTill:validTill.value,status:qstatus.value,terms:terms.value,remarks:qremarks.value})}
-function saveTicket(){if(!customerId.value)return alert('Select customer');upsert(db.tickets,'ticketNo',{ticketNo:ticketNo.value,date:tdate.value,customerId:customerId.value,product:product.value,serial:serial.value,priority:priority.value,engineer:engineer.value,status:tstatus.value,amc:amc.value,charges:charges.value,issue:issue.value,solution:solution.value,remarks:tremarks.value})}
+function saveTicket(){if(!document.getElementById('customerId').value)return alert('Select customer');upsert(db.tickets,'ticketNo',{ticketNo:document.getElementById('ticketNo').value,date:document.getElementById('tdate').value,customerId:document.getElementById('customerId').value,product:document.getElementById('product').value,serviceType:document.getElementById('serviceType').value,serial:document.getElementById('serial').value,startTime:document.getElementById('startTime').value,endTime:document.getElementById('endTime').value,priority:document.getElementById('priority').value,engineer:document.getElementById('engineer').value,status:document.getElementById('tstatus').value,amc:document.getElementById('amc').value,charges:document.getElementById('charges').value,issue:document.getElementById('issue').value,solution:document.getElementById('solution').value,remarks:document.getElementById('tremarks').value})}
 function saveRenewal(){if(!customerId.value)return alert('Select customer');upsert(db.renewals,'renewalId',{renewalId:renewalId.value,customerId:customerId.value,type:rtype.value,license:license.value,expiryDate:expiryDate.value,amount:amount.value,assignedTo:assignedTo.value,status:rstatus.value,remarks:rremarks.value})}
 function saveInvoice(){if(!customerId.value)return alert('Select customer');let amount=Number(iqty.value||0)*Number(irate.value||0),vatAmt=amount*Number(ivat.value||0)/100;upsert(db.invoices,'invoiceNo',{invoiceNo:invoiceNo.value,date:idate.value,customerId:customerId.value,quotationNo:quotationNo.value,item:product.value,qty:iqty.value,rate:irate.value,amount,vatPercent:ivat.value,vat:vatAmt,total:amount+vatAmt,status:istatus.value,remarks:iremarks.value})}
 function savePayment(){if(!customerId.value)return alert('Select customer');upsert(db.payments,'paymentId',{paymentId:paymentId.value,date:pdate.value,customerId:customerId.value,invoiceNo:pinvoiceNo.value,invoiceAmount:invoiceAmount.value,received:received.value,dueDate:dueDate.value,status:pstatus.value,mode:mode.value,referenceNo:referenceNo.value,remarks:premarks.value})}
@@ -400,5 +591,6 @@ setInterval(runNotifCheck, 60000);
 
 setModule('dashboard');
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </body>
 </html>
