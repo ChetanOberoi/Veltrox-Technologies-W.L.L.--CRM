@@ -159,6 +159,150 @@ saveDB();
 
 function saveDB(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db))}
 
+// ── WHATSAPP QUICK MESSAGE ────────────────────────────────────
+function sendWA(phone, message){
+  if(!phone){return alert('No mobile number found for this customer!');}
+  // Clean phone number — remove spaces, dashes
+  let clean = phone.replace(/[^0-9+]/g,'');
+  if(!clean.startsWith('+') && !clean.startsWith('00')){clean = '973' + clean;}
+  clean = clean.replace(/^00/,'+').replace(/^\+/,'');
+  const url = 'https://wa.me/' + clean + '?text=' + encodeURIComponent(message);
+  window.open(url,'_blank');
+}
+
+function waLead(leadId){
+  const l = db.leads.find(x=>x.leadId===leadId); if(!l) return;
+  const c = customer(l.customerId);
+  const msg = `Dear ${c.contactPerson||c.companyName},
+
+Greetings from *Veltrox Technologies W.L.L*! 🙏
+
+We are following up regarding your interest in *${l.product||'our products/services'}*.
+
+Could you please share your feedback or let us know a convenient time to connect?
+
+Reference: ${l.leadId}
+Assigned To: ${l.assignedTo||'Our Sales Team'}
+
+Thank you!
+*Veltrox Technologies W.L.L*
+Bahrain`;
+  sendWA(c.mobile, msg);
+}
+
+function waTicket(ticketNo){
+  const t = db.tickets.find(x=>x.ticketNo===ticketNo); if(!t) return;
+  const c = customer(t.customerId);
+  const msg = `Dear ${c.contactPerson||c.companyName},
+
+Greetings from *Veltrox Technologies W.L.L*! 🙏
+
+Your service ticket has been updated:
+
+🎫 *Ticket No:* ${t.ticketNo}
+📅 *Date:* ${t.date}
+🔧 *Product:* ${t.product||'-'}
+⚙️ *Service Type:* ${t.serviceType||'-'}
+📌 *Status:* ${t.status}
+👨‍💻 *Engineer:* ${t.engineer||'-'}
+
+${t.solution ? '✅ *Solution:* ' + t.solution : ''}
+
+For any queries please contact us.
+
+Thank you!
+*Veltrox Technologies W.L.L*
+Bahrain`;
+  sendWA(c.mobile, msg);
+}
+
+function waPayment(paymentId){
+  const p = db.payments.find(x=>x.paymentId===paymentId); if(!p) return;
+  const c = customer(p.customerId);
+  const bal = Number(p.invoiceAmount||0) - Number(p.received||0);
+  const msg = `Dear ${c.contactPerson||c.companyName},
+
+Greetings from *Veltrox Technologies W.L.L*! 🙏
+
+This is a gentle reminder regarding your outstanding payment:
+
+🧾 *Invoice No:* ${p.invoiceNo||'-'}
+💰 *Invoice Amount:* BHD ${money(p.invoiceAmount)}
+✅ *Amount Received:* BHD ${money(p.received)}
+⚠️ *Balance Due:* BHD ${money(bal)}
+📅 *Due Date:* ${p.dueDate||'-'}
+
+Kindly arrange the payment at your earliest convenience.
+
+Thank you!
+*Veltrox Technologies W.L.L*
+Bahrain`;
+  sendWA(c.mobile, msg);
+}
+
+function waQuotation(quotationNo){
+  const qt = db.quotations.find(x=>x.quotationNo===quotationNo); if(!qt) return;
+  const c = customer(qt.customerId);
+  const msg = `Dear ${c.contactPerson||c.companyName},
+
+Greetings from *Veltrox Technologies W.L.L*! 🙏
+
+Please find below our quotation details:
+
+📄 *Quotation No:* ${qt.quotationNo}
+📅 *Date:* ${qt.date}
+📦 *Item:* ${qt.item||'-'}
+💰 *Amount:* BHD ${money(qt.amount)}
+🏷 *VAT (${qt.vatPercent}%):* BHD ${money(qt.vat)}
+💵 *Total (Incl. VAT):* BHD ${money(qt.total)}
+📆 *Valid Till:* ${qt.validTill||'-'}
+
+${qt.terms ? '📋 *Terms:* ' + qt.terms : ''}
+
+Please confirm your acceptance at the earliest.
+
+Thank you!
+*Veltrox Technologies W.L.L*
+Bahrain`;
+  sendWA(c.mobile, msg);
+}
+// ──────────────────────────────────────────────────────────────
+
+// ── QUOTATION → INVOICE ONE-CLICK CONVERT ─────────────────────
+function convertQuotationToInvoice(quotationNo){
+  const qt = db.quotations.find(x=>x.quotationNo===quotationNo);
+  if(!qt) return;
+  if(!confirm('Convert Quotation '+quotationNo+' to Invoice?')) return;
+  // Check if already converted
+  if(qt.status==='Converted'){
+    if(!confirm('This quotation is already converted. Create another invoice?')) return;
+  }
+  // Create new invoice from quotation
+  const invNo = uid('INV');
+  const newInv = {
+    invoiceNo: invNo,
+    date: today(),
+    customerId: qt.customerId,
+    quotationNo: qt.quotationNo,
+    item: qt.item,
+    qty: qt.qty,
+    rate: qt.rate,
+    amount: qt.amount,
+    vatPercent: qt.vatPercent,
+    vat: qt.vat,
+    total: qt.total,
+    status: 'Pending',
+    remarks: 'Converted from Quotation: ' + qt.quotationNo
+  };
+  db.invoices.push(newInv);
+  // Mark quotation as converted
+  qt.status = 'Converted';
+  saveDB();
+  showToast('🧾','Quotation Converted!','Invoice '+invNo+' created from '+quotationNo,'#dcfce7','#166534');
+  render();
+}
+// ──────────────────────────────────────────────────────────────
+
 // ── ADVANCED FILTER STATE ──────────────────────────────────────
 const filterState={};
 function getFilter(mod){return filterState[mod]||{from:'',to:'',status:'',assignedTo:'',customerId:'',amtMin:'',amtMax:''}}
@@ -439,8 +583,8 @@ function drawDashboardCharts(){
   });
 }
 function alerts(){let rows=[...db.leads.filter(x=>x.nextFollowup&&x.nextFollowup<=today()&&!['Won','Lost'].includes(x.status)).map(x=>`<tr><td>Lead Follow-up</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.nextFollowup)}</td><td>${badge(x.status)}</td></tr>`),...db.payments.filter(x=>x.dueDate&&x.dueDate<=today()&&x.status!=='Paid').map(x=>`<tr><td>Payment</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.dueDate)}</td><td>${badge(x.status)}</td></tr>`)].join('');return table(['Type','Customer','Due Date','Status'],rows)}
-function leadKanban(){const stages=['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];return `<div class="kanban">${stages.map(st=>{let cards=db.leads.filter(x=>x.status===st&&match(x)).map(l=>{let c=customer(l.customerId);return `<div class="kcard"><b>${esc(c.companyName||'No Customer')}</b><div class="kmeta">${esc(l.leadId)}<br>${esc(c.mobile||'')}<br>${esc(l.product||'')} | BHD ${money(l.value)}<br>Next: ${esc(l.nextFollowup||'-')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button><button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button><button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quote</button></div></div>`}).join('');return `<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.leads.filter(x=>x.status===st).length}</span></div>${cards}</div>`}).join('')}</div>`}
-function serviceKanban(){const stages=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];return `<div class="kanban service">${stages.map(st=>`<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.tickets.filter(x=>x.status===st).length}</span></div>${db.tickets.filter(x=>x.status===st&&match(x)).map(t=>`<div class="kcard"><b>${esc(customer(t.customerId).companyName)}</b><div class="kmeta">${esc(t.ticketNo)}<br>${esc(t.issue)}<br>Engineer: ${esc(t.engineer||'-')}<br>AMC: ${esc(t.amc||'No')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button></div></div>`).join('')}</div>`).join('')}</div>`}
+function leadKanban(){const stages=['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'];return `<div class="kanban">${stages.map(st=>{let cards=db.leads.filter(x=>x.status===st&&match(x)).map(l=>{let c=customer(l.customerId);return `<div class="kcard"><b>${esc(c.companyName||'No Customer')}</b><div class="kmeta">${esc(l.leadId)}<br>${esc(c.mobile||'')}<br>${esc(l.product||'')} | BHD ${money(l.value)}<br>Next: ${esc(l.nextFollowup||'-')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waLead('${l.leadId}')">💬 WA</button><button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button><button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quote</button></div></div>`}).join('');return `<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.leads.filter(x=>x.status===st).length}</span></div>${cards}</div>`}).join('')}</div>`}
+function serviceKanban(){const stages=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];return `<div class="kanban service">${stages.map(st=>`<div class="lane"><div class="lane-title"><span>${st}</span><span>${db.tickets.filter(x=>x.status===st).length}</span></div>${db.tickets.filter(x=>x.status===st&&match(x)).map(t=>`<div class="kcard"><b>${esc(customer(t.customerId).companyName)}</b><div class="kmeta">${esc(t.ticketNo)}<br>${esc(t.issue)}<br>Engineer: ${esc(t.engineer||'-')}<br>AMC: ${esc(t.amc||'No')}</div><div class="k-actions"><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waTicket('${t.ticketNo}')">💬 WA</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button></div></div>`).join('')}</div>`).join('')}</div>`}
 
 // ── STATUS BADGE: read-only colored pill shown in table; editing happens inside Edit form ──
 function leadStatusBadge(current) {
@@ -484,6 +628,7 @@ function leadTableView() {
       <td>
         <button class="btn small purple" onclick="quickFollowup('Lead','${l.leadId}','${l.customerId}')">Follow-up</button>
         <button class="btn small green" onclick="createQuotationFromLead('${l.leadId}')">Quotation</button>
+        <button class="btn small" style="background:#25D366;color:#fff" onclick="waLead('${l.leadId}')">💬 WhatsApp</button>
         <button class="btn small orange" onclick="openForm('${l.leadId}')">Edit</button>
         <button class="btn small red" onclick="del('leads','leadId','${l.leadId}')">Delete</button>
       </td>
@@ -503,11 +648,11 @@ function renderCustomers(){document.getElementById('sectionTitle').innerText='Cu
 function renderQuotations(){document.getElementById('sectionTitle').innerText='Odoo Style Quotations';
   const qtStatuses=['Draft','Sent','Follow-up','Approved','Rejected','Converted'];
   let filtered=applyFilters(db.quotations.filter(match),'quotations','date','status','assignedTo','total');
-  let rows=filtered.map(x=>`<tr><td>${esc(x.quotationNo)}</td><td>${esc(x.date)}</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.item)}</td><td>${money(x.total)}</td><td>${badge(x.status)}</td><td>${esc(x.validTill)}</td><td><button class="btn small green" onclick="createInvoiceFromQuotation('${x.quotationNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${x.quotationNo}')">Edit</button><button class="btn small red" onclick="del('quotations','quotationNo','${x.quotationNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=filterBar('quotations',qtStatuses,db.team,'Total (BHD)')+table(['Quotation No','Date','Customer','Item','Total BHD','Status','Valid Till','Action'],rows)}
+  let rows=filtered.map(x=>`<tr><td>${esc(x.quotationNo)}</td><td>${esc(x.date)}</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.item)}</td><td>${money(x.total)}</td><td>${badge(x.status)}</td><td>${esc(x.validTill)}</td><td><button class="btn small green" onclick="convertQuotationToInvoice('${x.quotationNo}')">🔄 Convert</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waQuotation('${x.quotationNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${x.quotationNo}')">Edit</button><button class="btn small red" onclick="del('quotations','quotationNo','${x.quotationNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=filterBar('quotations',qtStatuses,db.team,'Total (BHD)')+table(['Quotation No','Date','Customer','Item','Total BHD','Status','Valid Till','Action'],rows)}
 function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Register';
   const tkStatuses=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];
   let filtered=applyFilters(db.tickets.filter(match),'tickets','date','status','engineer','charges');
-  let rows=filtered.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.contactPerson||'-')}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.issueCategory||'-')}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.duration||'-')}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets — IT &amp; Tally support register.</div>'+filterBar('tickets',tkStatuses,db.team,'Charges (BHD)')+table(['Ticket No','Date','Customer','Contact','Product','Service Type','Issue Category','Start','End','Duration','Engineer','Priority','AMC','Charges','Status','Action'],rows)}
+  let rows=filtered.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.contactPerson||'-')}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.issueCategory||'-')}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.duration||'-')}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waTicket('${t.ticketNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets — IT &amp; Tally support register.</div>'+filterBar('tickets',tkStatuses,db.team,'Charges (BHD)')+table(['Ticket No','Date','Customer','Contact','Product','Service Type','Issue Category','Start','End','Duration','Engineer','Priority','AMC','Charges','Status','Action'],rows)}
 function renderRenewals(){document.getElementById('sectionTitle').innerText='TSS / AMC / Cloud Renewal Center';
   const renStatuses=['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'];
   let filtered=applyFilters(db.renewals.filter(match),'renewals','expiryDate','status','assignedTo','amount');
@@ -519,7 +664,7 @@ function renderInvoices(){document.getElementById('sectionTitle').innerText='Tax
 function renderPayments(){document.getElementById('sectionTitle').innerText='Payment Collection Register';
   const payStatuses=['Pending','Partial','Paid','Overdue'];
   let filtered=applyFilters(db.payments.filter(match),'payments','date','status','assignedTo','received');
-  let rows=filtered.map(p=>{let bal=Number(p.invoiceAmount||0)-Number(p.received||0);return `<tr><td>${esc(p.paymentId)}</td><td>${esc(p.date)}</td><td>${esc(customer(p.customerId).companyName)}</td><td>${esc(p.invoiceNo)}</td><td>${money(p.invoiceAmount)}</td><td>${money(p.received)}</td><td><b>${money(bal)}</b></td><td>${esc(p.dueDate)}</td><td>${esc(p.mode)}</td><td>${esc(p.referenceNo)}</td><td>${badge(p.status)}</td><td><button class="btn small orange" onclick="openForm('${p.paymentId}')">Edit</button><button class="btn small red" onclick="del('payments','paymentId','${p.paymentId}')">Delete</button></td></tr>`}).join('');document.getElementById('content').innerHTML='<div class="hint">Payment tracking register with invoice amount, received amount, balance, due date, and status.</div>'+filterBar('payments',payStatuses,[],'Received (BHD)')+table(['Payment No','Date','Customer','Invoice No','Invoice Amount','Received','Balance','Due Date','Mode','Reference','Status','Action'],rows)}
+  let rows=filtered.map(p=>{let bal=Number(p.invoiceAmount||0)-Number(p.received||0);return `<tr><td>${esc(p.paymentId)}</td><td>${esc(p.date)}</td><td>${esc(customer(p.customerId).companyName)}</td><td>${esc(p.invoiceNo)}</td><td>${money(p.invoiceAmount)}</td><td>${money(p.received)}</td><td><b>${money(bal)}</b></td><td>${esc(p.dueDate)}</td><td>${esc(p.mode)}</td><td>${esc(p.referenceNo)}</td><td>${badge(p.status)}</td><td><button class="btn small" style="background:#25D366;color:#fff" onclick="waPayment('${p.paymentId}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${p.paymentId}')">Edit</button><button class="btn small red" onclick="del('payments','paymentId','${p.paymentId}')">Delete</button></td></tr>`}).join('');document.getElementById('content').innerHTML='<div class="hint">Payment tracking register with invoice amount, received amount, balance, due date, and status.</div>'+filterBar('payments',payStatuses,[],'Received (BHD)')+table(['Payment No','Date','Customer','Invoice No','Invoice Amount','Received','Balance','Due Date','Mode','Reference','Status','Action'],rows)}
 function renderIssueCategories(){
   document.getElementById('sectionTitle').innerText='Issue Category Master';
   document.getElementById('content').innerHTML='<div class="hint">These categories appear in <b>Service Tickets</b> under &quot;Issue Category&quot;. Add your own categories here — e.g. Tally License, VAT Config, Hardware Fault.</div>';
