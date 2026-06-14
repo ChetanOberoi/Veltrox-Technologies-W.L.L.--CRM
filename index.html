@@ -425,25 +425,7 @@ function logout(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
-// Auto-login if session exists
-(function(){
-  const saved=sessionStorage.getItem(SESSION_KEY);
-  if(saved){
-    try{
-      const user=JSON.parse(saved);
-      if(user && user.username){
-        currentUser=user;
-        document.getElementById('loginScreen').style.display='none';
-        setTimeout(()=>applyUserSession(user),50);
-        return;
-      }
-    }catch(e){}
-  }
-  // Show login screen
-  document.getElementById('loginScreen').style.display='flex';
-})();
-</script>
-
+// Auto-login runs after all functions are defined — see bottom of script
 
 const STORAGE_KEY='VELTROX_FULL_CRM_V2';
 let currentModule='dashboard';let editId=null;let customerTab='overview';
@@ -1417,6 +1399,24 @@ requestPushPermission();
 setTimeout(runNotifCheck, 1200);
 setInterval(runNotifCheck, 60000);
 // ─────────────────────────────────────────────────────────────────
+
+// ── AUTO-LOGIN (runs after ALL functions are defined) ─────────────
+(function(){
+  const saved=sessionStorage.getItem(SESSION_KEY);
+  if(saved){
+    try{
+      const user=JSON.parse(saved);
+      if(user && user.username){
+        currentUser=user;
+        document.getElementById('loginScreen').style.display='none';
+        applyUserSession(user);
+        return;
+      }
+    }catch(e){}
+  }
+  // No session — show login screen
+  document.getElementById('loginScreen').style.display='flex';
+})();
 
 </script>
 </body>
