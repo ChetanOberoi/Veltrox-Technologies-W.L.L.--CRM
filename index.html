@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex, nofollow" />
 <meta name="googlebot" content="noindex, nofollow" />
-<title>Veltrox CRM V4 - Zoho Table Interface</title>
+<title>Veltrox CRM</title>
 <style>
 :root{
   --bg:#f5f7fb;--panel:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
@@ -43,8 +43,8 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand">Veltrox CRM V4</div>
-    <div class="brand-sub">Zoho-style Table CRM for Tally Business</div>
+    <div class="brand">Veltrox CRM</div>
+    <div class="brand-sub">Veltrox Technologies W.L.L.</div>
     <button class="nav" id="nav-dashboard" onclick="setModule('dashboard')">🏠 Dashboard</button>
     <div class="group-title">Sales</div>
     <button class="nav" id="nav-leads" onclick="setModule('leads')">🎯 Leads Register</button>
@@ -386,7 +386,7 @@ function upsert(arr,key,obj){const i=arr.findIndex(x=>x[key]===obj[key]);i>=0?ar
 function customer(id){return db.customers.find(c=>c.customerId===id)||{}}
 function badge(s){let cls='badge';let x=String(s||'').toLowerCase();if(['won','paid','closed','renewed','approved','resolved'].includes(x))cls+=' b-green';else if(['lost','rejected','overdue'].includes(x))cls+=' b-red';else if(['pending','partial','quotation sent','negotiation','in progress','waiting customer','contacted'].includes(x))cls+=' b-orange';else if(['demo scheduled','assigned'].includes(x))cls+=' b-purple';else if(!s)cls+=' b-gray';return `<span class="${cls}">${esc(s||'-')}</span>`}
 
-function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.nav').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m)?.classList.add('active');const titles={dashboard:'Dashboard',leads:'Leads Register',followups:'Follow-up Register',customers:'Customers 360°',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals Center',invoices:'Tax Invoices',payments:'Payment Collection',products:'Product Master',services:'Service Master',team:'Team Master',reports:'Reports',settings:'Settings / Backup',issueCategories:'Issue Category Master'};document.getElementById('pageTitle').innerText=titles[m]||'CRM';document.getElementById('addBtn').style.display=['dashboard','reports','settings'].includes(m)?'none':'inline-block';document.getElementById('addBtn').innerText='+ Add '+(titles[m]||'');render()}
+function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.nav').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m)?.classList.add('active');const titles={dashboard:'Dashboard',leads:'Leads Register',followups:'Follow-up Register',customers:'Customers 360°',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals Center',invoices:'Tax Invoices',payments:'Payment Collection',products:'Product Master',services:'Service Master',team:'Team Master',reports:'Reports',settings:'Settings / Backup',issueCategories:'Issue Category Master'};document.getElementById('pageTitle').innerText=titles[m]||'CRM';document.getElementById('addBtn').style.display=['dashboard','reports','settings'].includes(m)?'none':'inline-block';document.getElementById('addBtn').innerText='+ Add '+(titles[m]||'');document.title='Veltrox CRM — '+(titles[m]||'CRM');render()}
 function render(){cards();document.getElementById('sectionActions').innerHTML='';({dashboard:renderDashboard,leads:renderLeads,followups:renderFollowups,customers:renderCustomers,quotations:renderQuotations,tickets:renderTickets,renewals:renderRenewals,invoices:renderInvoices,payments:renderPayments,products:renderProducts,services:renderServices,team:renderTeam,reports:renderReports,settings:renderSettings,issueCategories:renderIssueCategories}[currentModule]||renderDashboard)()}
 function cards(){let invTotal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),rec=db.payments.reduce((s,x)=>s+Number(x.received||0),0);let dueRen=db.renewals.filter(x=>x.expiryDate&&x.expiryDate<=new Date(Date.now()+30*86400000).toISOString().slice(0,10)&&x.status!=='Renewed').length;document.getElementById('summaryCards').innerHTML=`<div class="card click" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value">${db.leads.length}</div><div class="card-foot">Pipeline opportunities</div></div><div class="card click" onclick="setModule('quotations')"><div class="card-title">Open Quotations</div><div class="card-value">${db.quotations.filter(x=>!['Approved','Rejected','Converted'].includes(x.status)).length}</div><div class="card-foot">Pending conversion</div></div><div class="card click" onclick="setModule('tickets')"><div class="card-title">Open Tickets</div><div class="card-value">${db.tickets.filter(x=>x.status!=='Closed').length}</div><div class="card-foot">Service workload</div></div><div class="card click" onclick="setModule('payments')"><div class="card-title">Pending Collection</div><div class="card-value">${money(invTotal-rec)}</div><div class="card-foot">BHD outstanding</div></div><div class="card click" onclick="setModule('renewals')"><div class="card-title">Renewals Due</div><div class="card-value">${dueRen}</div><div class="card-foot">Next 30 days</div></div>`}
 function table(h,r){return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r||`<tr><td colspan="${h.length}">No records found.</td></tr>`}</tbody></table></div>`}
