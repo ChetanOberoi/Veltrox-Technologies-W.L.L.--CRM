@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex, nofollow" />
 <meta name="googlebot" content="noindex, nofollow" />
-<title>Veltrox CRM V4 - Zoho Table Interface</title>
+<title>Veltrox CRM — Login</title>
 <style>
 :root{
   --bg:#f5f7fb;--panel:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
@@ -13,6 +13,55 @@
   --green:#16a34a;--orange:#f59e0b;--red:#dc2626;--purple:#7c3aed;--cyan:#0891b2;
   --shadow:0 10px 28px rgba(15,23,42,.08);
 }
+
+/* ── LOGIN SCREEN ─────────────────────────────────────── */
+#loginScreen{
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.login-box{
+  background:#fff;border-radius:24px;padding:44px 40px;width:100%;max-width:420px;
+  box-shadow:0 32px 80px rgba(0,0,0,.35);
+}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo-icon{
+  width:64px;height:64px;background:linear-gradient(135deg,#2563eb,#7c3aed);
+  border-radius:18px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:28px;margin-bottom:12px;
+}
+.login-logo h1{margin:0;font-size:22px;font-weight:900;color:#0f172a}
+.login-logo p{margin:4px 0 0;font-size:13px;color:#6b7280}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:12px;font-weight:800;color:#374151;margin-bottom:6px}
+.login-field input{
+  width:100%;padding:13px 14px;border:1.5px solid #e5e7eb;border-radius:12px;
+  font-size:14px;outline:none;transition:border-color .2s;background:#f9fafb;
+}
+.login-field input:focus{border-color:#2563eb;background:#fff}
+.login-btn{
+  width:100%;padding:14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;border:0;border-radius:12px;font-size:15px;font-weight:800;
+  cursor:pointer;margin-top:6px;transition:opacity .2s;
+}
+.login-btn:hover{opacity:.9}
+.login-error{
+  background:#fee2e2;color:#991b1b;border-radius:10px;padding:10px 14px;
+  font-size:13px;font-weight:700;margin-bottom:14px;display:none;text-align:center;
+}
+.login-footer{text-align:center;margin-top:20px;font-size:12px;color:#94a3b8}
+
+/* ── USER BADGE in topbar ─────────────────────────────── */
+.user-badge{
+  display:flex;align-items:center;gap:8px;background:#f1f5f9;
+  border-radius:12px;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:700;
+}
+.user-avatar{
+  width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#7c3aed);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;
+}
+.user-role-badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px;background:#dbeafe;color:#1d4ed8}
+
 *{box-sizing:border-box}
 body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
 button,input,select,textarea{font-family:inherit}
@@ -43,8 +92,11 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand">Veltrox CRM V4</div>
-    <div class="brand-sub">Zoho-style Table CRM for Tally Business</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="width:38px;height:38px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏢</div>
+      <div class="brand" style="font-size:16px;line-height:1.2">Veltrox<br><span style="color:#a5b4fc">CRM</span></div>
+    </div>
+    <div class="brand-sub">Tally Business Management</div>
     <button class="nav" id="nav-dashboard" onclick="setModule('dashboard')">🏠 Dashboard</button>
     <div class="group-title">Sales</div>
     <button class="nav" id="nav-leads" onclick="setModule('leads')">🎯 Leads Register</button>
@@ -65,6 +117,10 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
     <div class="group-title">Reports</div>
     <button class="nav" id="nav-reports" onclick="setModule('reports')">📊 Reports</button>
     <button class="nav" id="nav-settings" onclick="setModule('settings')">⚙ Settings / Backup</button>
+    <div style="margin-top:auto;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);margin:24px -4px 0">
+      <div id="sidebarUser" style="padding:10px 12px;font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
+      <button class="nav" onclick="logout()" style="color:#fca5a5">🚪 Logout</button>
+    </div>
   </aside>
 
   <main class="main">
@@ -82,6 +138,15 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
         </div>
         <button class="btn gray" onclick="exportBackup()">Backup</button>
         <button class="btn green" onclick="exportCSV()">Export Excel CSV</button>
+        <div id="userBadge" class="user-badge" title="Logged in user" onclick="toggleUserMenu()" style="position:relative">
+          <div class="user-avatar" id="userAvatarInitial">A</div>
+          <div><div id="userDisplayName" style="font-size:13px">Admin</div><span class="user-role-badge" id="userRoleBadge">Admin</span></div>
+          <span style="font-size:10px;color:#94a3b8">▾</span>
+          <div id="userMenu" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,.12);z-index:999;min-width:180px;padding:8px">
+            <div onclick="openChangePassword();toggleUserMenu()" style="padding:10px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">🔒 Change Password</div>
+            <div onclick="logout();toggleUserMenu()" style="padding:10px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:#dc2626;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'">🚪 Sign Out</div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="summaryCards" class="cards"></div>
@@ -91,9 +156,295 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 
 <div class="modal" id="formModal"><div class="drawer"><div class="modal-head"><h2 id="formTitle">Add</h2><button class="btn gray" onclick="closeForm()">X</button></div><div id="formArea"></div><div class="form-actions"><button class="btn gray" onclick="closeForm()">Cancel</button><button class="btn green" onclick="saveForm()">Save</button></div></div></div>
 <div class="modal" id="viewModal"><div class="drawer" id="viewArea"></div></div>
-<div id="printArea"></div>
+<!-- ── LOGIN SCREEN ───────────────────────────────────── -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🏢</div>
+      <h1>Veltrox CRM</h1>
+      <p>Veltrox Technologies W.L.L. — Bahrain</p>
+    </div>
+
+    <!-- STEP 1: Username + Password login -->
+    <div id="loginStep1">
+      <div class="login-error" id="loginError">❌ Incorrect username or password</div>
+      <div class="login-field">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="Enter your username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()" />
+      </div>
+      <div class="login-field" style="position:relative">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+        <span onclick="togglePwd('loginPass',this)" style="position:absolute;right:13px;top:34px;cursor:pointer;font-size:15px;color:#94a3b8">👁</span>
+      </div>
+      <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    </div>
+
+    <!-- STEP 2: First-time — create your password (shown instead of step 1) -->
+    <div id="loginStep2" style="display:none">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#1e40af">
+        👋 <b>Welcome!</b> This is your first login. Please create your own password to continue.
+      </div>
+      <div class="login-field" style="position:relative">
+        <label>New Password</label>
+        <input type="password" id="newPass1" placeholder="Create a password (min 6 chars)" onkeydown="if(event.key==='Enter')document.getElementById('newPass2').focus()" />
+        <span onclick="togglePwd('newPass1',this)" style="position:absolute;right:13px;top:34px;cursor:pointer;font-size:15px;color:#94a3b8">👁</span>
+      </div>
+      <div class="login-field" style="position:relative">
+        <label>Confirm Password</label>
+        <input type="password" id="newPass2" placeholder="Re-enter your password" onkeydown="if(event.key==='Enter')doSetPassword()" />
+        <span onclick="togglePwd('newPass2',this)" style="position:absolute;right:13px;top:34px;cursor:pointer;font-size:15px;color:#94a3b8">👁</span>
+      </div>
+      <!-- Password strength bar -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <div id="str1" style="height:4px;flex:1;border-radius:2px;background:#e5e7eb;transition:.3s"></div>
+          <div id="str2" style="height:4px;flex:1;border-radius:2px;background:#e5e7eb;transition:.3s"></div>
+          <div id="str3" style="height:4px;flex:1;border-radius:2px;background:#e5e7eb;transition:.3s"></div>
+          <div id="str4" style="height:4px;flex:1;border-radius:2px;background:#e5e7eb;transition:.3s"></div>
+        </div>
+        <div id="strLabel" style="font-size:11px;color:#94a3b8"></div>
+      </div>
+      <div class="login-error" id="newPassError" style="display:none"></div>
+      <button class="login-btn" onclick="doSetPassword()">✅ Set Password & Sign In</button>
+      <button onclick="backToLogin()" style="width:100%;margin-top:10px;border:0;background:transparent;color:#6b7280;font-size:13px;cursor:pointer;">← Back to login</button>
+    </div>
+
+    <!-- STEP 3: Change password (for logged-in users via "Change Password" button) -->
+    <div id="loginStep3" style="display:none">
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#166534">
+        🔒 Change your password
+      </div>
+      <div class="login-field" style="position:relative">
+        <label>Current Password</label>
+        <input type="password" id="curPass" placeholder="Enter current password" />
+        <span onclick="togglePwd('curPass',this)" style="position:absolute;right:13px;top:34px;cursor:pointer;font-size:15px;color:#94a3b8">👁</span>
+      </div>
+      <div class="login-field" style="position:relative">
+        <label>New Password</label>
+        <input type="password" id="chgPass1" placeholder="New password (min 6 chars)" />
+        <span onclick="togglePwd('chgPass1',this)" style="position:absolute;right:13px;top:34px;cursor:pointer;font-size:15px;color:#94a3b8">👁</span>
+      </div>
+      <div class="login-field" style="position:relative">
+        <label>Confirm New Password</label>
+        <input type="password" id="chgPass2" placeholder="Re-enter new password" onkeydown="if(event.key==='Enter')doChangePassword()" />
+        <span onclick="togglePwd('chgPass2',this)" style="position:absolute;right:13px;top:34px;cursor:pointer;font-size:15px;color:#94a3b8">👁</span>
+      </div>
+      <div class="login-error" id="chgPassError" style="display:none"></div>
+      <button class="login-btn" onclick="doChangePassword()">🔒 Update Password</button>
+      <button onclick="cancelChangePassword()" style="width:100%;margin-top:10px;border:0;background:transparent;color:#6b7280;font-size:13px;cursor:pointer;">← Cancel</button>
+    </div>
+
+    <div class="login-footer">Veltrox CRM V4 · Secure Access · Bahrain</div>
+  </div>
+</div>
 
 <script>
+// ── USER ACCOUNTS ─────────────────────────────────────────────────
+const USERS_KEY = 'VELTROX_USERS';
+const SESSION_KEY = 'VELTROX_SESSION';
+let currentUser = null;
+let _pendingLoginUser = null; // holds user object during first-time setup
+
+function getUsers(){
+  try{ const u=JSON.parse(localStorage.getItem(USERS_KEY)); if(Array.isArray(u)&&u.length) return u; }catch(e){}
+  return [
+    {username:'admin',    password:'veltrox2025', name:'Admin',         role:'Admin',   initials:'AD', mustChange:false},
+    {username:'chetan',   password:'chetan123',   name:'Chetan Oberoi', role:'Manager', initials:'CO', mustChange:false},
+    {username:'sales',    password:'sales123',    name:'Sales Team',    role:'Sales',   initials:'ST', mustChange:false},
+    {username:'support',  password:'support123',  name:'Support Team',  role:'Support', initials:'SP', mustChange:false},
+    {username:'finance',  password:'finance123',  name:'Finance Team',  role:'Finance', initials:'FN', mustChange:false},
+  ];
+}
+function saveUsers(users){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function togglePwd(id, btn){
+  const el=document.getElementById(id);
+  if(el.type==='password'){el.type='text';btn.textContent='🙈';}
+  else{el.type='password';btn.textContent='👁';}
+}
+
+function pwdStrength(p){
+  let score=0;
+  if(p.length>=6) score++;
+  if(p.length>=10) score++;
+  if(/[A-Z]/.test(p)) score++;
+  if(/[0-9!@#$%^&*]/.test(p)) score++;
+  return score;
+}
+
+document.addEventListener('input', function(e){
+  if(e.target.id==='newPass1'){
+    const p=e.target.value;
+    const s=pwdStrength(p);
+    const colors=['#e5e7eb','#dc2626','#f59e0b','#2563eb','#16a34a'];
+    const labels=['','Weak','Fair','Good','Strong'];
+    [1,2,3,4].forEach(i=>{
+      document.getElementById('str'+i).style.background = i<=s ? colors[s] : '#e5e7eb';
+    });
+    document.getElementById('strLabel').textContent = p ? labels[s] : '';
+    document.getElementById('strLabel').style.color = colors[s];
+  }
+});
+
+function showLoginError(elId, msg){
+  const el=document.getElementById(elId);
+  el.textContent='❌ '+msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none', 4000);
+}
+
+function backToLogin(){
+  _pendingLoginUser=null;
+  document.getElementById('loginStep2').style.display='none';
+  document.getElementById('loginStep3').style.display='none';
+  document.getElementById('loginStep1').style.display='block';
+}
+
+// ── STEP 1: Login ────────────────────────────────────────────────
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim().toLowerCase();
+  const p=document.getElementById('loginPass').value;
+  const users=getUsers();
+  const user=users.find(x=>x.username===u && x.password===p);
+  if(!user){ showLoginError('loginError','Incorrect username or password'); document.getElementById('loginPass').value=''; return; }
+
+  // First-time login or admin forced reset → show password setup screen
+  if(user.mustChange || user.firstLogin){
+    _pendingLoginUser=user;
+    document.getElementById('loginStep1').style.display='none';
+    document.getElementById('loginStep2').style.display='block';
+    document.getElementById('newPass1').value='';
+    document.getElementById('newPass2').value='';
+    return;
+  }
+
+  completeLogin(user);
+}
+
+// ── STEP 2: First-time password setup ───────────────────────────
+function doSetPassword(){
+  const p1=document.getElementById('newPass1').value;
+  const p2=document.getElementById('newPass2').value;
+  if(!p1 || p1.length<6){ showLoginError('newPassError','Password must be at least 6 characters.'); return; }
+  if(p1!==p2){ showLoginError('newPassError','Passwords do not match.'); return; }
+  if(pwdStrength(p1)<1){ showLoginError('newPassError','Please choose a stronger password.'); return; }
+
+  // Save new password, clear mustChange flag
+  const users=getUsers();
+  const idx=users.findIndex(x=>x.username===_pendingLoginUser.username);
+  if(idx!==-1){
+    users[idx].password=p1;
+    users[idx].mustChange=false;
+    users[idx].firstLogin=false;
+    saveUsers(users);
+    _pendingLoginUser=users[idx];
+  }
+  document.getElementById('loginStep2').style.display='none';
+  document.getElementById('loginStep1').style.display='block';
+  completeLogin(_pendingLoginUser);
+  _pendingLoginUser=null;
+}
+
+// ── STEP 3: Change password (while logged in) ────────────────────
+function openChangePassword(){
+  document.getElementById('curPass').value='';
+  document.getElementById('chgPass1').value='';
+  document.getElementById('chgPass2').value='';
+  document.getElementById('chgPassError').style.display='none';
+  document.getElementById('loginStep1').style.display='none';
+  document.getElementById('loginStep3').style.display='block';
+  document.getElementById('loginScreen').style.display='flex';
+}
+function cancelChangePassword(){
+  document.getElementById('loginStep3').style.display='none';
+  document.getElementById('loginStep1').style.display='block';
+  document.getElementById('loginScreen').style.display='none';
+}
+function doChangePassword(){
+  const cur=document.getElementById('curPass').value;
+  const p1=document.getElementById('chgPass1').value;
+  const p2=document.getElementById('chgPass2').value;
+  const users=getUsers();
+  const idx=users.findIndex(x=>x.username===currentUser.username);
+  if(idx===-1||users[idx].password!==cur){ showLoginError('chgPassError','Current password is incorrect.'); return; }
+  if(!p1||p1.length<6){ showLoginError('chgPassError','New password must be at least 6 characters.'); return; }
+  if(p1!==p2){ showLoginError('chgPassError','Passwords do not match.'); return; }
+  if(p1===cur){ showLoginError('chgPassError','New password must be different from current.'); return; }
+  users[idx].password=p1;
+  saveUsers(users);
+  currentUser=users[idx];
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+  cancelChangePassword();
+  showToast('🔒','Password Changed','Your password has been updated successfully.','#dcfce7','#166534');
+}
+
+// ── Complete login & enter CRM ───────────────────────────────────
+function completeLogin(user){
+  currentUser=user;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  document.getElementById('loginScreen').style.display='none';
+  applyUserSession(user);
+}
+
+function applyUserSession(user){
+  document.getElementById('userAvatarInitial').textContent=user.initials||user.name.slice(0,2).toUpperCase();
+  document.getElementById('userDisplayName').textContent=user.name;
+  document.getElementById('userRoleBadge').textContent=user.role;
+  document.getElementById('sidebarUser').innerHTML=
+    `<div style="font-size:11px;color:#64748b;margin-bottom:4px">Signed in as</div>
+     <div style="font-weight:800;color:#e2e8f0;font-size:13px">${user.name}</div>
+     <span style="font-size:10px;background:#1e3a5f;color:#93c5fd;padding:2px 8px;border-radius:999px;">${user.role}</span>`;
+  if(!['Admin','Manager','Finance'].includes(user.role)){
+    ['nav-invoices','nav-payments'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  }
+  if(!['Admin','Manager'].includes(user.role)){
+    ['nav-products','nav-services','nav-team','nav-issueCategories','nav-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  }
+  setModule('dashboard');
+}
+
+function toggleUserMenu(){
+  const m=document.getElementById('userMenu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+document.addEventListener('click',function(e){
+  const badge=document.getElementById('userBadge');
+  if(badge&&!badge.contains(e.target)) document.getElementById('userMenu').style.display='none';
+});
+
+function logout(){
+  if(!confirm('Sign out of Veltrox CRM?')) return;
+  currentUser=null;
+  sessionStorage.removeItem(SESSION_KEY);
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginStep1').style.display='block';
+  document.getElementById('loginStep2').style.display='none';
+  document.getElementById('loginStep3').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+// Auto-login if session exists
+(function(){
+  const saved=sessionStorage.getItem(SESSION_KEY);
+  if(saved){
+    try{
+      const user=JSON.parse(saved);
+      if(user && user.username){
+        currentUser=user;
+        document.getElementById('loginScreen').style.display='none';
+        setTimeout(()=>applyUserSession(user),50);
+        return;
+      }
+    }catch(e){}
+  }
+  // Show login screen
+  document.getElementById('loginScreen').style.display='flex';
+})();
+</script>
+
+
 const STORAGE_KEY='VELTROX_FULL_CRM_V2';
 let currentModule='dashboard';let editId=null;let customerTab='overview';
 const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TallyPrime Auditor','TSS 1 Year','TSS 3 Year','Tally on Cloud','AWS Cloud','TDL Development','Other'],services:['Tally Support','Tally AMC Support','Tally Customization','Tally Training','Tally on Cloud','VAT Filing','IT Support','CCTV Service','Network Setup','Hardware Support','Other'],team:['Chetan','Support Team','Engineer 1'],issueCategories:['License / Activation','Data Corruption','Slow Performance','VAT / Tax Config','Payroll Setup','Bank Reconciliation','Report Mismatch','New Company Setup','Network / WiFi','Hardware Issue','Windows / OS','Software Install','Training Request','CCTV Issue','Email / Outlook','Other'],followups:[]};
@@ -674,7 +1025,202 @@ function renderIssueCategories(){
 function renderProducts(){document.getElementById('sectionTitle').innerText='Product Master — used in Leads, Quotations & Invoices';document.getElementById('content').innerHTML='<div class="hint">These products appear in <b>Leads, Quotations and Invoices</b> under &quot;Product (What we sell)&quot;. Examples: TallyPrime Silver, TSS Renewal.</div>';masterRenderWithHint('products')}function renderServices(){document.getElementById('sectionTitle').innerText='Service Master — used in Service Tickets';document.getElementById('content').innerHTML='<div class="hint">These services appear in the <b>Service Tickets</b> form under &quot;Service (What we do)&quot;. Examples: Tally Support, IT Support, CCTV Service.</div>';masterRenderWithHint('services')}function renderTeam(){masterRender('team','Team Master')}function masterRender(key,title){document.getElementById('sectionTitle').innerText=title;let rows=(db[key]||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td><button class="btn small red" onclick="db['${key}'].splice(${i},1);saveDB();render()">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['No','Name','Action'],rows)}
 function masterRenderWithHint(key){let rows=(db[key]||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td><button class="btn small red" onclick="db['${key}'].splice(${i},1);saveDB();render()">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML+=table(['No','Name','Action'],rows)}
 function renderReports(){document.getElementById('sectionTitle').innerText='Reports';let leadVal=db.leads.reduce((s,x)=>s+Number(x.value||0),0),quoteVal=db.quotations.reduce((s,x)=>s+Number(x.total||0),0),invVal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),received=db.payments.reduce((s,x)=>s+Number(x.received||0),0);document.getElementById('content').innerHTML=`<div class="cards"><div class="card"><div class="card-title">Lead Value</div><div class="card-value">${money(leadVal)}</div></div><div class="card"><div class="card-title">Quotation Value</div><div class="card-value">${money(quoteVal)}</div></div><div class="card"><div class="card-title">Invoice Value</div><div class="card-value">${money(invVal)}</div></div><div class="card"><div class="card-title">Received</div><div class="card-value">${money(received)}</div></div></div>${alerts()}`}
-function renderSettings(){document.getElementById('sectionTitle').innerText='Settings / Backup';document.getElementById('content').innerHTML=`<div class="hint">Data is saved in this browser local storage. Export backup regularly. For multi-user usage, connect Firebase later.</div><div class="form-grid">${inp('setCompany','Company',db.settings.company)}${inp('setAddress','Address',db.settings.address)}${inp('setVatNo','VAT No',db.settings.vatNo)}${inp('setCrNo','CR No',db.settings.crNo)}${inp('setVat','VAT %',db.settings.vatPercent,'number')}</div><br><button class="btn green" onclick="saveSettings()">Save Settings</button><hr><button class="btn gray" onclick="exportBackup()">Export JSON Backup</button> <input type="file" id="backupFile" accept=".json"> <button class="btn orange" onclick="importBackup()">Import Backup</button> <button class="btn red" onclick="clearAll()">Clear All Data</button>`}
+function renderSettings(){
+  document.getElementById('sectionTitle').innerText='Settings / Backup';
+  const users = getUsers();
+  const userRows = users.map((u,i)=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <div style="width:28px;height:28px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:900">${esc(u.initials||u.name.slice(0,2).toUpperCase())}</div>
+        <b>${esc(u.name)}</b></div></td>
+      <td><code style="background:#f1f5f9;padding:2px 7px;border-radius:5px;font-size:12px">${esc(u.username)}</code></td>
+      <td><span class="badge ${u.role==='Admin'?'b-purple':u.role==='Manager'?'b-green':u.role==='Finance'?'b-orange':'b-gray'}">${esc(u.role)}</span></td>
+      <td style="color:#94a3b8;font-size:12px">${u.mustChange||u.firstLogin?'<span style="color:#f59e0b;font-weight:800;font-size:11px">⚠ Must set password</span>':'••••••••'}</td>
+      <td>
+        <button class="btn small orange" onclick="editUser(${i})">✏ Edit</button>
+        <button class="btn small gray" style="margin-left:4px" onclick="adminResetPassword(${i})">🔑 Reset</button>
+        ${u.username==='admin'?'':'<button class="btn small red" style="margin-left:4px" onclick="deleteUser('+i+')">✕</button>'}
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('content').innerHTML=`
+    <div class="hint">⚙ Only <b>Admin</b> users can manage accounts and settings. Passwords are stored locally in your browser.</div>
+
+    <!-- Company Settings -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><h3>🏢 Company Settings</h3></div>
+      <div class="form-grid">
+        ${inp('setCompany','Company',db.settings.company)}
+        ${inp('setAddress','Address',db.settings.address)}
+        ${inp('setVatNo','VAT No',db.settings.vatNo)}
+        ${inp('setCrNo','CR No',db.settings.crNo)}
+        ${inp('setVat','VAT %',db.settings.vatPercent,'number')}
+      </div>
+      <br><button class="btn green" onclick="saveSettings()">💾 Save Settings</button>
+    </div>
+
+    <!-- User Management -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head">
+        <h3>👥 User Management</h3>
+        <button class="btn" onclick="openAddUser()">+ Add User</button>
+      </div>
+      <div class="table-wrap">
+        <table style="min-width:600px">
+          <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Password</th><th>Actions</th></tr></thead>
+          <tbody>${userRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Backup -->
+    <div class="panel">
+      <div class="panel-head"><h3>💾 Backup & Data</h3></div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <button class="btn gray" onclick="exportBackup()">📤 Export JSON Backup</button>
+        <input type="file" id="backupFile" accept=".json" style="max-width:220px">
+        <button class="btn orange" onclick="importBackup()">📥 Import Backup</button>
+        <button class="btn red" onclick="clearAll()">🗑 Clear All Data</button>
+      </div>
+    </div>
+
+    <!-- Add/Edit User Modal (inline) -->
+    <div id="userFormPanel" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2000;align-items:center;justify-content:center;padding:14px">
+      <div style="background:#fff;border-radius:20px;padding:28px;width:100%;max-width:440px;box-shadow:0 24px 60px rgba(0,0,0,.2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <h3 id="userFormTitle" style="margin:0">Add User</h3>
+          <button onclick="closeUserForm()" style="border:0;background:#f1f5f9;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:800">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="full">
+            <label>Full Name</label>
+            <input id="ufName" placeholder="e.g. John Smith" />
+          </div>
+          <div>
+            <label>Username</label>
+            <input id="ufUsername" placeholder="e.g. john" />
+          </div>
+          <div>
+            <label>Role</label>
+            <select id="ufRole">
+              <option>Admin</option>
+              <option>Manager</option>
+              <option>Sales</option>
+              <option>Support</option>
+              <option>Finance</option>
+            </select>
+          </div>
+          <div id="ufPassNote" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e;grid-column:1/-1">
+            ⚠ <b>Temporary password:</b> The user will be asked to create their own password on first login.
+          </div>
+          <div>
+            <label>Temporary Password</label>
+            <input id="ufPass" type="text" placeholder="e.g. Welcome@123" />
+          </div>
+          <div>
+            <label>Confirm Password</label>
+            <input id="ufPass2" type="password" placeholder="Re-enter password" />
+          </div>
+        </div>
+        <div id="ufError" style="display:none;background:#fee2e2;color:#991b1b;border-radius:8px;padding:8px 12px;margin-top:12px;font-size:13px;font-weight:700"></div>
+        <input type="hidden" id="ufEditIndex" value="-1" />
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+          <button class="btn gray" onclick="closeUserForm()">Cancel</button>
+          <button class="btn green" onclick="saveUser()">💾 Save User</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+const USERS_KEY = 'VELTROX_USERS';
+function getUsers(){
+  try{ const u=JSON.parse(localStorage.getItem(USERS_KEY)); if(Array.isArray(u)&&u.length) return u; }catch(e){}
+  // Return default users if none saved yet
+  return [
+    {username:'admin',    password:'veltrox2025', name:'Admin',         role:'Admin',   initials:'AD'},
+    {username:'chetan',   password:'chetan123',   name:'Chetan Oberoi', role:'Manager', initials:'CO'},
+    {username:'sales',    password:'sales123',    name:'Sales Team',    role:'Sales',   initials:'ST'},
+    {username:'support',  password:'support123',  name:'Support Team',  role:'Support', initials:'SP'},
+    {username:'finance',  password:'finance123',  name:'Finance Team',  role:'Finance', initials:'FN'},
+  ];
+}
+function saveUsers(users){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+
+function openAddUser(){
+  document.getElementById('userFormTitle').textContent='Add New User';
+  document.getElementById('ufName').value='';
+  document.getElementById('ufUsername').value='';
+  document.getElementById('ufPass').value='';
+  document.getElementById('ufPass2').value='';
+  document.getElementById('ufRole').value='Sales';
+  document.getElementById('ufEditIndex').value='-1';
+  document.getElementById('ufError').style.display='none';
+  // Show temp password note
+  document.getElementById('ufPassNote').style.display='block';
+  document.getElementById('userFormPanel').style.display='flex';
+}
+function editUser(i){
+  const u=getUsers()[i];
+  document.getElementById('userFormTitle').textContent='Edit User';
+  document.getElementById('ufName').value=u.name;
+  document.getElementById('ufUsername').value=u.username;
+  document.getElementById('ufPass').value='';
+  document.getElementById('ufPass2').value='';
+  document.getElementById('ufRole').value=u.role;
+  document.getElementById('ufEditIndex').value=i;
+  document.getElementById('ufError').style.display='none';
+  document.getElementById('ufPassNote').style.display='none';
+  document.getElementById('userFormPanel').style.display='flex';
+}
+function closeUserForm(){ document.getElementById('userFormPanel').style.display='none'; }
+function saveUser(){
+  const name=document.getElementById('ufName').value.trim();
+  const username=document.getElementById('ufUsername').value.trim().toLowerCase();
+  const pass=document.getElementById('ufPass').value;
+  const pass2=document.getElementById('ufPass2').value;
+  const role=document.getElementById('ufRole').value;
+  const idx=Number(document.getElementById('ufEditIndex').value);
+  const errEl=document.getElementById('ufError');
+  errEl.style.display='none';
+  if(!name||!username){ errEl.textContent='Name and username are required.'; errEl.style.display='block'; return; }
+  const users=getUsers();
+  if(idx===-1 && !pass){ errEl.textContent='Password is required for new users.'; errEl.style.display='block'; return; }
+  if(pass && pass!==pass2){ errEl.textContent='Passwords do not match.'; errEl.style.display='block'; return; }
+  if(pass && pass.length<4){ errEl.textContent='Password must be at least 4 characters.'; errEl.style.display='block'; return; }
+  // Check duplicate username
+  const dupIdx=users.findIndex((u,i)=>u.username===username&&i!==idx);
+  if(dupIdx!==-1){ errEl.textContent='Username already exists.'; errEl.style.display='block'; return; }
+  const initials=name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  if(idx===-1){
+    users.push({username,password:pass,name,role,initials,mustChange:true,firstLogin:true});
+  } else {
+    users[idx]={...users[idx],username,name,role,initials,...(pass?{password:pass}:{})};
+  }
+  saveUsers(users);
+  closeUserForm();
+  render();
+  showToast('👥','User Saved',`${name} (${role}) saved successfully.`,'#dcfce7','#166534');
+}
+function deleteUser(i){
+  const users=getUsers();
+  if(!confirm(`Delete user "${users[i].name}"?`)) return;
+  users.splice(i,1);
+  saveUsers(users);
+  render();
+}
+function adminResetPassword(i){
+  const users=getUsers();
+  const tmpPwd=prompt(`Set a temporary password for "${users[i].name}".\nThey will be asked to create their own password on next login.`);
+  if(!tmpPwd) return;
+  if(tmpPwd.length<4){ alert('Password too short (min 4 characters)'); return; }
+  users[i].password=tmpPwd;
+  users[i].mustChange=true;
+  users[i].firstLogin=true;
+  saveUsers(users);
+  render();
+  showToast('🔑','Password Reset',`${users[i].name} will set a new password on next login.`,'#fef3c7','#92400e');
+}
 function inp(id,l,v='',type='text',ro=false){return `<div><label>${l}</label><input id="${id}" type="${type}" value="${esc(v)}" ${ro?'readonly':''}></div>`}function txt(id,l,v=''){return `<div class="full"><label>${l}</label><textarea id="${id}">${esc(v)}</textarea></div>`}function sel(id,l,opts,v=''){return `<div><label>${l}</label><select id="${id}">${opts.map(o=>`<option value="${esc(o)}" ${o==v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`}function custSel(v=''){return `<div><label>Customer</label><div style="display:flex;gap:8px;align-items:center"><select id="customerId" style="flex:1"><option value="">Select Customer</option>${db.customers.map(c=>`<option value="${c.customerId}" ${c.customerId==v?'selected':''}>${esc(c.companyName)} - ${esc(c.mobile)}</option>`).join('')}</select><button type="button" class="btn green" style="white-space:nowrap" onclick="quickNewCustomer()">+ Customer</button></div></div>`}function productSel(v=''){return sel('product','Product (What we sell)',[...db.products,'Other'],v)}
 function serviceSel(v=''){return `<div><label>Service (What we do)</label><select id="product"><option value="">Select Service</option>${[...db.services,'Other'].map(s=>`<option value="${esc(s)}" ${s===v?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`}
 function openForm(id=null){editId=id;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,followups:followupForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm,issueCategories:issueCategoryForm}[currentModule]||leadForm)(id)}function closeForm(){document.getElementById('formModal').style.display='none';editId=null}
@@ -872,7 +1418,6 @@ setTimeout(runNotifCheck, 1200);
 setInterval(runNotifCheck, 60000);
 // ─────────────────────────────────────────────────────────────────
 
-setModule('dashboard');
 </script>
 </body>
 </html>
