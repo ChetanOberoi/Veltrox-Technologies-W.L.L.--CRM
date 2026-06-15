@@ -767,7 +767,7 @@ function ticketCustomerChanged(customerId){
   const locationFld=document.getElementById('location');
   if(!cust){contactSel.innerHTML='<option value="">Select Customer First</option>';return;}
   // Auto-fill location
-  if(locationFld&&cust.location)locationFld.value=cust.location;
+  if(locationFld)locationFld.value=cust.location||'';
   // Fill contact dropdown
   const contacts=cust.contacts&&cust.contacts.length?cust.contacts:(cust.contactPerson?[{name:cust.contactPerson,mobile:cust.mobile}]:[]);
   contactSel.innerHTML=contacts.length
