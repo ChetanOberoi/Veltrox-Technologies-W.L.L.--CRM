@@ -113,7 +113,8 @@ function normalizeDB(raw){
   base.issueCategories=Array.isArray(raw.issueCategories)?raw.issueCategories:base.issueCategories;
   base.customers=(raw.customers||[]).map(c=>({
     customerId:c.customerId||c.id||uidSafe('CUS'), companyName:c.companyName||c.customer||c.name||'', contactPerson:c.contactPerson||c.contact||'',
-    mobile:c.mobile||c.phone||'', email:c.email||'', vatNo:c.vatNo||'', crNo:c.crNo||'', location:c.location||'', documentLink:c.documentLink||'', address:c.address||'', remarks:c.remarks||''
+    mobile:c.mobile||c.phone||'', email:c.email||'', vatNo:c.vatNo||'', crNo:c.crNo||'', location:c.location||'', documentLink:c.documentLink||'', address:c.address||'', remarks:c.remarks||'',
+    contacts:Array.isArray(c.contacts)?c.contacts:(c.contactPerson||c.contact?[{name:c.contactPerson||c.contact||'',mobile:c.mobile||c.phone||''}]:[])
   }));
   base.leads=(raw.leads||[]).map(l=>({
     leadId:l.leadId||l.id||uidSafe('LEAD'), leadDate:l.leadDate||l.date||today(), customerId:l.customerId||findCustomerIdByName(base.customers,l.customer)||'',
@@ -680,10 +681,99 @@ function serviceSel(v=''){return `<div><label>Service (What we do)</label><selec
 function openForm(id=null){editId=id;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,followups:followupForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm,issueCategories:issueCategoryForm}[currentModule]||leadForm)(id)}function closeForm(){document.getElementById('formModal').style.display='none';editId=null}
 function quickNewCustomer(){currentModule='customers';editId=null;customerForm();}
 function followupForm(id){let r=db.followups.find(x=>x.followupId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Follow-up':'Add Follow-up';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('followupId','Follow-up No',r.followupId||uid('FOL'),'text',true)}${inp('fdate','Date',r.date||today(),'date')}${sel('ftype','Type',['Lead','Quotation','Service','Invoice','Payment','Renewal','General'],r.type||'Lead')}${inp('refNo','Reference No',r.refNo||'')}${custSel(r.customerId)}${inp('fnext','Next Follow-up',r.nextFollowup||'','date')}${sel('fupdatedBy','Updated By',db.team,r.updatedBy||db.team[0]||'')}${sel('fstatus','Status',['Open','Pending','Completed','Closed'],r.status||'Open')}${txt('fdiscussion','Discussion / Action Taken',r.discussion||'')}${txt('fremarks','Remarks',r.remarks||'')}</div>`}
-function customerForm(id){let r=db.customers.find(x=>x.customerId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Customer':'Add Customer';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('customerId','Customer ID',r.customerId||uid('CUS'),'text',true)}${inp('companyName','Company Name',r.companyName||'')}${inp('contactPerson','Contact Person',r.contactPerson||'')}${inp('mobile','Mobile',r.mobile||'')}${inp('email','Email',r.email||'','email')}${inp('vatNo','VAT No',r.vatNo||'')}${inp('crNo','CR No',r.crNo||'')}${inp('location','Location',r.location||'')}${inp('documentLink','Document Link',r.documentLink||'')}${txt('address','Address',r.address||'')}${txt('remarks','Remarks',r.remarks||'')}</div>`}
+function customerForm(id){
+  let r=db.customers.find(x=>x.customerId===id)||{};
+  let contacts=r.contacts&&r.contacts.length?r.contacts:[{name:r.contactPerson||'',mobile:r.mobile||''}];
+  document.getElementById('formTitle').innerText=id?'Edit Customer':'Add Customer';
+  document.getElementById('formArea').innerHTML=`<div class="form-grid">
+    ${inp('customerId','Customer ID',r.customerId||uid('CUS'),'text',true)}
+    ${inp('companyName','Company Name',r.companyName||'')}
+    ${inp('email','Email',r.email||'','email')}
+    ${inp('vatNo','VAT No',r.vatNo||'')}
+    ${inp('crNo','CR No',r.crNo||'')}
+    ${inp('location','Location',r.location||'')}
+    ${inp('documentLink','Document Link',r.documentLink||'')}
+    <div class="full">
+      <label>Contact Persons</label>
+      <div id="contactsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+        ${contacts.map((c,i)=>`<div class="contact-row" style="display:flex;gap:8px;align-items:center">
+          <input type="text" class="contact-name" placeholder="Contact Name" value="${esc(c.name||'')}" style="flex:1;padding:9px 11px;border:1px solid #d1d5db;border-radius:10px">
+          <input type="text" class="contact-mobile" placeholder="Mobile" value="${esc(c.mobile||'')}" style="flex:1;padding:9px 11px;border:1px solid #d1d5db;border-radius:10px">
+          ${i>0?`<button type="button" onclick="this.parentElement.remove()" style="border:0;background:#fee2e2;color:#991b1b;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer">✕</button>`:'<div style="width:42px"></div>'}
+        </div>`).join('')}
+      </div>
+      <button type="button" onclick="addContactRow()" style="border:0;background:#dbeafe;color:#1d4ed8;border-radius:8px;padding:8px 14px;font-weight:800;cursor:pointer">+ Add Contact Person</button>
+    </div>
+    ${txt('address','Address',r.address||'')}
+    ${txt('remarks','Remarks',r.remarks||'')}
+  </div>`;
+}
+function addContactRow(){
+  const div=document.createElement('div');
+  div.className='contact-row';
+  div.style.cssText='display:flex;gap:8px;align-items:center';
+  div.innerHTML=`<input type="text" class="contact-name" placeholder="Contact Name" style="flex:1;padding:9px 11px;border:1px solid #d1d5db;border-radius:10px">
+    <input type="text" class="contact-mobile" placeholder="Mobile" style="flex:1;padding:9px 11px;border:1px solid #d1d5db;border-radius:10px">
+    <button type="button" onclick="this.parentElement.remove()" style="border:0;background:#fee2e2;color:#991b1b;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer">✕</button>`;
+  document.getElementById('contactsList').appendChild(div);
+}
 function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${sel('leadSource','Lead Source',['Cold Call','WhatsApp','Reference','Existing Customer','Website','Walk-In','Google','Email','Other'],r.leadSource||'Cold Call')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('leadPriority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('leadStatus','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
 function quotationForm(id){let r=db.quotations.find(x=>x.quotationNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Quotation':'Add Quotation';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('quotationNo','Quotation No',r.quotationNo||uid('QT'),'text',true)}${inp('qdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('leadIdRef','Lead Ref',r.leadId||'')}${productSel(r.item||'')}${inp('qty','Qty',r.qty||1,'number')}${inp('rate','Rate',r.rate||0,'number')}${inp('vat','VAT %',r.vatPercent||db.settings.vatPercent,'number')}${inp('validTill','Valid Till',r.validTill||'','date')}${sel('qstatus','Status',['Draft','Sent','Follow-up','Approved','Rejected','Converted'],r.status||'Draft')}${txt('terms','Terms',r.terms||'60% advance on confirmation, balance on delivery.')}${txt('qremarks','Remarks',r.remarks||'')}</div>`}
-function ticketForm(id){let r=db.tickets.find(x=>x.ticketNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Ticket':'Add Ticket';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('ticketNo','Ticket No',r.ticketNo||uid('TKT'),'text',true)}${inp('tdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('contactPerson','Contact Person',r.contactPerson||'')}${inp('location','Site / Location',r.location||'')}${serviceSel(r.product||'')}${sel('serviceType','Service Type',['On-Site Visit','Remote — AnyDesk','Remote — TeamViewer','Phone Support','WhatsApp Support','Email Support','Training','Installation','Customization','AMC Visit','Other'],r.serviceType||'On-Site Visit')}${sel('issueCategory','Issue Category',db.issueCategories,r.issueCategory||db.issueCategories[0]||'')}${inp('serial','Serial / Asset No',r.serial||'')}${inp('startTime','Start Time',r.startTime||'','time')}${inp('endTime','End Time',r.endTime||'','time')}${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('engineer','Engineer',db.team,r.engineer||'')}${sel('tstatus','Status',['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'],r.status||'Open')}${sel('amc','AMC Covered',['Yes','No'],r.amc||'No')}${inp('charges','Service Charges',r.charges||'','number')}${txt('issue','Issue Reported',r.issue||'')}${txt('solution','Solution &amp; Steps Taken',r.solution||'')}${txt('customerFeedback','Customer Feedback',r.customerFeedback||'')}${txt('internalNotes','Internal Notes (not visible to customer)',r.internalNotes||'')}</div>`}
+function ticketForm(id){
+  let r=db.tickets.find(x=>x.ticketNo===id)||{};
+  document.getElementById('formTitle').innerText=id?'Edit Ticket':'Add Ticket';
+  // Build customer dropdown with onchange trigger
+  const custDropdown=`<div><label>Customer</label><div style="display:flex;gap:8px;align-items:center">
+    <select id="customerId" style="flex:1" onchange="ticketCustomerChanged(this.value)">
+      <option value="">Select Customer</option>
+      ${db.customers.map(c=>`<option value="${c.customerId}" ${c.customerId==r.customerId?'selected':''}>${esc(c.companyName)} - ${esc(c.mobile)}</option>`).join('')}
+    </select>
+    <button type="button" class="btn green" style="white-space:nowrap" onclick="quickNewCustomer()">+ Customer</button>
+  </div></div>`;
+  // Build contact dropdown
+  const cust=r.customerId?db.customers.find(x=>x.customerId===r.customerId):null;
+  const contacts=cust&&cust.contacts&&cust.contacts.length?cust.contacts:[];
+  const contactDropdown=`<div><label>Contact Person</label>
+    <select id="contactPerson">
+      <option value="">Select Customer First</option>
+      ${contacts.map(c=>`<option value="${esc(c.name)}" ${c.name===r.contactPerson?'selected':''}>${esc(c.name)}${c.mobile?' — '+esc(c.mobile):''}</option>`).join('')}
+    </select></div>`;
+  document.getElementById('formArea').innerHTML=`<div class="form-grid">
+    ${inp('ticketNo','Ticket No',r.ticketNo||uid('TKT'),'text',true)}
+    ${inp('tdate','Date',r.date||today(),'date')}
+    ${custDropdown}
+    ${contactDropdown}
+    ${inp('location','Site / Location',r.location||cust?.location||'')}
+    ${serviceSel(r.product||'')}
+    ${sel('serviceType','Service Type',['On-Site Visit','Remote — AnyDesk','Remote — TeamViewer','Phone Support','WhatsApp Support','Email Support','Training','Installation','Customization','AMC Visit','Other'],r.serviceType||'On-Site Visit')}
+    ${sel('issueCategory','Issue Category',db.issueCategories,r.issueCategory||db.issueCategories[0]||'')}
+    ${inp('serial','Serial / Asset No',r.serial||'')}
+    ${inp('startTime','Start Time',r.startTime||'','time')}
+    ${inp('endTime','End Time',r.endTime||'','time')}
+    ${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}
+    ${sel('engineer','Engineer',db.team,r.engineer||'')}
+    ${sel('tstatus','Status',['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'],r.status||'Open')}
+    ${sel('amc','AMC Covered',['Yes','No'],r.amc||'No')}
+    ${inp('charges','Service Charges',r.charges||'','number')}
+    ${txt('issue','Issue Reported',r.issue||'')}
+    ${txt('solution','Solution &amp; Steps Taken',r.solution||'')}
+    ${txt('customerFeedback','Customer Feedback',r.customerFeedback||'')}
+    ${txt('internalNotes','Internal Notes (not visible to customer)',r.internalNotes||'')}
+  </div>`;
+}
+function ticketCustomerChanged(customerId){
+  const cust=db.customers.find(x=>x.customerId===customerId);
+  const contactSel=document.getElementById('contactPerson');
+  const locationFld=document.getElementById('location');
+  if(!cust){contactSel.innerHTML='<option value="">Select Customer First</option>';return;}
+  // Auto-fill location
+  if(locationFld&&cust.location)locationFld.value=cust.location;
+  // Fill contact dropdown
+  const contacts=cust.contacts&&cust.contacts.length?cust.contacts:(cust.contactPerson?[{name:cust.contactPerson,mobile:cust.mobile}]:[]);
+  contactSel.innerHTML=contacts.length
+    ?contacts.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}${c.mobile?' — '+esc(c.mobile):''}</option>`).join('')
+    :'<option value="">No contacts found</option>';
+}
 function renewalForm(id){let r=db.renewals.find(x=>x.renewalId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Renewal':'Add Renewal';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('renewalId','Renewal ID',r.renewalId||uid('REN'),'text',true)}${custSel(r.customerId)}${sel('rtype','Renewal Type',['TSS Renewal','AMC Renewal','Cloud Renewal'],r.type||'TSS Renewal')}${inp('license','License Type / Serial No',r.license||'')}${inp('expiryDate','Expiry Date',r.expiryDate||'','date')}${inp('amount','Renewal Amount',r.amount||'','number')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||'')}${sel('rstatus','Status',['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'],r.status||'Upcoming')}${txt('rremarks','Remarks',r.remarks||'')}</div>`}
 function invoiceForm(id){let r=db.invoices.find(x=>x.invoiceNo===id)||{};document.getElementById('formTitle').innerText=id?'Edit Invoice':'Add Invoice';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('invoiceNo','Invoice No',r.invoiceNo||uid('INV'),'text',true)}${inp('idate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('quotationNo','Quotation Ref',r.quotationNo||'')}${productSel(r.item||'')}${inp('iqty','Qty',r.qty||1,'number')}${inp('irate','Rate',r.rate||0,'number')}${inp('ivat','VAT %',r.vatPercent||db.settings.vatPercent,'number')}${sel('istatus','Payment Status',['Pending','Partial','Paid'],r.status||'Pending')}${txt('iremarks','Remarks',r.remarks||'')}</div>`}
 function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Payment':'Add Payment';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('paymentId','Payment ID',r.paymentId||uid('PAY'),'text',true)}${inp('pdate','Payment Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('pinvoiceNo','Invoice No',r.invoiceNo||'')}${inp('invoiceAmount','Invoice Amount',r.invoiceAmount||'','number')}${inp('received','Received Amount',r.received||'','number')}${inp('dueDate','Due Date',r.dueDate||'','date')}${sel('pstatus','Status',['Pending','Partial','Paid','Overdue'],r.status||'Pending')}${sel('mode','Mode',['Cash','BenefitPay','Bank Transfer','Cheque','Card','Other'],r.mode||'Bank Transfer')}${inp('referenceNo','Reference No',r.referenceNo||'')}${txt('premarks','Remarks',r.remarks||'')}</div>`}
@@ -691,7 +781,28 @@ function productForm(){document.getElementById('formTitle').innerText='Add Produ
 function issueCategoryForm(){document.getElementById('formTitle').innerText='Add Issue Category';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Issue Category Name','')}</div>`}
 function saveForm(){if(currentModule==='customers')saveCustomer();if(currentModule==='leads')saveLead();if(currentModule==='followups')saveFollowup();if(currentModule==='quotations')saveQuotation();if(currentModule==='tickets')saveTicket();if(currentModule==='renewals')saveRenewal();if(currentModule==='invoices')saveInvoice();if(currentModule==='payments')savePayment();if(['products','services','team','issueCategories'].includes(currentModule))saveMaster();saveDB();closeForm();render()}
 function saveFollowup(){if(!customerId.value)return alert('Select customer');upsert(db.followups,'followupId',{followupId:followupId.value,date:fdate.value,type:ftype.value,refNo:refNo.value,customerId:customerId.value,discussion:fdiscussion.value,nextFollowup:fnext.value,updatedBy:fupdatedBy.value,status:fstatus.value,remarks:fremarks.value})}
-function saveCustomer(){let name=document.getElementById('companyName').value.trim();if(!name)return alert('Company Name required');upsert(db.customers,'customerId',{customerId:customerId.value,companyName:name,contactPerson:contactPerson.value,mobile:mobile.value,email:email.value,vatNo:vatNo.value,crNo:crNo.value,location:location.value,documentLink:documentLink.value,address:address.value,remarks:remarks.value})}
+function saveCustomer(){
+  let name=document.getElementById('companyName').value.trim();
+  if(!name)return alert('Company Name required');
+  const names=[...document.querySelectorAll('#contactsList .contact-name')].map(x=>x.value.trim());
+  const mobiles=[...document.querySelectorAll('#contactsList .contact-mobile')].map(x=>x.value.trim());
+  const contacts=names.map((n,i)=>({name:n,mobile:mobiles[i]||''})).filter(c=>c.name||c.mobile);
+  const firstContact=contacts[0]||{name:'',mobile:''};
+  upsert(db.customers,'customerId',{
+    customerId:document.getElementById('customerId').value,
+    companyName:name,
+    contactPerson:firstContact.name,
+    mobile:firstContact.mobile,
+    email:document.getElementById('email').value,
+    vatNo:document.getElementById('vatNo').value,
+    crNo:document.getElementById('crNo').value,
+    location:document.getElementById('location').value,
+    documentLink:document.getElementById('documentLink').value,
+    address:document.getElementById('address').value,
+    remarks:document.getElementById('remarks').value,
+    contacts:contacts
+  });
+}
 function saveLead(){
   const leadStatusValue=document.getElementById('leadStatus').value;
   const leadPriorityValue=document.getElementById('leadPriority').value;
