@@ -126,3 +126,83 @@ export default function TicketsScreen() {
             <Text style={styles.modalTitle}>New Support Ticket</Text>
             <ScrollView>
               {[
+                { key: 'title', label: 'Title *', placeholder: 'Issue title' },
+                { key: 'contactPerson', label: 'Contact Person', placeholder: 'Customer name' },
+                { key: 'company', label: 'Company', placeholder: 'Company name' },
+                { key: 'phone', label: 'Phone', placeholder: 'Phone number' },
+                { key: 'serviceType', label: 'Service Type', placeholder: 'e.g. TallyPrime, AMC, TSS' },
+                { key: 'description', label: 'Description', placeholder: 'Describe the issue...' },
+              ].map(field => (
+                <View key={field.key}>
+                  <Text style={styles.label}>{field.label}</Text>
+                  <TextInput
+                    style={[styles.input, field.key === 'description' && { height: 80 }]}
+                    placeholder={field.placeholder}
+                    value={form[field.key]}
+                    onChangeText={v => setForm({ ...form, [field.key]: v })}
+                    multiline={field.key === 'description'}
+                  />
+                </View>
+              ))}
+
+              <Text style={styles.label}>Priority</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                {['Low', 'Medium', 'High', 'Critical'].map(p => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.chip, { backgroundColor: form.priority === p ? PRIORITY_COLORS[p] : '#eee' }]}
+                    onPress={() => setForm({ ...form, priority: p })}
+                  >
+                    <Text style={{ color: form.priority === p ? '#fff' : '#333', fontSize: 12 }}>{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+                <Text style={{ color: '#666' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={saveTicket}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Save Ticket</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', margin: 12, gap: 8 },
+  searchIcon: { position: 'absolute', left: 20, zIndex: 1 },
+  search: { flex: 1, backgroundColor: '#fff', borderRadius: 8, paddingLeft: 36, paddingRight: 12, paddingVertical: 10, elevation: 2 },
+  addBtn: { backgroundColor: '#1a237e', borderRadius: 8, padding: 10 },
+  filterRow: { paddingHorizontal: 12, marginBottom: 4 },
+  filterChip: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, marginRight: 8, backgroundColor: '#eee' },
+  filterChipActive: { backgroundColor: '#1a237e' },
+  filterText: { fontSize: 12, color: '#555' },
+  filterTextActive: { color: '#fff', fontWeight: 'bold' },
+  count: { color: '#888', fontSize: 12, marginLeft: 16, marginBottom: 4 },
+  card: { backgroundColor: '#fff', margin: 8, marginHorizontal: 12, borderRadius: 10, padding: 12, elevation: 2 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  cardTitle: { fontSize: 15, fontWeight: 'bold', color: '#222', flex: 1, marginRight: 8 },
+  cardMid: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardSub: { fontSize: 12, color: '#666', flex: 1 },
+  badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  priorityBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  serviceType: { fontSize: 12, color: '#555', marginTop: 6 },
+  desc: { fontSize: 12, color: '#888', marginTop: 4 },
+  empty: { textAlign: 'center', color: '#999', marginTop: 40, fontSize: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modal: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '92%' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1a237e', marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 14 },
+  chip: { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
+  modalButtons: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
+  saveBtn: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#1a237e', alignItems: 'center' },
+});
