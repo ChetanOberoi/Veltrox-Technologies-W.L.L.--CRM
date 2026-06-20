@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup Expo & EAS
         uses: expo/expo-github-action@v8
@@ -33,4 +33,4 @@ jobs:
         run: eas build --platform android --profile preview --non-interactive
 
       - name: Notify success
-        run: echo "✅ APK Build Complete! Download from Expo dashboard."
+        run: echo "✅ APK Build Complete!"
