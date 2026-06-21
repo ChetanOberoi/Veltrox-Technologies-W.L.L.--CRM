@@ -25,13 +25,16 @@
       "bundleIdentifier": "com.veltrox.crm"
     },
     "extra": {
-      "firebaseApiKey": "AIzaSy0KEluo2VFrJzGSGNb_XePeMylMaIQ7MoU",
-      "firebaseAuthDomain": "veltrox-crm-b48b9.firebaseapp.com",
-      "firebaseProjectId": "veltrox-crm-b48b9",
-      "firebaseStorageBucket": "veltrox-crm-b48b9.firebasestorage.app",
-      "firebaseMessagingSenderId": "406467969980",
-      "firebaseAppId": "1:406467969980:web:e3f5e86cc0d3d53cde61b9"
-    },
+  "eas": {
+    "projectId": "PASTE-YOUR-EXPO-PROJECT-ID-HERE"
+  },
+  "firebaseApiKey": "AIzaSy...",
+  "firebaseAuthDomain": "veltrox-crm-b48b9...",
+  "firebaseProjectId": "veltrox-crm-b48b9",
+  "firebaseStorageBucket": "veltrox-crm-b48b9.firebasestorage.app",
+  "firebaseMessagingSenderId": "406467969980",
+  "firebaseAppId": "1:406467969980:web:e3f5e86cc0d3d53cde61b9"
+}
     "plugins": [
       "expo-router"
     ]
