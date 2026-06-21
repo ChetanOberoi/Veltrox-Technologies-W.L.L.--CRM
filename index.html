@@ -164,7 +164,12 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 </div>
 
 <div id="userBar" style="display:none">
-  <span>🔥 Veltrox CRM — <span id="userEmail"></span></span>
+  <span style="display:flex;align-items:center;gap:10px">
+    <span>🔥</span>
+    <span id="userDisplayName" style="font-weight:800;color:#fff;font-size:13px"></span>
+    <span id="userRoleBadge" style="background:#1e40af;color:#bfdbfe;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:800"></span>
+    <span id="userEmail" style="color:#94a3b8;font-size:11px"></span>
+  </span>
   <button onclick="doLogout()">Logout</button>
 </div>
 <div id="fbOverlay" style="display:none"><div style="font-size:48px;margin-bottom:16px">&#128293;</div><div class="fb-spinner"></div><div style="font-size:18px;font-weight:700;margin-bottom:8px">Veltrox CRM</div><div id="fbMsg" style="font-size:13px;color:#94a3b8">Connecting to Firebase...</div></div><div class="app" style="display:none">
@@ -462,7 +467,40 @@ function showLogin(){
   document.getElementById('userBar').style.display='none';
   document.querySelector('.app').style.display='none';
 }
-function hideLogin(email){document.getElementById('introScreen').style.display='none';document.getElementById('loginScreen').style.display='none';document.getElementById('userBar').style.display='flex';document.getElementById('userEmail').textContent=email;document.querySelector('.app').style.display='flex';}
+function hideLogin(email){
+  // ── ORIGINAL LOGIN CODE — UNCHANGED ──
+  document.getElementById('introScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('userBar').style.display='flex';
+  document.getElementById('userEmail').textContent=email;
+  document.querySelector('.app').style.display='flex';
+  // ── PERMISSION LOAD — runs after login, completely separate ──
+  // Sets name+role in top bar. If anything fails, CRM still works normally.
+  try{
+    const isAdmin=CRM_ADMIN_EMAILS.includes(email.toLowerCase());
+    // Show email as name immediately so bar is never empty
+    document.getElementById('userDisplayName').textContent=email.split('@')[0];
+    document.getElementById('userRoleBadge').textContent=isAdmin?'Admin':'';
+    crmCurrentUser={email,name:email.split('@')[0],role:isAdmin?'Admin':'IT Support',permissions:isAdmin?CRM_ROLE_DEFAULTS['Admin']:CRM_ROLE_DEFAULTS['IT Support']};
+    applyCRMPermissions();
+    // Then quietly load actual profile from Firestore
+    fdb.collection('crm_users').doc(crmSafeId(email)).get()
+      .then(doc=>{
+        try{
+          const p=doc.exists?doc.data():{};
+          crmCurrentUser.name=p.name||crmCurrentUser.name;
+          if(!isAdmin){crmCurrentUser.role=p.role||crmCurrentUser.role;crmCurrentUser.permissions=p.permissions||CRM_ROLE_DEFAULTS[p.role||'IT Support']||{};}
+          document.getElementById('userDisplayName').textContent=crmCurrentUser.name;
+          const rb=document.getElementById('userRoleBadge');
+          rb.textContent=crmCurrentUser.role;
+          const rc={'Admin':'background:#1e40af;color:#bfdbfe','Sales':'background:#166534;color:#bbf7d0','Finance':'background:#92400e;color:#fef3c7','IT Support':'background:#5b21b6;color:#ede9fe'};
+          rb.style.cssText='border-radius:6px;padding:2px 9px;font-size:11px;font-weight:800;'+(rc[crmCurrentUser.role]||'background:#374151;color:#e5e7eb');
+          applyCRMPermissions();
+        }catch(e2){console.warn('perm update error',e2);}
+      })
+      .catch(e=>console.warn('crm_users fetch failed (non-blocking):',e));
+  }catch(e){console.warn('permission init error (non-blocking):',e);}
+}
 
 function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
@@ -509,6 +547,148 @@ function doForgotPassword(){
     });
 }
 
+// ══════════════════════════════════════════════════
+// VELTROX CRM — PERMISSION SYSTEM
+// ══════════════════════════════════════════════════
+const CRM_ADMIN_EMAILS=['chetan@veltrox.com','chetan.oberoi@veltrox.com','admin@veltrox.com','chetanbr1234@gmail.com'];
+let crmCurrentUser={email:'',name:'',role:'Admin',permissions:{}};
+
+function crmSafeId(email){return String(email).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,100);}
+
+const CRM_ROLE_DEFAULTS={
+  Admin:{dashboard:true,leads:true,followups:true,customers:true,quotations:true,tickets:true,renewals:true,invoices:true,payments:true,products:true,services:true,team:true,issueCategories:true,reports:true,settings:true},
+  Sales:{dashboard:true,leads:true,followups:true,customers:true,quotations:true,tickets:false,renewals:true,invoices:false,payments:false,products:true,services:true,team:true,issueCategories:true,reports:true,settings:false},
+  Finance:{dashboard:true,leads:false,followups:false,customers:true,quotations:true,tickets:false,renewals:false,invoices:true,payments:true,products:false,services:false,team:false,issueCategories:false,reports:true,settings:false},
+  'IT Support':{dashboard:true,leads:false,followups:false,customers:true,quotations:false,tickets:true,renewals:false,invoices:false,payments:false,products:false,services:true,team:false,issueCategories:true,reports:false,settings:false}
+};
+
+function crmCan(module){
+  if(crmCurrentUser.role==='Admin')return true;
+  const p=crmCurrentUser.permissions||{};
+  return p[module]===true;
+}
+
+function applyCRMPermissions(){
+  const navMap={dashboard:'dashboard',leads:'leads',followups:'followups',customers:'customers',quotations:'quotations',tickets:'tickets',renewals:'renewals',invoices:'invoices',payments:'payments',products:'products',services:'services',team:'team',issueCategories:'issueCategories',reports:'reports',settings:'settings'};
+  Object.entries(navMap).forEach(([mod,navId])=>{
+    const btn=document.getElementById('nav-'+navId);
+    if(btn)btn.style.display=crmCan(mod)?'':'none';
+  });
+  // Hide group titles if all modules in group hidden
+  const groups={
+    'Sales':['leads','followups','customers','quotations'],
+    'Service':['tickets','renewals'],
+    'Finance':['invoices','payments'],
+    'Masters':['products','services','team','issueCategories'],
+    'Reports & Settings':['reports','settings']
+  };
+  document.querySelectorAll('.group-title').forEach(el=>{
+    const grpMods=groups[el.textContent.trim()];
+    if(grpMods)el.style.display=grpMods.some(m=>crmCan(m))?'':'none';
+  });
+}
+
+// ── SAVE USER PROFILE TO FIRESTORE ──
+async function crmSaveUser(email,name,role,permissions){
+  await fdb.collection('crm_users').doc(crmSafeId(email)).set({email,name,role,permissions},{merge:true});
+}
+async function crmLoadAllUsers(){
+  const snap=await fdb.collection('crm_users').get();
+  const users=[];snap.forEach(doc=>users.push(doc.data()));
+  return users;
+}
+async function crmDeleteUser(email){
+  await fdb.collection('crm_users').doc(crmSafeId(email)).delete();
+}
+
+// ── USER MANAGEMENT UI (in Settings) ──
+async function renderUserManagement(){
+  const el=document.getElementById('crmUserMgmt');
+  if(!el)return;
+  el.innerHTML='<div style="color:#6b7280;padding:16px">Loading users...</div>';
+  try{
+    const users=await crmLoadAllUsers();
+    const roleColor={'Admin':'#dbeafe;color:#1e3a8a','Sales':'#dcfce7;color:#166534','Finance':'#fef3c7;color:#92400e','IT Support':'#ede9fe;color:#5b21b6'};
+    const rows=users.map(u=>`<tr>
+      <td><b>${u.name||'-'}</b></td>
+      <td style="font-size:12px;color:#6b7280">${u.email}</td>
+      <td><span style="background:${roleColor[u.role]||'#e5e7eb;color:#374151'};padding:3px 10px;border-radius:999px;font-size:11px;font-weight:900">${u.role||'-'}</span></td>
+      <td><button class="btn small orange" onclick="openCrmUserForm('${u.email}')">Edit</button>
+          <button class="btn small red" onclick="deleteCrmUser('${u.email}')">Delete</button></td>
+    </tr>`).join('');
+    el.innerHTML=`<table style="width:100%;border-collapse:collapse;min-width:500px"><thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px">Name</th><th style="padding:8px">Email</th><th style="padding:8px">Role</th><th style="padding:8px">Action</th></tr></thead><tbody>${rows||'<tr><td colspan="4" style="padding:12px;color:#6b7280">No users yet. Click Add User to get started.</td></tr>'}</tbody></table>`;
+  }catch(e){el.innerHTML='<div style="color:#dc2626;padding:10px">Error loading users: '+e.message+'</div>';}
+}
+
+function openCrmUserForm(email){
+  fdb.collection('crm_users').doc(crmSafeId(email||'')).get().then(doc=>{
+    const u=doc.exists?doc.data():{email:email||'',name:'',role:'IT Support',permissions:CRM_ROLE_DEFAULTS['IT Support']};
+    const roles=['Admin','Sales','Finance','IT Support'];
+    const mods={dashboard:'Dashboard',leads:'Leads',followups:'Follow-ups',customers:'Customers',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals',invoices:'Invoices',payments:'Payments',products:'Product Master',services:'Service Master',team:'Team Master',issueCategories:'Issue Categories',reports:'Reports',settings:'Settings'};
+    const permRows=Object.entries(mods).map(([k,label])=>`<tr><td style="padding:6px 10px;font-weight:700;font-size:12px">${label}</td><td style="padding:6px 10px;text-align:center"><input type="checkbox" id="cp_${k}" ${(u.permissions||{})[k]?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#2563eb"></td></tr>`).join('');
+    document.getElementById('formTitle').innerText=(email?'Edit':'Add')+' User';
+    document.getElementById('quickToolbar').innerHTML='';
+    document.getElementById('formArea').innerHTML=`<div class="form-grid">
+      <div><label>Email (Firebase login email)</label><input id="cuEmail" type="email" value="${u.email||''}" ${email?'readonly':''}></div>
+      <div><label>Full Name (shown after login)</label><input id="cuName" type="text" value="${u.name||''}"></div>
+      <div class="full"><label>Role</label><select id="cuRole" onchange="crmApplyRoleDefaults()">${roles.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${r}</option>`).join('')}</select></div>
+      <div class="full"><label style="margin-bottom:8px;display:block">Module Permissions</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" onclick="crmApplyRoleDefaults()" class="btn gray" style="font-size:12px;padding:6px 12px">↺ Reset to Role Defaults</button>
+          <button type="button" onclick="crmGrantAll()" class="btn green" style="font-size:12px;padding:6px 12px">✓ Grant All</button>
+          <button type="button" onclick="crmRevokeAll()" class="btn red" style="font-size:12px;padding:6px 12px">✗ Revoke All</button>
+        </div>
+        <table style="border-collapse:collapse;width:100%"><thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:7px 10px;text-align:left">Module</th><th style="padding:7px;text-align:center;width:80px">Access</th></tr></thead><tbody>${permRows}</tbody></table>
+      </div>
+    </div>`;
+    document.getElementById('formModal').style.display='flex';
+    // Store we are in user-save mode
+    window._crmUserFormMode=true;
+    // Override saveForm for this modal
+    window._crmUserOrigEmail=email||null;
+  }).catch(()=>{
+    // New user
+    openCrmUserForm(null);
+  });
+}
+
+function crmApplyRoleDefaults(){
+  const role=document.getElementById('cuRole')?.value||'IT Support';
+  const defaults=CRM_ROLE_DEFAULTS[role]||{};
+  const mods=Object.keys(defaults);
+  mods.forEach(k=>{const el=document.getElementById('cp_'+k);if(el)el.checked=!!defaults[k];});
+}
+function crmGrantAll(){document.querySelectorAll('[id^="cp_"]').forEach(el=>el.checked=true);}
+function crmRevokeAll(){document.querySelectorAll('[id^="cp_"]').forEach(el=>el.checked=false);}
+
+async function saveCrmUserForm(){
+  const email=(document.getElementById('cuEmail')?.value||'').trim().toLowerCase();
+  const name=(document.getElementById('cuName')?.value||'').trim();
+  const role=document.getElementById('cuRole')?.value||'IT Support';
+  if(!email)return alert('Email is required');
+  if(!name)return alert('Name is required');
+  const mods=['dashboard','leads','followups','customers','quotations','tickets','renewals','invoices','payments','products','services','team','issueCategories','reports','settings'];
+  const permissions={};
+  mods.forEach(k=>{const el=document.getElementById('cp_'+k);permissions[k]=el?el.checked:false;});
+  try{
+    await crmSaveUser(email,name,role,permissions);
+    window._crmUserFormMode=false;
+    closeForm();
+    renderUserManagement();
+    alert('✅ User saved: '+name+' ('+role+')');
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+async function deleteCrmUser(email){
+  if(email===crmCurrentUser.email)return alert('You cannot delete your own account.');
+  if(!confirm('Remove '+email+' from CRM? This does not delete their Firebase login.'))return;
+  try{await crmDeleteUser(email);renderUserManagement();alert('User removed.');}
+  catch(e){alert('Delete failed: '+e.message);}
+}
+
+// ══════════════════════════════════════════════════
+// END PERMISSION SYSTEM
+// ══════════════════════════════════════════════════
 // Listen for auth state changes
 // Returns true if a form/edit modal is currently open — used to avoid
 // clobbering unsaved typing when a background Firebase sync completes.
@@ -1391,7 +1571,7 @@ function exportFinancialReportCSV(){
   let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='veltrox-financial-report.csv';a.click();
 }
 // ───────────────────────────────────────────────────────────────
-function renderSettings(){
+function renderSettings(){setTimeout(afterRenderSettings,100);
   document.getElementById('sectionTitle').innerText='Settings / Backup';
   const f=db.settings.invoiceFields||{};
   const templateCards=Object.entries(INVOICE_TEMPLATES).map(([key,t])=>`
@@ -1447,7 +1627,25 @@ function renderSettings(){
     <button class="btn gray" onclick="previewTemplateSettings()">Preview Sample Invoice</button>
 
     <hr>
+    <div id="crmUserMgmtSection">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">👥 User Management</h3>
+        <button class="btn green" onclick="openCrmUserForm(null)">+ Add User</button>
+      </div>
+      <div class="hint">Add team members, assign roles, and set module permissions. Changes take effect on their next login.</div>
+      <div id="crmUserMgmt" style="overflow-x:auto;margin-bottom:16px"><div style="color:#6b7280;padding:16px">Loading...</div></div>
+    </div>
+    <hr>
     <button class="btn gray" onclick="exportBackup()">Export JSON Backup</button> <input type="file" id="backupFile" accept=".json"> <button class="btn orange" onclick="importBackup()">Import Backup</button> <button class="btn red" onclick="clearAll()">Clear All Data</button>`;
+}
+// called at end of renderSettings to load user list
+function afterRenderSettings(){
+  if(crmCurrentUser.role==='Admin'||CRM_ADMIN_EMAILS.includes(crmCurrentUser.email)){
+    renderUserManagement();
+  }else{
+    const s=document.getElementById('crmUserMgmtSection');
+    if(s)s.style.display='none';
+  }
 }
 function fieldToggle(key,label,checked){
   return `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;background:#f9fafb;padding:10px 12px;border-radius:8px;cursor:pointer">
@@ -2127,6 +2325,7 @@ function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};documen
 function productForm(){document.getElementById('formTitle').innerText='Add Product';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Product Name','')}</div>`}function serviceMasterForm(){document.getElementById('formTitle').innerText='Add Service';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Service Name','')}</div>`}function teamForm(){document.getElementById('formTitle').innerText='Add Team Member';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Team Member Name','')}</div>`}
 function issueCategoryForm(){document.getElementById('formTitle').innerText='Add Issue Category';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Issue Category Name','')}</div>`}
 function saveForm(){
+  if(window._crmUserFormMode){saveCrmUserForm();return;}
   try{
     if(currentModule==='customers')saveCustomer();
     if(currentModule==='leads')saveLead();
