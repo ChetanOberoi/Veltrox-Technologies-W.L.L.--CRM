@@ -510,45 +510,42 @@ function isFormOpen(){
   return (fm&&fm.style.display==='flex')||(vm&&vm.style.display==='flex');
 }
 
-fauth.onAuthStateChanged(async user=>{
+fauth.onAuthStateChanged(user=>{
   if(user){
-    showLoadingOverlay('Loading your profile...');
-    // Determine role — Admin emails always get full access
+    // STEP 1 — Log in immediately, no Firestore wait
     const isAdminEmail=ADMIN_EMAILS.includes(user.email.toLowerCase());
-    // Try loading profile from Firestore in background (non-blocking)
-    let profile=null;
-    try{
-      const safeEmail=fbSafeId(user.email);
-      const doc=await Promise.race([
-        fdb.collection('crm_users').doc(safeEmail).get(),
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000))
-      ]);
-      if(doc.exists) profile=doc.data();
-    }catch(e){console.warn('Profile load skipped:',e.message);}
-    // Build currentUser — Admin email always forces Admin role
-    if(isAdminEmail){
-      currentUser={
-        email:user.email,
-        name:(profile&&profile.name)||user.displayName||user.email.split('@')[0],
-        role:'Admin',
-        permissions:ROLE_DEFAULTS['Admin']
-      };
-    }else{
-      currentUser={
-        email:user.email,
-        name:(profile&&profile.name)||user.email.split('@')[0],
-        role:(profile&&profile.role)||'IT Support',
-        permissions:(profile&&profile.permissions)||ROLE_DEFAULTS[(profile&&profile.role)||'IT Support']||{}
-      };
-    }
-    try{localStorage.setItem(PERM_CACHE_KEY,JSON.stringify(currentUser));}catch(e){}
+    currentUser={
+      email:user.email,
+      name:user.email.split('@')[0],
+      role:isAdminEmail?'Admin':'IT Support',
+      permissions:isAdminEmail?ROLE_DEFAULTS['Admin']:ROLE_DEFAULTS['IT Support']
+    };
     hideLogin(currentUser);
     applySidebarPermissions();
     db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
     hideLoadingOverlay();
     setModule('dashboard');
-    // Background Firebase data sync
+
+    // STEP 2 — Load Firestore profile in background (name, role, perms)
     setTimeout(async()=>{
+      try{
+        const safeEmail=fbSafeId(user.email);
+        const doc=await fdb.collection('crm_users').doc(safeEmail).get();
+        if(doc.exists){
+          const p=doc.data();
+          currentUser.name=p.name||currentUser.name;
+          if(!isAdminEmail){
+            currentUser.role=p.role||currentUser.role;
+            currentUser.permissions=p.permissions||ROLE_DEFAULTS[p.role]||currentUser.permissions;
+          }
+          document.getElementById('userDisplayName').textContent=currentUser.name;
+          document.getElementById('userRoleBadge').textContent=currentUser.role;
+          applySidebarPermissions();
+          try{localStorage.setItem(PERM_CACHE_KEY,JSON.stringify(currentUser));}catch(e){}
+        }
+      }catch(e){console.warn('Profile load in background failed:',e.message);}
+
+      // STEP 3 — Firebase data sync
       setSyncStatus('syncing','🔄 Connecting to Firebase...');
       try{
         await migrateOldFirestoreFormat();
@@ -570,7 +567,7 @@ fauth.onAuthStateChanged(async user=>{
         }else if(localHasData){await saveDB();}
         else{setSyncStatus('success','✅ Firebase connected');}
       }catch(e){console.error('Startup sync error:',e);setSyncStatus('error','❌ Firebase offline — using local data');}
-    },1500);
+    },500);
   }else{showLogin();hideLoadingOverlay();}
 });
 
