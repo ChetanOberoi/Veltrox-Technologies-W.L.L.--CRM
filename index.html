@@ -127,7 +127,7 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 </head>
 <body>
 
-<div id="introScreen">
+<div id="introScreen" style="display:none">
   <div class="intro-wrap">
     <div class="intro-logo">🔥</div>
     <div class="intro-title">Veltrox CRM</div>
@@ -145,7 +145,7 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
   </div>
 </div>
 
-<div id="loginScreen" style="display:none">
+<div id="loginScreen" style="display:flex">
   <div id="loginBox">
     <div class="lb-logo">🔥</div>
     <div class="lb-title">Veltrox CRM</div>
@@ -458,9 +458,8 @@ async function loadAllUserProfiles(){
 
 // ── AUTH ─────────────────────────────────────────────────────────
 function showLogin(){
-  const introSeen=sessionStorage.getItem('introSeen');
-  if(introSeen){document.getElementById('introScreen').style.display='none';document.getElementById('loginScreen').style.display='flex';}
-  else{document.getElementById('introScreen').style.display='flex';document.getElementById('loginScreen').style.display='none';}
+  document.getElementById('introScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
   document.getElementById('userBar').style.display='none';
   document.querySelector('.app').style.display='none';
 }
