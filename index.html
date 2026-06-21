@@ -513,51 +513,40 @@ function isFormOpen(){
 fauth.onAuthStateChanged(async user=>{
   if(user){
     showLoadingOverlay('Loading your profile...');
-    // Safety timeout — if anything hangs, force login after 8 seconds
-    const loginTimeout=setTimeout(()=>{
-      console.warn('Login timeout — forcing entry with cached/default profile');
-      if(document.querySelector('.app').style.display==='none'){
-        const cached=JSON.parse(localStorage.getItem(PERM_CACHE_KEY)||'null');
-        const fallback=cached&&cached.email===user.email?cached:{email:user.email,name:user.email.split('@')[0],role:ADMIN_EMAILS.includes(user.email.toLowerCase())?'Admin':'IT Support',permissions:ADMIN_EMAILS.includes(user.email.toLowerCase())?ROLE_DEFAULTS['Admin']:ROLE_DEFAULTS['IT Support']};
-        currentUser=fallback;
-        hideLogin(currentUser);
-        applySidebarPermissions();
-        db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
-        hideLoadingOverlay();
-        setModule('dashboard');
-      }
-    },8000);
+    // Determine role — Admin emails always get full access
+    const isAdminEmail=ADMIN_EMAILS.includes(user.email.toLowerCase());
+    // Try loading profile from Firestore in background (non-blocking)
+    let profile=null;
     try{
-    // Load user profile + permissions from Firestore
-    const profile=await loadUserProfile(user.email);
-    currentUser={email:user.email,name:profile.name||user.email.split('@')[0],role:profile.role||'IT Support',permissions:profile.permissions||ROLE_DEFAULTS[profile.role||'IT Support']||{}};
-    // If this is an admin email, always force Admin role regardless of Firestore doc
-    if(ADMIN_EMAILS.includes(user.email.toLowerCase())){
-      currentUser.role='Admin';
-      currentUser.permissions=ROLE_DEFAULTS['Admin'];
+      const safeEmail=fbSafeId(user.email);
+      const doc=await Promise.race([
+        fdb.collection('crm_users').doc(safeEmail).get(),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000))
+      ]);
+      if(doc.exists) profile=doc.data();
+    }catch(e){console.warn('Profile load skipped:',e.message);}
+    // Build currentUser — Admin email always forces Admin role
+    if(isAdminEmail){
+      currentUser={
+        email:user.email,
+        name:(profile&&profile.name)||user.displayName||user.email.split('@')[0],
+        role:'Admin',
+        permissions:ROLE_DEFAULTS['Admin']
+      };
+    }else{
+      currentUser={
+        email:user.email,
+        name:(profile&&profile.name)||user.email.split('@')[0],
+        role:(profile&&profile.role)||'IT Support',
+        permissions:(profile&&profile.permissions)||ROLE_DEFAULTS[(profile&&profile.role)||'IT Support']||{}
+      };
     }
-    // Cache locally
     try{localStorage.setItem(PERM_CACHE_KEY,JSON.stringify(currentUser));}catch(e){}
-    clearTimeout(loginTimeout);
     hideLogin(currentUser);
     applySidebarPermissions();
     db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
     hideLoadingOverlay();
     setModule('dashboard');
-    }catch(loginErr){
-      console.error('Login flow error:',loginErr);
-      clearTimeout(loginTimeout);
-      // Fallback — use cached profile or default
-      const cached=JSON.parse(localStorage.getItem(PERM_CACHE_KEY)||'null');
-      const fallback=cached&&cached.email===user.email?cached:{email:user.email,name:user.email.split('@')[0],role:ADMIN_EMAILS.includes(user.email.toLowerCase())?'Admin':'IT Support',permissions:ADMIN_EMAILS.includes(user.email.toLowerCase())?ROLE_DEFAULTS['Admin']:ROLE_DEFAULTS['IT Support']};
-      currentUser=fallback;
-      hideLogin(currentUser);
-      applySidebarPermissions();
-      db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
-      hideLoadingOverlay();
-      setModule('dashboard');
-      setSyncStatus('error','⚠️ Profile load error — using cached data');
-    }
     // Background Firebase data sync
     setTimeout(async()=>{
       setSyncStatus('syncing','🔄 Connecting to Firebase...');
