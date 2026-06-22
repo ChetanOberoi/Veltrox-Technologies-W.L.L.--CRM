@@ -212,25 +212,90 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
           </div>
         </div>
         <button class="btn gray" onclick="exportBackup()">Backup</button>
-        <div style="position:relative;display:inline-block">
-  <button class="btn green" onclick="toggleExportMenu()" id="exportMenuBtn">📊 Export Excel ▾</button>
-  <div id="exportMenu" style="display:none;position:absolute;right:0;top:44px;background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:999;min-width:220px;overflow:hidden">
-    <div style="background:#0f172a;color:#fff;padding:10px 14px;font-size:12px;font-weight:800">Export Module to Excel</div>
-    <div style="padding:6px">
-      <button onclick="exportModuleExcel('leads')" class="exp-btn">🎯 Leads</button>
-      <button onclick="exportModuleExcel('followups')" class="exp-btn">📞 Follow-ups</button>
-      <button onclick="exportModuleExcel('customers')" class="exp-btn">🏢 Customers</button>
-      <button onclick="exportModuleExcel('quotations')" class="exp-btn">📄 Quotations</button>
-      <button onclick="exportModuleExcel('tickets')" class="exp-btn">🛠️ Service Tickets</button>
-      <button onclick="exportModuleExcel('renewals')" class="exp-btn">🔁 Renewals</button>
-      <button onclick="exportModuleExcel('invoices')" class="exp-btn">🧾 Invoices</button>
-      <button onclick="exportModuleExcel('payments')" class="exp-btn">💳 Payments</button>
-      <div style="border-top:1px solid #e5e7eb;margin:4px 0"></div>
-      <button onclick="exportModuleExcel('all')" class="exp-btn" style="color:#2563eb;font-weight:900">📦 Export All Modules</button>
+        <button class="btn green" onclick="openExportModal()">📊 Export Excel</button>
+
+<!-- ══ EXPORT MODAL ══ -->
+<div id="exportModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2000;align-items:center;justify-content:center;padding:14px">
+  <div style="background:#fff;border-radius:20px;padding:24px;width:640px;max-width:98vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div><div style="font-size:18px;font-weight:900;color:#0f172a">📊 Export to Excel</div><div style="font-size:12px;color:#6b7280;margin-top:2px">Choose module, period and filters</div></div>
+      <button onclick="closeExportModal()" style="border:0;background:#f1f5f9;border-radius:8px;padding:6px 12px;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <!-- Module Selection -->
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">Select Module</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="expModuleBtns">
+        <button onclick="selectExpModule('leads',this)" class="exp-mod-btn">🎯 Leads</button>
+        <button onclick="selectExpModule('followups',this)" class="exp-mod-btn">📞 Follow-ups</button>
+        <button onclick="selectExpModule('customers',this)" class="exp-mod-btn">🏢 Customers</button>
+        <button onclick="selectExpModule('quotations',this)" class="exp-mod-btn">📄 Quotations</button>
+        <button onclick="selectExpModule('tickets',this)" class="exp-mod-btn">🛠️ Service Tickets</button>
+        <button onclick="selectExpModule('renewals',this)" class="exp-mod-btn">🔁 Renewals</button>
+        <button onclick="selectExpModule('invoices',this)" class="exp-mod-btn">🧾 Invoices</button>
+        <button onclick="selectExpModule('payments',this)" class="exp-mod-btn">💳 Payments</button>
+        <button onclick="selectExpModule('all',this)" class="exp-mod-btn" style="border-color:#2563eb;color:#2563eb">📦 All Modules</button>
+      </div>
+    </div>
+    <!-- Period Filter -->
+    <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:14px">
+      <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:10px">Period Filter</label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <label style="font-size:11px;font-weight:700;color:#6b7280">Period</label>
+          <select id="expPeriod" onchange="expTogglePeriod()" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;min-width:150px">
+            <option value="all">📋 All Records</option>
+            <option value="day">📅 Specific Day</option>
+            <option value="month">🗓️ Month</option>
+            <option value="year">📆 Year</option>
+            <option value="range">↔️ Custom Range</option>
+          </select>
+        </div>
+        <div id="expDayDiv" style="display:none;flex-direction:column;gap:3px">
+          <label style="font-size:11px;font-weight:700;color:#6b7280">Date</label>
+          <input type="date" id="expDay" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+        </div>
+        <div id="expMonthDiv" style="display:none;flex-direction:column;gap:3px">
+          <label style="font-size:11px;font-weight:700;color:#6b7280">Month</label>
+          <input type="month" id="expMonth" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+        </div>
+        <div id="expYearDiv" style="display:none;flex-direction:column;gap:3px">
+          <label style="font-size:11px;font-weight:700;color:#6b7280">Year</label>
+          <select id="expYear" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+            <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option>
+          </select>
+        </div>
+        <div id="expRangeDiv" style="display:none;gap:8px;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <label style="font-size:11px;font-weight:700;color:#6b7280">From</label>
+            <input type="date" id="expFrom" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <label style="font-size:11px;font-weight:700;color:#6b7280">To</label>
+            <input type="date" id="expTo" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Customer Filter -->
+    <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:18px">
+      <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">Customer Filter <span style="font-weight:400;color:#6b7280">(optional)</span></label>
+      <select id="expCustomer" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+        <option value="">All Customers</option>
+      </select>
+    </div>
+    <!-- Preview + Export -->
+    <div id="expPreviewMsg" style="display:none;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;color:#166534"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="previewExpCount()" style="padding:10px 18px;background:#f1f5f9;color:#374151;border:0;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">👁 Preview Count</button>
+      <button onclick="runExportExcel()" style="padding:10px 22px;background:#16a34a;color:#fff;border:0;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer">⬇ Export Excel</button>
     </div>
   </div>
 </div>
-<style>.exp-btn{display:block;width:100%;text-align:left;border:0;background:transparent;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;font-family:inherit}.exp-btn:hover{background:#f0f9ff;color:#1e3a8a}</style>
+<style>
+.exp-mod-btn{border:1.5px solid #e5e7eb;background:#fff;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s}
+.exp-mod-btn:hover{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
+.exp-mod-btn.active{border-color:#16a34a;background:#f0fdf4;color:#166534;font-weight:900}
+</style>
       </div>
     </div>
     <div id="summaryCards" class="cards"></div>
@@ -2609,18 +2674,75 @@ function saveSettings(){db.settings={company:setCompany.value,address:setAddress
   };
   r.onerror=()=>{hideLoadingOverlay();alert('Could not read the selected file.');};
   r.readAsText(f);
-}function clearAll(){if(confirm('Clear ALL data?')){db=structuredClone(defaultDB);saveDB();render();}}function toggleExportMenu(){
-  const m=document.getElementById('exportMenu');
-  m.style.display=m.style.display==='none'?'block':'none';
+}function clearAll(){if(confirm('Clear ALL data?')){db=structuredClone(defaultDB);saveDB();render();}}function exportCSV(){openExportModal();}
+let _expSelectedModule='leads';
+function openExportModal(){
+  // Populate customer dropdown
+  const sel=document.getElementById('expCustomer');
+  sel.innerHTML='<option value="">All Customers</option>'+db.customers.map(c=>`<option value="${c.customerId}">${esc(c.companyName)}</option>`).join('');
+  document.getElementById('exportModal').style.display='flex';
+  document.getElementById('expPreviewMsg').style.display='none';
+  // Select first module by default
+  document.querySelectorAll('.exp-mod-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.exp-mod-btn')[0].classList.add('active');
+  _expSelectedModule='leads';
 }
-document.addEventListener('click',function(e){
-  const btn=document.getElementById('exportMenuBtn');
-  const menu=document.getElementById('exportMenu');
-  if(menu&&btn&&!menu.contains(e.target)&&!btn.contains(e.target))menu.style.display='none';
-});
-function exportCSV(){exportModuleExcel('all');}
-function exportModuleExcel(mod){
-  document.getElementById('exportMenu').style.display='none';
+function closeExportModal(){document.getElementById('exportModal').style.display='none';}
+function selectExpModule(mod,btn){
+  _expSelectedModule=mod;
+  document.querySelectorAll('.exp-mod-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('expPreviewMsg').style.display='none';
+}
+function expTogglePeriod(){
+  const v=document.getElementById('expPeriod').value;
+  ['expDayDiv','expMonthDiv','expYearDiv','expRangeDiv'].forEach(id=>document.getElementById(id).style.display='none');
+  if(v==='day')document.getElementById('expDayDiv').style.display='flex';
+  else if(v==='month')document.getElementById('expMonthDiv').style.display='flex';
+  else if(v==='year')document.getElementById('expYearDiv').style.display='flex';
+  else if(v==='range')document.getElementById('expRangeDiv').style.display='flex';
+}
+function getExpPeriodLabel(){
+  const v=document.getElementById('expPeriod').value;
+  if(v==='day')return 'Day: '+(document.getElementById('expDay').value||'');
+  if(v==='month')return 'Month: '+(document.getElementById('expMonth').value||'');
+  if(v==='year')return 'Year: '+(document.getElementById('expYear').value||'');
+  if(v==='range')return 'Range: '+(document.getElementById('expFrom').value||'')+'  to  '+(document.getElementById('expTo').value||'');
+  return 'All Records';
+}
+function filterByPeriod(rows, dateKey){
+  const v=document.getElementById('expPeriod').value;
+  if(v==='day'){const d=document.getElementById('expDay').value||'';return d?rows.filter(x=>x[dateKey]===d):rows;}
+  if(v==='month'){const m=document.getElementById('expMonth').value||'';return m?rows.filter(x=>(x[dateKey]||'').startsWith(m)):rows;}
+  if(v==='year'){const y=document.getElementById('expYear').value||'';return y?rows.filter(x=>(x[dateKey]||'').startsWith(y)):rows;}
+  if(v==='range'){
+    const f=document.getElementById('expFrom').value||'';
+    const t=document.getElementById('expTo').value||'';
+    let r=rows;
+    if(f)r=r.filter(x=>x[dateKey]&&x[dateKey]>=f);
+    if(t)r=r.filter(x=>x[dateKey]&&x[dateKey]<=t);
+    return r;
+  }
+  return rows;
+}
+function filterByCust(rows){
+  const cId=document.getElementById('expCustomer').value||'';
+  return cId?rows.filter(x=>x.customerId===cId):rows;
+}
+function previewExpCount(){
+  const mod=_expSelectedModule;
+  const el=document.getElementById('expPreviewMsg');
+  if(mod==='all'){el.style.display='block';el.innerHTML='📦 <b>All Modules</b> will be exported as separate files';return;}
+  const dateKeys={leads:'leadDate',followups:'date',customers:null,quotations:'date',tickets:'date',renewals:'expiryDate',invoices:'date',payments:'date'};
+  let rows=db[mod]||[];
+  if(dateKeys[mod])rows=filterByPeriod(rows,dateKeys[mod]);
+  if(mod!=='customers')rows=filterByCust(rows);
+  el.style.display='block';
+  el.innerHTML=`✅ <b>${rows.length} records</b> match your filters`;
+}
+function exportModuleExcel(mod){openExportModal();if(mod!=='all'){selectExpModule(mod,document.querySelectorAll('.exp-mod-btn')[[...document.querySelectorAll('.exp-mod-btn')].findIndex(b=>b.textContent.toLowerCase().includes(mod.slice(0,4)))]);}}
+function runExportExcel(){
+  const mod=_expSelectedModule;
   const now=new Date();
   const dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const timeStr=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
@@ -2642,53 +2764,67 @@ function exportModuleExcel(mod){
     a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'}));
     a.download=filename;a.click();
   }
+  // Apply period + customer filters
+  const periodLabel=getExpPeriodLabel();
+  const custId=document.getElementById('expCustomer').value||'';
+  const custName=custId?(db.customers.find(x=>x.customerId===custId)?.companyName||''):'All Customers';
+  const lf=filterByCust(filterByPeriod(db.leads,'leadDate'));
+  const ff=filterByCust(filterByPeriod(db.followups,'date'));
+  const cf=custId?db.customers.filter(x=>x.customerId===custId):db.customers;
+  const qf=filterByCust(filterByPeriod(db.quotations,'date'));
+  const tf=filterByCust(filterByPeriod(db.tickets,'date'));
+  const rf=filterByCust(filterByPeriod(db.renewals,'expiryDate'));
+  const inf=filterByCust(filterByPeriod(db.invoices,'date'));
+  const pf=filterByCust(filterByPeriod(db.payments,'date'));
   const allSections={
     leads:{title:'Leads Register',icon:'🎯',color:'#2563eb',
       headers:['Lead No','Date','Customer','Contact Person','Mobile','Product','Value (BHD)','Salesman','Next Follow-up','Status'],
-      rows:db.leads.map(x=>{const c=customer(x.customerId);return[x.leadId,x.leadDate,c.companyName,c.contactPerson,c.mobile,x.product,mf(x.value),x.assignedTo,x.nextFollowup,x.status];}),
-      totalRow:['TOTAL','','','','','',mf(db.leads.reduce((s,x)=>s+Number(x.value||0),0)),'','','']},
+      rows:lf.map(x=>{const c=customer(x.customerId);return[x.leadId,x.leadDate,c.companyName,c.contactPerson,c.mobile,x.product,mf(x.value),x.assignedTo,x.nextFollowup,x.status];}),
+      totalRow:['TOTAL','','','','','',mf(lf.reduce((s,x)=>s+Number(x.value||0),0)),'','','']},
     followups:{title:'Follow-up Register',icon:'📞',color:'#7c3aed',
       headers:['Follow-up No','Date','Type','Reference','Customer','Discussion','Next Follow-up','Updated By','Status'],
-      rows:db.followups.map(x=>{const c=customer(x.customerId);return[x.followupId,x.date,x.type,x.refNo,c.companyName,x.discussion,x.nextFollowup,x.updatedBy,x.status];})},
+      rows:ff.map(x=>{const c=customer(x.customerId);return[x.followupId,x.date,x.type,x.refNo,c.companyName,x.discussion,x.nextFollowup,x.updatedBy,x.status];})},
     customers:{title:'Customer Register',icon:'🏢',color:'#0f172a',
       headers:['Customer ID','Company Name','Contact Person','Mobile','Email','VAT No','CR No','Location'],
-      rows:db.customers.map(x=>[x.customerId,x.companyName,x.contactPerson,x.mobile,x.email,x.vatNo,x.crNo,x.location])},
+      rows:cf.map(x=>[x.customerId,x.companyName,x.contactPerson,x.mobile,x.email,x.vatNo,x.crNo,x.location])},
     quotations:{title:'Quotations',icon:'📄',color:'#0891b2',
       headers:['Quotation No','Date','Customer','Item','Amount (BHD)','VAT (BHD)','Total (BHD)','Valid Till','Status'],
-      rows:db.quotations.map(x=>{const c=customer(x.customerId);return[x.quotationNo,x.date,c.companyName,x.item,mf(x.amount),mf(x.vat),mf(x.total),x.validTill,x.status];}),
-      totalRow:['TOTAL','','','',mf(db.quotations.reduce((s,x)=>s+Number(x.amount||0),0)),mf(db.quotations.reduce((s,x)=>s+Number(x.vat||0),0)),mf(db.quotations.reduce((s,x)=>s+Number(x.total||0),0)),'','']},
+      rows:qf.map(x=>{const c=customer(x.customerId);return[x.quotationNo,x.date,c.companyName,x.item,mf(x.amount),mf(x.vat),mf(x.total),x.validTill,x.status];}),
+      totalRow:['TOTAL','','','',mf(qf.reduce((s,x)=>s+Number(x.amount||0),0)),mf(qf.reduce((s,x)=>s+Number(x.vat||0),0)),mf(qf.reduce((s,x)=>s+Number(x.total||0),0)),'','']},
     tickets:{title:'Service Tickets',icon:'🛠️',color:'#f59e0b',
       headers:['Ticket No','Date','Customer','Contact','Location','Product','Service Type','Issue Category','Serial No','Start','End','Duration','Engineer','Priority','AMC','Charges (BHD)','Status','Issue','Solution'],
-      rows:db.tickets.map(x=>{const c=customer(x.customerId);return[x.ticketNo,x.date,c.companyName,x.contactPerson,x.location,x.product,x.serviceType,x.issueCategory,x.serial,x.startTime,x.endTime,x.duration,x.engineer,x.priority,x.amc,mf(x.charges),x.status,x.issue,x.solution];}),
-      totalRow:['TOTAL','','','','','','','','','','','','','','',mf(db.tickets.reduce((s,x)=>s+Number(x.charges||0),0)),'','','']},
+      rows:tf.map(x=>{const c=customer(x.customerId);return[x.ticketNo,x.date,c.companyName,x.contactPerson,x.location,x.product,x.serviceType,x.issueCategory,x.serial,x.startTime,x.endTime,x.duration,x.engineer,x.priority,x.amc,mf(x.charges),x.status,x.issue,x.solution];}),
+      totalRow:['TOTAL','','','','','','','','','','','','','','',mf(tf.reduce((s,x)=>s+Number(x.charges||0),0)),'','','']},
     renewals:{title:'Renewals Center',icon:'🔁',color:'#16a34a',
       headers:['Renewal ID','Customer','Type','License','Expiry Date','Amount (BHD)','Assigned To','Status'],
-      rows:db.renewals.map(x=>{const c=customer(x.customerId);return[x.renewalId,c.companyName,x.type,x.license,x.expiryDate,mf(x.amount),x.assignedTo,x.status];}),
-      totalRow:['TOTAL','','','','',mf(db.renewals.reduce((s,x)=>s+Number(x.amount||0),0)),'','']},
+      rows:rf.map(x=>{const c=customer(x.customerId);return[x.renewalId,c.companyName,x.type,x.license,x.expiryDate,mf(x.amount),x.assignedTo,x.status];}),
+      totalRow:['TOTAL','','','','',mf(rf.reduce((s,x)=>s+Number(x.amount||0),0)),'','']},
     invoices:{title:'Tax Invoices',icon:'🧾',color:'#dc2626',
       headers:['Invoice No','Date','Customer','Item','Amount (BHD)','VAT (BHD)','Total (BHD)','Status'],
-      rows:db.invoices.map(x=>{const c=customer(x.customerId);return[x.invoiceNo,x.date,c.companyName,x.item,mf(x.amount),mf(x.vat),mf(x.total),x.status];}),
-      totalRow:['TOTAL','','','',mf(db.invoices.reduce((s,x)=>s+Number(x.amount||0),0)),mf(db.invoices.reduce((s,x)=>s+Number(x.vat||0),0)),mf(db.invoices.reduce((s,x)=>s+Number(x.total||0),0)),'']},
+      rows:inf.map(x=>{const c=customer(x.customerId);return[x.invoiceNo,x.date,c.companyName,x.item,mf(x.amount),mf(x.vat),mf(x.total),x.status];}),
+      totalRow:['TOTAL','','','',mf(inf.reduce((s,x)=>s+Number(x.amount||0),0)),mf(inf.reduce((s,x)=>s+Number(x.vat||0),0)),mf(inf.reduce((s,x)=>s+Number(x.total||0),0)),'']},
     payments:{title:'Payment Collection',icon:'💳',color:'#1d4ed8',
       headers:['Payment No','Date','Customer','Invoice No','Invoice Amt (BHD)','Received (BHD)','Balance (BHD)','Due Date','Mode','Status'],
-      rows:db.payments.map(x=>{const c=customer(x.customerId);const bal=Number(x.invoiceAmount||0)-Number(x.received||0);return[x.paymentId,x.date,c.companyName,x.invoiceNo,mf(x.invoiceAmount),mf(x.received),mf(bal),x.dueDate,x.mode,x.status];}),
-      totalRow:['TOTAL','','','',mf(db.payments.reduce((s,x)=>s+Number(x.invoiceAmount||0),0)),mf(db.payments.reduce((s,x)=>s+Number(x.received||0),0)),mf(db.payments.reduce((s,x)=>s+(Number(x.invoiceAmount||0)-Number(x.received||0)),0)),'','','']}
+      rows:pf.map(x=>{const c=customer(x.customerId);const bal=Number(x.invoiceAmount||0)-Number(x.received||0);return[x.paymentId,x.date,c.companyName,x.invoiceNo,mf(x.invoiceAmount),mf(x.received),mf(bal),x.dueDate,x.mode,x.status];}),
+      totalRow:['TOTAL','','','',mf(pf.reduce((s,x)=>s+Number(x.invoiceAmount||0),0)),mf(pf.reduce((s,x)=>s+Number(x.received||0),0)),mf(pf.reduce((s,x)=>s+(Number(x.invoiceAmount||0)-Number(x.received||0)),0)),'','','']}
   };
+  const summaryLine=(n)=>n+' records &nbsp;|&nbsp; Period: '+periodLabel+' &nbsp;|&nbsp; Customer: '+custName;
+  const fnName=(title)=>'Veltrox_'+title.replace(/[^a-zA-Z0-9]/g,'_')+'_'+periodLabel.replace(/[^a-zA-Z0-9]/g,'_')+'_'+now.toISOString().slice(0,10)+'.xls';
   if(mod==='all'){
-    // Export all modules as separate files one by one
     Object.entries(allSections).forEach(([key,sec],i)=>{
       setTimeout(()=>{
         if(!sec.rows.length)return;
-        const summary=sec.rows.length+' records';
-        makeXLS(sec.title,sec.icon,sec.color,buildTable(sec),'Veltrox_'+sec.title.replace(/[^a-zA-Z0-9]/g,'_')+'_'+now.toISOString().slice(0,10)+'.xls',summary);
+        makeXLS(sec.title,sec.icon,sec.color,buildTable(sec),fnName(sec.title),summaryLine(sec.rows.length));
       },i*600);
     });
+    closeExportModal();
   }else{
     const sec=allSections[mod];
     if(!sec){alert('Module not found');return;}
     if(!sec.rows.length){alert('No data in '+mod+' to export.');return;}
-    const summary=sec.rows.length+' records';
-    makeXLS(sec.title,sec.icon,sec.color,buildTable(sec),'Veltrox_'+sec.title.replace(/[^a-zA-Z0-9]/g,'_')+'_'+now.toISOString().slice(0,10)+'.xls',summary);
+    const summary=sec.rows.length+' records &nbsp;|&nbsp; Period: '+periodLabel+' &nbsp;|&nbsp; Customer: '+custName;
+    const fn='Veltrox_'+sec.title.replace(/[^a-zA-Z0-9]/g,'_')+'_'+periodLabel.replace(/[^a-zA-Z0-9]/g,'_')+'_'+now.toISOString().slice(0,10)+'.xls';
+    makeXLS(sec.title,sec.icon,sec.color,buildTable(sec),fn,summary);
   }
 }
 // ── NOTIFICATION SYSTEM ──────────────────────────────────────────
