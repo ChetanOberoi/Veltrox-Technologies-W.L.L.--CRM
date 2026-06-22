@@ -2542,7 +2542,7 @@ function setFirstLineItem(type,name,qty,rate){
 
 function createQuotationFromLead(id){
   let l=db.leads.find(x=>x.leadId===id);if(!l)return;
-  l.status='Quotation Sent';saveDB().catch(e=>console.error(e));
+  l.status='Quotation Sent';saveDB();
   currentModule='quotations';openForm();
   customerId.value=l.customerId;leadIdRef.value=l.leadId;qstatus.value='Sent';
   setTimeout(()=>{setInvoiceMode('item');setFirstLineItem('Product',l.product,1,l.value||0);},0);
