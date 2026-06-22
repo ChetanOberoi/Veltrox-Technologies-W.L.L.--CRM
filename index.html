@@ -212,7 +212,25 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
           </div>
         </div>
         <button class="btn gray" onclick="exportBackup()">Backup</button>
-        <button class="btn green" onclick="exportCSV()">Export Excel CSV</button>
+        <div style="position:relative;display:inline-block">
+  <button class="btn green" onclick="toggleExportMenu()" id="exportMenuBtn">📊 Export Excel ▾</button>
+  <div id="exportMenu" style="display:none;position:absolute;right:0;top:44px;background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:999;min-width:220px;overflow:hidden">
+    <div style="background:#0f172a;color:#fff;padding:10px 14px;font-size:12px;font-weight:800">Export Module to Excel</div>
+    <div style="padding:6px">
+      <button onclick="exportModuleExcel('leads')" class="exp-btn">🎯 Leads</button>
+      <button onclick="exportModuleExcel('followups')" class="exp-btn">📞 Follow-ups</button>
+      <button onclick="exportModuleExcel('customers')" class="exp-btn">🏢 Customers</button>
+      <button onclick="exportModuleExcel('quotations')" class="exp-btn">📄 Quotations</button>
+      <button onclick="exportModuleExcel('tickets')" class="exp-btn">🛠️ Service Tickets</button>
+      <button onclick="exportModuleExcel('renewals')" class="exp-btn">🔁 Renewals</button>
+      <button onclick="exportModuleExcel('invoices')" class="exp-btn">🧾 Invoices</button>
+      <button onclick="exportModuleExcel('payments')" class="exp-btn">💳 Payments</button>
+      <div style="border-top:1px solid #e5e7eb;margin:4px 0"></div>
+      <button onclick="exportModuleExcel('all')" class="exp-btn" style="color:#2563eb;font-weight:900">📦 Export All Modules</button>
+    </div>
+  </div>
+</div>
+<style>.exp-btn{display:block;width:100%;text-align:left;border:0;background:transparent;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;font-family:inherit}.exp-btn:hover{background:#f0f9ff;color:#1e3a8a}</style>
       </div>
     </div>
     <div id="summaryCards" class="cards"></div>
@@ -2591,7 +2609,88 @@ function saveSettings(){db.settings={company:setCompany.value,address:setAddress
   };
   r.onerror=()=>{hideLoadingOverlay();alert('Could not read the selected file.');};
   r.readAsText(f);
-}function clearAll(){if(confirm('Clear ALL data?')){db=structuredClone(defaultDB);saveDB();render();}}function exportCSV(){let rows=[['Module','Date','Customer','Reference','Status','Amount'],...db.leads.map(x=>['Lead',x.leadDate,customer(x.customerId).companyName,x.leadId,x.status,x.value]),...db.followups.map(x=>['Follow-up',x.date,customer(x.customerId).companyName,x.refNo||x.followupId,x.status,x.discussion]),...db.quotations.map(x=>['Quotation',x.date,customer(x.customerId).companyName,x.quotationNo,x.status,x.total]),...db.invoices.map(x=>['Invoice',x.date,customer(x.customerId).companyName,x.invoiceNo,x.status,x.total]),...db.payments.map(x=>['Payment',x.date,customer(x.customerId).companyName,x.invoiceNo,x.status,x.received])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='veltrox-crm-export.csv';a.click()}
+}function clearAll(){if(confirm('Clear ALL data?')){db=structuredClone(defaultDB);saveDB();render();}}function toggleExportMenu(){
+  const m=document.getElementById('exportMenu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+document.addEventListener('click',function(e){
+  const btn=document.getElementById('exportMenuBtn');
+  const menu=document.getElementById('exportMenu');
+  if(menu&&btn&&!menu.contains(e.target)&&!btn.contains(e.target))menu.style.display='none';
+});
+function exportCSV(){exportModuleExcel('all');}
+function exportModuleExcel(mod){
+  document.getElementById('exportMenu').style.display='none';
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const timeStr=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  function ex(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');}
+  function mf(v){return Number(v||0).toFixed(3);}
+  function sc(s){const m={'Won':'#dcfce7','Paid':'#dcfce7','Renewed':'#dcfce7','Resolved':'#dcfce7','Closed':'#dcfce7','Lost':'#fee2e2','Rejected':'#fee2e2','Overdue':'#fee2e2','Quotation Sent':'#fef3c7','Negotiation':'#fef3c7','Partial':'#fef3c7','Contacted':'#fef3c7','Pending':'#fef3c7'};return m[s]||'#f3f4f6';}
+  function buildTable(sec){
+    const hCells=sec.headers.map(h=>`<th style="background:${sec.color};color:#fff;padding:8px 10px;text-align:left;border:1px solid ${sec.color};white-space:nowrap">${h}</th>`).join('');
+    const dRows=sec.rows.map((r,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'}">${r.map((v,vi)=>`<td style="padding:6px 10px;border:1px solid #e5e7eb;vertical-align:top;${vi===r.length-1?'background:'+sc(v)+';font-weight:700':''}">${ex(v)}</td>`).join('')}</tr>`).join('');
+    const tot=sec.totalRow?`<tr style="background:#f0fdf4;font-weight:bold;border-top:2px solid ${sec.color}">${sec.totalRow.map(v=>`<td style="padding:7px 10px;border:1px solid #e5e7eb">${ex(v)}</td>`).join('')}</tr>`:'';
+    return`<tr>${hCells}</tr>${dRows}${tot}`;
+  }
+  function makeXLS(title,icon,color,tableHtml,filename,summary){
+    const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}table{border-collapse:collapse;width:100%}</style></head><body>
+    <p style="font-size:16pt;font-weight:900;color:${color};margin:0">${icon} Veltrox CRM — ${title}</p>
+    <p style="font-size:10pt;color:#6b7280;margin:4px 0 16px">Generated: ${dateStr} ${timeStr}${summary?' &nbsp;|&nbsp; '+summary:''}</p>
+    <table>${tableHtml}</table></body></html>`;
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'}));
+    a.download=filename;a.click();
+  }
+  const allSections={
+    leads:{title:'Leads Register',icon:'🎯',color:'#2563eb',
+      headers:['Lead No','Date','Customer','Contact Person','Mobile','Product','Value (BHD)','Salesman','Next Follow-up','Status'],
+      rows:db.leads.map(x=>{const c=customer(x.customerId);return[x.leadId,x.leadDate,c.companyName,c.contactPerson,c.mobile,x.product,mf(x.value),x.assignedTo,x.nextFollowup,x.status];}),
+      totalRow:['TOTAL','','','','','',mf(db.leads.reduce((s,x)=>s+Number(x.value||0),0)),'','','']},
+    followups:{title:'Follow-up Register',icon:'📞',color:'#7c3aed',
+      headers:['Follow-up No','Date','Type','Reference','Customer','Discussion','Next Follow-up','Updated By','Status'],
+      rows:db.followups.map(x=>{const c=customer(x.customerId);return[x.followupId,x.date,x.type,x.refNo,c.companyName,x.discussion,x.nextFollowup,x.updatedBy,x.status];})},
+    customers:{title:'Customer Register',icon:'🏢',color:'#0f172a',
+      headers:['Customer ID','Company Name','Contact Person','Mobile','Email','VAT No','CR No','Location'],
+      rows:db.customers.map(x=>[x.customerId,x.companyName,x.contactPerson,x.mobile,x.email,x.vatNo,x.crNo,x.location])},
+    quotations:{title:'Quotations',icon:'📄',color:'#0891b2',
+      headers:['Quotation No','Date','Customer','Item','Amount (BHD)','VAT (BHD)','Total (BHD)','Valid Till','Status'],
+      rows:db.quotations.map(x=>{const c=customer(x.customerId);return[x.quotationNo,x.date,c.companyName,x.item,mf(x.amount),mf(x.vat),mf(x.total),x.validTill,x.status];}),
+      totalRow:['TOTAL','','','',mf(db.quotations.reduce((s,x)=>s+Number(x.amount||0),0)),mf(db.quotations.reduce((s,x)=>s+Number(x.vat||0),0)),mf(db.quotations.reduce((s,x)=>s+Number(x.total||0),0)),'','']},
+    tickets:{title:'Service Tickets',icon:'🛠️',color:'#f59e0b',
+      headers:['Ticket No','Date','Customer','Contact','Location','Product','Service Type','Issue Category','Serial No','Start','End','Duration','Engineer','Priority','AMC','Charges (BHD)','Status','Issue','Solution'],
+      rows:db.tickets.map(x=>{const c=customer(x.customerId);return[x.ticketNo,x.date,c.companyName,x.contactPerson,x.location,x.product,x.serviceType,x.issueCategory,x.serial,x.startTime,x.endTime,x.duration,x.engineer,x.priority,x.amc,mf(x.charges),x.status,x.issue,x.solution];}),
+      totalRow:['TOTAL','','','','','','','','','','','','','','',mf(db.tickets.reduce((s,x)=>s+Number(x.charges||0),0)),'','','']},
+    renewals:{title:'Renewals Center',icon:'🔁',color:'#16a34a',
+      headers:['Renewal ID','Customer','Type','License','Expiry Date','Amount (BHD)','Assigned To','Status'],
+      rows:db.renewals.map(x=>{const c=customer(x.customerId);return[x.renewalId,c.companyName,x.type,x.license,x.expiryDate,mf(x.amount),x.assignedTo,x.status];}),
+      totalRow:['TOTAL','','','','',mf(db.renewals.reduce((s,x)=>s+Number(x.amount||0),0)),'','']},
+    invoices:{title:'Tax Invoices',icon:'🧾',color:'#dc2626',
+      headers:['Invoice No','Date','Customer','Item','Amount (BHD)','VAT (BHD)','Total (BHD)','Status'],
+      rows:db.invoices.map(x=>{const c=customer(x.customerId);return[x.invoiceNo,x.date,c.companyName,x.item,mf(x.amount),mf(x.vat),mf(x.total),x.status];}),
+      totalRow:['TOTAL','','','',mf(db.invoices.reduce((s,x)=>s+Number(x.amount||0),0)),mf(db.invoices.reduce((s,x)=>s+Number(x.vat||0),0)),mf(db.invoices.reduce((s,x)=>s+Number(x.total||0),0)),'']},
+    payments:{title:'Payment Collection',icon:'💳',color:'#1d4ed8',
+      headers:['Payment No','Date','Customer','Invoice No','Invoice Amt (BHD)','Received (BHD)','Balance (BHD)','Due Date','Mode','Status'],
+      rows:db.payments.map(x=>{const c=customer(x.customerId);const bal=Number(x.invoiceAmount||0)-Number(x.received||0);return[x.paymentId,x.date,c.companyName,x.invoiceNo,mf(x.invoiceAmount),mf(x.received),mf(bal),x.dueDate,x.mode,x.status];}),
+      totalRow:['TOTAL','','','',mf(db.payments.reduce((s,x)=>s+Number(x.invoiceAmount||0),0)),mf(db.payments.reduce((s,x)=>s+Number(x.received||0),0)),mf(db.payments.reduce((s,x)=>s+(Number(x.invoiceAmount||0)-Number(x.received||0)),0)),'','','']}
+  };
+  if(mod==='all'){
+    // Export all modules as separate files one by one
+    Object.entries(allSections).forEach(([key,sec],i)=>{
+      setTimeout(()=>{
+        if(!sec.rows.length)return;
+        const summary=sec.rows.length+' records';
+        makeXLS(sec.title,sec.icon,sec.color,buildTable(sec),'Veltrox_'+sec.title.replace(/[^a-zA-Z0-9]/g,'_')+'_'+now.toISOString().slice(0,10)+'.xls',summary);
+      },i*600);
+    });
+  }else{
+    const sec=allSections[mod];
+    if(!sec){alert('Module not found');return;}
+    if(!sec.rows.length){alert('No data in '+mod+' to export.');return;}
+    const summary=sec.rows.length+' records';
+    makeXLS(sec.title,sec.icon,sec.color,buildTable(sec),'Veltrox_'+sec.title.replace(/[^a-zA-Z0-9]/g,'_')+'_'+now.toISOString().slice(0,10)+'.xls',summary);
+  }
+}
 // ── NOTIFICATION SYSTEM ──────────────────────────────────────────
 const NOTIF_KEY = 'VELTROX_NOTIFS_DISMISSED';
 function getDismissed(){try{return JSON.parse(localStorage.getItem(NOTIF_KEY)||'[]');}catch(e){return[];}}
