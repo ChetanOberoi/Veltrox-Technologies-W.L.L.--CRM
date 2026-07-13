@@ -1384,7 +1384,7 @@ function renderQuotations(){document.getElementById('sectionTitle').innerText='O
 function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Register';
   const tkStatuses=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];
   let filtered=applyFilters(db.tickets.filter(match),'tickets','date','status','engineer','charges');
-  let rows=filtered.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.contactPerson||'-')}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.issueCategory||'-')}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.duration||'-')}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waTicket('${t.ticketNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets — IT &amp; Tally support register.</div>'+filterBar('tickets',tkStatuses,db.team,'Charges (BHD)')+table(['Ticket No','Date','Customer','Contact','Product','Service Type','Issue Category','Start','End','Duration','Engineer','Priority','AMC','Charges','Status','Action'],rows)}
+  let rows=filtered.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.contactPerson||'-')}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.issueCategory||'-')}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.duration||'-')}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${slaBadge(t)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waTicket('${t.ticketNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets — IT &amp; Tally support register.</div>'+filterBar('tickets',tkStatuses,db.team,'Charges (BHD)')+table(['Ticket No','Date','Customer','Contact','Product','Service Type','Issue Category','Start','End','Duration','Engineer','Priority','SLA','AMC','Charges','Status','Action'],rows)}
 function renderRenewals(){document.getElementById('sectionTitle').innerText='TSS / AMC / Cloud Renewal Center';
   const renStatuses=['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'];
   let filtered=applyFilters(db.renewals.filter(match),'renewals','expiryDate','status','assignedTo','amount');
@@ -2474,6 +2474,11 @@ function saveQuotation(){
 }
 function saveTicket(){
   if(!document.getElementById('customerId').value)return alert('Select customer');
+  // ── SLA timestamps: preserve original creation time on edits, stamp resolution time once ──
+  const _slaEx=db.tickets.find(x=>x.ticketNo===document.getElementById('ticketNo').value)||{};
+  const _slaSt=document.getElementById('tstatus').value;
+  const _slaCreated=_slaEx.createdAt||Date.now();
+  const _slaResolved=['Resolved','Closed'].includes(_slaSt)?(_slaEx.resolvedAt||Date.now()):null;
   const st=document.getElementById('startTime').value;
   const et=document.getElementById('endTime').value;
   const duration=calcDuration(st,et);
@@ -2496,7 +2501,9 @@ function saveTicket(){
     issue:document.getElementById('issue').value,
     solution:document.getElementById('solution').value,
     customerFeedback:document.getElementById('customerFeedback').value,
-    internalNotes:document.getElementById('internalNotes').value
+    internalNotes:document.getElementById('internalNotes').value,
+    createdAt:_slaCreated,
+    resolvedAt:_slaResolved
   })
 }
 function saveRenewal(){if(!customerId.value)return alert('Select customer');upsert(db.renewals,'renewalId',{renewalId:renewalId.value,customerId:customerId.value,type:rtype.value,license:license.value,expiryDate:expiryDate.value,amount:amount.value,assignedTo:assignedTo.value,status:rstatus.value,remarks:rremarks.value})}
@@ -2867,6 +2874,16 @@ function buildNotifications(){
     const c=customer(x.customerId);
     notifs.push({id:'REN30-'+x.renewalId,type:'renewal',icon:'⏰',color:'#fef9c3',tc:'#854d0e',title:'Renewal Due Soon',body:`${c.companyName||x.type} — ${x.type} expires on ${x.expiryDate}`,date:x.expiryDate,module:'renewals'});
   });
+  // SLA alerts for open service tickets — overdue or entering the final 25% of the SLA window
+  db.tickets.filter(x=>!['Resolved','Closed'].includes(x.status)).forEach(x=>{
+    const s=(typeof slaInfo==='function')?slaInfo(x):null; if(!s)return;
+    const c=customer(x.customerId); const rem=s.due-Date.now();
+    if(rem<0){
+      notifs.push({id:'SLA-'+x.ticketNo,type:'sla',icon:'🚨',color:'#fee2e2',tc:'#991b1b',title:'SLA Breached',body:`${c.companyName||x.ticketNo} — Ticket ${x.ticketNo} crossed its ${s.hrs}h SLA (${slaFmt(rem)} over). Touch it now!`,date:x.date||'',module:'tickets'});
+    } else if(rem<=s.hrs*3600000*0.25){
+      notifs.push({id:'SLA25-'+x.ticketNo,type:'sla',icon:'⏳',color:'#fef3c7',tc:'#92400e',title:'SLA Due Soon',body:`${c.companyName||x.ticketNo} — Ticket ${x.ticketNo} has only ${slaFmt(rem)} left of its ${s.hrs}h SLA.`,date:x.date||'',module:'tickets'});
+    }
+  });
   return notifs;
 }
 
@@ -2959,6 +2976,52 @@ setInterval(runNotifCheck, 60000);
 // ─────────────────────────────────────────────────────────────────
 
 // setModule is called after Firebase loads above
+
+// ── SLA SYSTEM ────────────────────────────────────────────────────
+// Resolution targets per priority (in hours). Change the numbers below
+// to adjust SLA targets — nothing else needs editing.
+const SLA_HOURS={'High':2,'Medium':3,'Low':4};
+
+// When was this ticket created? Uses the exact saved timestamp; for older
+// tickets saved before the SLA feature, falls back to ticket date + start
+// time (or 9:00 AM if no start time).
+function ticketCreatedMs(t){
+  if(t.createdAt)return Number(t.createdAt);
+  if(t.date){const d=new Date(t.date+'T'+(t.startTime||'09:00')+':00');if(!isNaN(d.getTime()))return d.getTime();}
+  return null;
+}
+
+function slaInfo(t){
+  const created=ticketCreatedMs(t);
+  if(!created)return null;
+  const hrs=SLA_HOURS[t.priority]||SLA_HOURS['Medium'];
+  return {due:created+hrs*3600000, hrs, done:['Resolved','Closed'].includes(t.status), doneAt:t.resolvedAt?Number(t.resolvedAt):null};
+}
+
+// "2h 15m" style formatting of a millisecond span
+function slaFmt(ms){
+  ms=Math.abs(ms);
+  const h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000);
+  return (h?h+'h ':'')+m+'m';
+}
+
+// Colored SLA badge for the ticket register
+function slaBadge(t){
+  const pill=(bg,tc,txt)=>`<span style="display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap;background:${bg};color:${tc}">${txt}</span>`;
+  const s=slaInfo(t);
+  if(!s)return pill('#f1f5f9','#64748b','—');
+  if(s.done){
+    if(s.doneAt==null)return pill('#f1f5f9','#64748b','✔ Closed'); // resolved before SLA tracking existed
+    return s.doneAt<=s.due
+      ? pill('#dcfce7','#166534','✅ SLA Met')
+      : pill('#fee2e2','#991b1b','❌ Breached +'+slaFmt(s.doneAt-s.due));
+  }
+  const rem=s.due-Date.now();
+  if(rem<0)return pill('#fee2e2','#991b1b','🔴 Overdue '+slaFmt(rem));
+  if(rem<=s.hrs*3600000*0.25)return pill('#fef3c7','#92400e','🟡 '+slaFmt(rem)+' left');
+  return pill('#dcfce7','#166534','🟢 '+slaFmt(rem)+' left');
+}
+// ── END SLA SYSTEM ────────────────────────────────────────────────
 
 // ── AUTO-UPDATE CHECK ─────────────────────────────────────────────
 // Runs once at startup. Asks GitHub Pages (bypassing all caches) for the
