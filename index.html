@@ -2959,6 +2959,36 @@ setInterval(runNotifCheck, 60000);
 // ─────────────────────────────────────────────────────────────────
 
 // setModule is called after Firebase loads above
+
+// ── AUTO-UPDATE CHECK ─────────────────────────────────────────────
+// Runs once at startup. Asks GitHub Pages (bypassing all caches) for the
+// current deploy fingerprint (ETag). If it differs from the one saved on
+// this device, a newer version was deployed — reload ONCE to pick it up.
+// This stops stale cached builds (like the old "V2 Zoho" copy) from
+// running in installed-app / desktop-shortcut windows.
+// Safety: max one auto-reload per session, never runs on file:// testing,
+// and silently does nothing when offline.
+(function(){
+  try{
+    if(location.protocol==='file:')return; // skip local testing via file://
+    // Clean up the ?v= cache-buster from the address bar after an update reload
+    if(location.search.indexOf('v=')>-1){history.replaceState(null,'',location.pathname);}
+    if(sessionStorage.getItem('crmAutoReloaded'))return; // guard: never loop
+    fetch(location.pathname+'?ucheck='+Date.now(),{method:'HEAD',cache:'no-store'})
+      .then(r=>{
+        const tag=r.headers.get('etag')||r.headers.get('last-modified')||'';
+        if(!tag)return;
+        const prev=localStorage.getItem('crmDeployTag');
+        localStorage.setItem('crmDeployTag',tag);
+        if(prev && prev!==tag){
+          console.log('🔄 Newer CRM version deployed — updating this window once...');
+          sessionStorage.setItem('crmAutoReloaded','1');
+          location.replace(location.pathname+'?v='+Date.now()); // cache-busting reload
+        }
+      })
+      .catch(()=>{}); // offline — ignore silently, CRM keeps working
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
