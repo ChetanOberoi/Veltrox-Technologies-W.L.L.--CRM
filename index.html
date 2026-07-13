@@ -1384,7 +1384,7 @@ function renderQuotations(){document.getElementById('sectionTitle').innerText='O
 function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Register';
   const tkStatuses=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];
   let filtered=applyFilters(db.tickets.filter(match),'tickets','date','status','engineer','charges');
-  let rows=filtered.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.contactPerson||'-')}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.issueCategory||'-')}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.duration||'-')}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${slaBadge(t)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button><button class="btn small green" onclick="createInvoiceFromTicket('${t.ticketNo}')">Invoice</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waTicket('${t.ticketNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets — IT &amp; Tally support register.</div>'+filterBar('tickets',tkStatuses,db.team,'Charges (BHD)')+table(['Ticket No','Date','Customer','Contact','Product','Service Type','Issue Category','Start','End','Duration','Engineer','Priority','SLA','AMC','Charges','Status','Action'],rows)}
+  let rows=filtered.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.contactPerson||'-')}</td><td>${esc(t.product)}</td><td>${esc(t.serviceType||'-')}</td><td>${esc(t.issueCategory||'-')}</td><td>${esc(t.startTime||'-')}</td><td>${esc(t.endTime||'-')}</td><td>${esc(t.duration||'-')}</td><td>${esc(t.engineer)}</td><td>${esc(t.priority)}</td><td>${slaBadge(t)}</td><td>${esc(t.amc)}</td><td>${money(t.charges)}</td><td>${badge(t.status)}</td><td><button class="btn small purple" onclick="quickFollowup('Service','${t.ticketNo}','${t.customerId}')">Follow-up</button>${ticketInvoiceCell(t.ticketNo)}<button class="btn small" style="background:#0284c7;color:#fff" onclick="printTicket('${t.ticketNo}')">🖨 Print</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waTicket('${t.ticketNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${t.ticketNo}')">Edit</button><button class="btn small red" onclick="del('tickets','ticketNo','${t.ticketNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML='<div class="hint">Service tickets — IT &amp; Tally support register.</div>'+filterBar('tickets',tkStatuses,db.team,'Charges (BHD)')+table(['Ticket No','Date','Customer','Contact','Product','Service Type','Issue Category','Start','End','Duration','Engineer','Priority','SLA','AMC','Charges','Status','Action'],rows)}
 function renderRenewals(){document.getElementById('sectionTitle').innerText='TSS / AMC / Cloud Renewal Center';
   const renStatuses=['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'];
   let filtered=applyFilters(db.renewals.filter(match),'renewals','expiryDate','status','assignedTo','amount');
@@ -1392,7 +1392,7 @@ function renderRenewals(){document.getElementById('sectionTitle').innerText='TSS
 function renderInvoices(){document.getElementById('sectionTitle').innerText='Tax Invoices';
   const invStatuses=['Pending','Partial','Paid'];
   let filtered=applyFilters(db.invoices.filter(match),'invoices','date','status','assignedTo','total');
-  let rows=filtered.map(i=>{const typeTag=i.invoiceMode==='service'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800">🛠️ Service</span>':'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800">📦 Item</span>';return `<tr><td>${esc(i.invoiceNo)}</td><td>${esc(i.date)}</td><td>${esc(customer(i.customerId).companyName)}</td><td>${typeTag}</td><td>${esc(i.item)}</td><td>${money(i.amount)}</td><td>${money(i.vat)}</td><td><b>${money(i.total)}</b></td><td>${badge(i.status)}</td><td><button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button><button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button><button class="btn small red" onclick="del('invoices','invoiceNo','${i.invoiceNo}')">Delete</button></td></tr>`;}).join('');document.getElementById('content').innerHTML=filterBar('invoices',invStatuses,[],'Total (BHD)')+table(['Invoice No','Date','Customer','Type','Item','Amount','VAT','Total','Status','Action'],rows)}
+  let rows=filtered.map(i=>{const typeTag=(i.invoiceMode==='service'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800">🛠️ Service</span>':'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800">📦 Item</span>')+(i.ticketNo?'<br><span style="background:#f0f9ff;color:#0369a1;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;margin-top:3px" title="Raised for service ticket">🎫 '+esc(i.ticketNo)+'</span>':'');return `<tr><td>${esc(i.invoiceNo)}</td><td>${esc(i.date)}</td><td>${esc(customer(i.customerId).companyName)}</td><td>${typeTag}</td><td>${esc(i.item)}</td><td>${money(i.amount)}</td><td>${money(i.vat)}</td><td><b>${money(i.total)}</b></td><td>${badge(i.status)}</td><td><button class="btn small green" onclick="printInvoice('${i.invoiceNo}')">Print</button><button class="btn small orange" onclick="openForm('${i.invoiceNo}')">Edit</button><button class="btn small red" onclick="del('invoices','invoiceNo','${i.invoiceNo}')">Delete</button></td></tr>`;}).join('');document.getElementById('content').innerHTML=filterBar('invoices',invStatuses,[],'Total (BHD)')+table(['Invoice No','Date','Customer','Type','Item','Amount','VAT','Total','Status','Action'],rows)}
 function renderPayments(){document.getElementById('sectionTitle').innerText='Payment Collection Register';
   const payStatuses=['Pending','Partial','Paid','Overdue'];
   let filtered=applyFilters(db.payments.filter(match),'payments','date','status','assignedTo','received');
@@ -1412,10 +1412,11 @@ function renderReports(){
   let body='';
   if(reportTab==='sales')body=salesReportBody();
   else if(reportTab==='financial')body=financialReportBody();
-  else if(reportTab==='service')body=`<div class="hint">Service Reports — coming in the next update.</div>`;
+  else if(reportTab==='service')body=serviceReportBody();
   document.getElementById('content').innerHTML=tabBar+body;
   if(reportTab==='sales')setTimeout(drawSalesReportCharts,50);
   if(reportTab==='financial')setTimeout(drawFinancialReportCharts,50);
+  if(reportTab==='service')setTimeout(drawServiceReportCharts,50);
 }
 function setReportTab(t){reportTab=t;renderReports();}
 
@@ -2403,7 +2404,7 @@ function ticketCustomerChanged(customerId){
     :'<option value="">No contacts found</option>';
 }
 function renewalForm(id){let r=db.renewals.find(x=>x.renewalId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Renewal':'Add Renewal';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('renewalId','Renewal ID',r.renewalId||uid('REN'),'text',true)}${custSel(r.customerId)}${sel('rtype','Renewal Type',['TSS Renewal','AMC Renewal','Cloud Renewal'],r.type||'TSS Renewal')}${inp('license','License Type / Serial No',r.license||'')}${inp('expiryDate','Expiry Date',r.expiryDate||'','date')}${inp('amount','Renewal Amount',r.amount||'','number')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||'')}${sel('rstatus','Status',['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'],r.status||'Upcoming')}${txt('rremarks','Remarks',r.remarks||'')}</div>`}
-function invoiceForm(id){let r=db.invoices.find(x=>x.invoiceNo===id)||{};const mode=r.invoiceMode||(r.items&&r.items.length&&r.items[0].type==='Service'?'service':'item');document.getElementById('formTitle').innerText=id?'Edit Invoice':'Add Invoice';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('invoiceNo','Invoice No',r.invoiceNo||uid('INV'),'text',true)}${inp('idate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('quotationNo','Quotation Ref',r.quotationNo||'')}${invoiceModeToggle(mode)}${lineItemsEditor(r.items,r.vatPercent,mode)}${txt('idescription','Description',r.description||'')}${sel('istatus','Payment Status',['Pending','Partial','Paid'],r.status||'Pending')}${txt('iremarks','Remarks',r.remarks||'')}</div>`;setTimeout(recalcLineItems,0);}
+function invoiceForm(id){window._invoiceFromTicket=null;let r=db.invoices.find(x=>x.invoiceNo===id)||{};const mode=r.invoiceMode||(r.items&&r.items.length&&r.items[0].type==='Service'?'service':'item');document.getElementById('formTitle').innerText=id?'Edit Invoice':'Add Invoice';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('invoiceNo','Invoice No',r.invoiceNo||uid('INV'),'text',true)}${inp('idate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('quotationNo','Quotation Ref',r.quotationNo||'')}${invoiceModeToggle(mode)}${lineItemsEditor(r.items,r.vatPercent,mode)}${txt('idescription','Description',r.description||'')}${sel('istatus','Payment Status',['Pending','Partial','Paid'],r.status||'Pending')}${txt('iremarks','Remarks',r.remarks||'')}</div>`;setTimeout(recalcLineItems,0);}
 function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Payment':'Add Payment';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('paymentId','Payment ID',r.paymentId||uid('PAY'),'text',true)}${inp('pdate','Payment Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('pinvoiceNo','Invoice No',r.invoiceNo||'')}${inp('invoiceAmount','Invoice Amount',r.invoiceAmount||'','number')}${inp('received','Received Amount',r.received||'','number')}${inp('dueDate','Due Date',r.dueDate||'','date')}${sel('pstatus','Status',['Pending','Partial','Paid','Overdue'],r.status||'Pending')}${sel('mode','Mode',['Cash','BenefitPay','Bank Transfer','Cheque','Card','Other'],r.mode||'Bank Transfer')}${inp('referenceNo','Reference No',r.referenceNo||'')}${txt('premarks','Remarks',r.remarks||'')}</div>`}
 function productForm(){document.getElementById('formTitle').innerText='Add Product';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Product Name','')}</div>`}function serviceMasterForm(){document.getElementById('formTitle').innerText='Add Service';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Service Name','')}</div>`}function teamForm(){document.getElementById('formTitle').innerText='Add Team Member';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Team Member Name','')}</div>`}
 function issueCategoryForm(){document.getElementById('formTitle').innerText='Add Issue Category';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Issue Category Name','')}</div>`}
@@ -2515,13 +2516,18 @@ function saveInvoice(){
   const vatPercent=Number(document.getElementById('liVatPercent').value||0);
   const vatAmt=amount*vatPercent/100;
   const invoiceMode=document.getElementById('invoiceMode')?document.getElementById('invoiceMode').value:'item';
+  // Keep the ticket link: new invoice raised from a ticket, or preserve existing link on edit
+  const _exInv=db.invoices.find(x=>x.invoiceNo===invoiceNo.value)||{};
+  const _tkRef=window._invoiceFromTicket||_exInv.ticketNo||'';
   upsert(db.invoices,'invoiceNo',{
     invoiceNo:invoiceNo.value,date:idate.value,customerId:customerId.value,quotationNo:quotationNo.value,
+    ticketNo:_tkRef,
     invoiceMode, items, item:items.map(it=>it.name).join(', '),
     amount,vatPercent,vat:vatAmt,total:amount+vatAmt,
     description:idescription.value,
     status:istatus.value,remarks:iremarks.value
   });
+  window._invoiceFromTicket=null;
 }
 function savePayment(){if(!customerId.value)return alert('Select customer');upsert(db.payments,'paymentId',{paymentId:paymentId.value,date:pdate.value,customerId:customerId.value,invoiceNo:pinvoiceNo.value,invoiceAmount:invoiceAmount.value,received:received.value,dueDate:dueDate.value,status:pstatus.value,mode:mode.value,referenceNo:referenceNo.value,remarks:premarks.value})}
 function saveMaster(){let v=masterName.value.trim();if(!v)return alert('Name required');let key=currentModule;if(!Array.isArray(db[key]))db[key]=[];db[key].push(v)}
@@ -2641,8 +2647,10 @@ function createInvoiceFromQuotation(no){
 function createInvoiceFromTicket(no){
   let t=db.tickets.find(x=>x.ticketNo===no);if(!t)return;
   currentModule='invoices';openForm();
+  // Remember which ticket this invoice is being raised for (saved on the invoice)
+  window._invoiceFromTicket=no;
   customerId.value=t.customerId;
-  setTimeout(()=>{setInvoiceMode('service');setFirstLineItem('Service',t.product,1,t.charges||0);},0);
+  setTimeout(()=>{setInvoiceMode('service');setFirstLineItem('Service',t.product,1,t.charges||0);const d=document.getElementById('idescription');if(d&&!d.value)d.value='Service rendered against ticket '+no+(t.issue?' — '+t.issue:'');},0);
 }
 function printInvoice(no){
   let i=db.invoices.find(x=>x.invoiceNo===no),c=customer(i.customerId);
@@ -3022,6 +3030,196 @@ function slaBadge(t){
   return pill('#dcfce7','#166534','🟢 '+slaFmt(rem)+' left');
 }
 // ── END SLA SYSTEM ────────────────────────────────────────────────
+
+// ── SERVICE / SLA REPORT ──────────────────────────────────────────
+// Classifies every ticket into one SLA bucket. "legacy" = tickets that were
+// resolved before SLA tracking existed (no resolution timestamp) — these are
+// shown but excluded from the compliance % so old data doesn't skew results.
+function slaClassify(t){
+  const s=slaInfo(t);
+  if(!s)return 'legacy';
+  if(s.done){
+    if(s.doneAt==null)return 'legacy';
+    return s.doneAt<=s.due?'met':'breached';
+  }
+  return Date.now()>s.due?'overdue':'ontrack';
+}
+
+function serviceReportBody(){
+  const tk=db.tickets;
+  const total=tk.length;
+  const buckets={met:[],breached:[],overdue:[],ontrack:[],legacy:[]};
+  tk.forEach(t=>buckets[slaClassify(t)].push(t));
+  const met=buckets.met.length, breached=buckets.breached.length, overdue=buckets.overdue.length, ontrack=buckets.ontrack.length;
+  const compliance=(met+breached)>0?Math.round(met/(met+breached)*100):null;
+  // Average resolution time across tickets with full timestamps
+  const resTimes=tk.filter(t=>t.createdAt&&t.resolvedAt).map(t=>Number(t.resolvedAt)-Number(t.createdAt)).filter(ms=>ms>0);
+  const avgRes=resTimes.length?slaFmt(resTimes.reduce((a,b)=>a+b,0)/resTimes.length):'—';
+
+  // Engineer performance
+  const engineers=[...new Set([...db.team,...tk.map(t=>t.engineer).filter(Boolean)])];
+  const engRows=engineers.map(e=>{
+    const mine=tk.filter(t=>t.engineer===e);
+    if(!mine.length)return '';
+    const m=mine.filter(t=>slaClassify(t)==='met').length;
+    const b=mine.filter(t=>slaClassify(t)==='breached').length;
+    const o=mine.filter(t=>slaClassify(t)==='overdue').length;
+    const resolved=mine.filter(t=>['Resolved','Closed'].includes(t.status)).length;
+    const pct=(m+b)>0?Math.round(m/(m+b)*100):null;
+    const myTimes=mine.filter(t=>t.createdAt&&t.resolvedAt).map(t=>Number(t.resolvedAt)-Number(t.createdAt)).filter(ms=>ms>0);
+    const myAvg=myTimes.length?slaFmt(myTimes.reduce((a,b2)=>a+b2,0)/myTimes.length):'—';
+    const pctColor=pct===null?'#9ca3af':pct>=90?'#16a34a':pct>=70?'#d97706':'#dc2626';
+    return `<tr><td>${esc(e)}</td><td>${mine.length}</td><td>${resolved}</td><td style="color:#16a34a;font-weight:700">${m}</td><td style="color:#dc2626;font-weight:700">${b}</td><td style="color:#dc2626">${o||'-'}</td><td style="font-weight:900;color:${pctColor}">${pct===null?'—':pct+'%'}</td><td>${myAvg}</td></tr>`;
+  }).join('');
+
+  // Tickets needing attention right now (overdue first, then due-soon on-track)
+  const attention=[...buckets.overdue,...buckets.ontrack.filter(t=>{const s=slaInfo(t);return s&&(s.due-Date.now())<=s.hrs*3600000*0.25;})];
+  const attRows=attention.map(t=>`<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.priority)}</td><td>${esc(t.engineer)}</td><td>${slaBadge(t)}</td><td>${badge(t.status)}</td><td><button class="btn small orange" onclick="setModule('tickets')">Go to Tickets</button></td></tr>`).join('');
+
+  // Breach history
+  const brRows=buckets.breached.map(t=>{const s=slaInfo(t);return `<tr><td>${esc(t.ticketNo)}</td><td>${esc(t.date)}</td><td>${esc(customer(t.customerId).companyName)}</td><td>${esc(t.priority)}</td><td>${esc(t.engineer)}</td><td>${s.hrs}h</td><td style="color:#dc2626;font-weight:700">+${slaFmt(s.doneAt-s.due)}</td></tr>`;}).join('');
+
+  return `
+    <div class="cards" style="margin-bottom:16px">
+      <div class="card"><div class="card-title">Total Tickets</div><div class="card-value">${total}</div></div>
+      <div class="card"><div class="card-title">SLA Compliance</div><div class="card-value" style="color:${compliance===null?'#9ca3af':compliance>=90?'#16a34a':compliance>=70?'#d97706':'#dc2626'}">${compliance===null?'—':compliance+'%'}</div></div>
+      <div class="card"><div class="card-title">✅ SLA Met</div><div class="card-value" style="color:#16a34a">${met}</div></div>
+      <div class="card"><div class="card-title">❌ Breached</div><div class="card-value" style="color:#dc2626">${breached}</div></div>
+      <div class="card"><div class="card-title">🔴 Overdue Now</div><div class="card-value" style="color:#dc2626">${overdue}</div></div>
+      <div class="card"><div class="card-title">Avg Resolution</div><div class="card-value">${avgRes}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:16px">
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">SLA Compliance Breakdown</h3>
+        <div style="position:relative;width:100%;height:220px"><canvas id="ch_slaCompliance" role="img" aria-label="SLA compliance donut">SLA compliance</canvas></div>
+      </div>
+      <div class="panel" style="margin:0">
+        <h3 style="margin-bottom:10px">SLA by Engineer</h3>
+        <div style="position:relative;width:100%;height:220px"><canvas id="ch_slaEngineer" role="img" aria-label="SLA by engineer bar chart">SLA by engineer</canvas></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin:0 0 16px 0">
+      <h3 style="margin-bottom:10px">⏳ Tickets Needing Attention Now (${attention.length})</h3>
+      ${attention.length?table(['Ticket No','Date','Customer','Priority','Engineer','SLA','Status','Action'],attRows):'<div class="hint">✓ No open tickets are overdue or close to their SLA deadline.</div>'}
+    </div>
+
+    <div class="panel" style="margin:0 0 16px 0">
+      <h3 style="margin-bottom:10px">👨‍🔧 Engineer SLA Performance</h3>
+      ${table(['Engineer','Tickets','Resolved','SLA Met','Breached','Overdue Now','SLA %','Avg Resolution'],engRows)}
+    </div>
+
+    <div class="panel" style="margin:0">
+      <h3 style="margin-bottom:10px">❌ SLA Breach History (${breached})</h3>
+      ${breached?table(['Ticket No','Date','Customer','Priority','Engineer','SLA Target','Missed By'],brRows):'<div class="hint">✓ No SLA breaches recorded. Keep it up!</div>'}
+    </div>`;
+}
+
+function drawServiceReportCharts(){
+  if(typeof Chart==='undefined')return;
+  ['ch_slaCompliance','ch_slaEngineer'].forEach(id=>{const c=Chart.getChart(id);if(c)c.destroy();});
+  const tk=db.tickets;
+  const counts={met:0,breached:0,overdue:0,ontrack:0,legacy:0};
+  tk.forEach(t=>counts[slaClassify(t)]++);
+  const el1=document.getElementById('ch_slaCompliance');
+  if(el1)new Chart(el1,{
+    type:'doughnut',
+    data:{labels:['✅ SLA Met','❌ Breached','🔴 Overdue Now','🟢 On Track','Legacy (no SLA data)'],
+      datasets:[{data:[counts.met,counts.breached,counts.overdue,counts.ontrack,counts.legacy],
+      backgroundColor:['#16a34a','#dc2626','#f97316','#2563eb','#9ca3af'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:10}}}}}
+  });
+  const engineers=[...new Set(tk.map(t=>t.engineer).filter(Boolean))];
+  const el2=document.getElementById('ch_slaEngineer');
+  if(el2)new Chart(el2,{
+    type:'bar',
+    data:{labels:engineers,datasets:[
+      {label:'SLA Met',data:engineers.map(e=>tk.filter(t=>t.engineer===e&&slaClassify(t)==='met').length),backgroundColor:'#16a34a',borderRadius:4},
+      {label:'Breached',data:engineers.map(e=>tk.filter(t=>t.engineer===e&&slaClassify(t)==='breached').length),backgroundColor:'#dc2626',borderRadius:4},
+      {label:'Overdue Now',data:engineers.map(e=>tk.filter(t=>t.engineer===e&&slaClassify(t)==='overdue').length),backgroundColor:'#f97316',borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:10}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}
+  });
+}
+// ── END SERVICE / SLA REPORT ──────────────────────────────────────
+
+// ── TICKET ↔ INVOICE LINK + SERVICE REPORT PRINT ─────────────────
+function invoiceForTicket(ticketNo){
+  return db.invoices.find(i=>i.ticketNo===ticketNo)||null;
+}
+
+// In the ticket register: green "Invoice" button if no invoice raised yet,
+// otherwise a badge showing the linked invoice number (click → jump to invoices)
+function ticketInvoiceCell(ticketNo){
+  const inv=invoiceForTicket(ticketNo);
+  if(!inv)return `<button class="btn small green" onclick="createInvoiceFromTicket('${ticketNo}')">Invoice</button>`;
+  return `<button class="btn small" style="background:#dcfce7;color:#166534;border:1px solid #86efac" title="Invoice already raised — click to open Tax Invoices" onclick="setModule('invoices')">🧾 ${esc(inv.invoiceNo)}</button>`;
+}
+
+// Printable SERVICE REPORT for a ticket — same print pipeline as invoices
+function printTicket(no){
+  const t=db.tickets.find(x=>x.ticketNo===no);if(!t)return alert('Ticket not found');
+  const c=customer(t.customerId);
+  const s=db.settings||{};
+  const accent=s.invoiceAccentColor||'#1e3a8a';
+  const logoHtml=s.invoiceLogo?`<img src="${s.invoiceLogo}" style="max-height:60px;max-width:180px;object-fit:contain">`:'';
+  const inv=invoiceForTicket(no);
+  const sla=slaInfo(t);
+  let slaLine='—';
+  if(sla){
+    if(sla.done&&sla.doneAt!=null)slaLine=sla.doneAt<=sla.due?`✅ SLA Met (target ${sla.hrs}h)`:`❌ SLA Breached by ${slaFmt(sla.doneAt-sla.due)} (target ${sla.hrs}h)`;
+    else if(!sla.done)slaLine=Date.now()>sla.due?`Overdue (target ${sla.hrs}h)`:`Within SLA (target ${sla.hrs}h)`;
+  }
+  const row=(label,val)=>`<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;width:170px;font-size:12px">${label}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;font-size:12px">${esc(val||'-')}</td></tr>`;
+  const textBlock=(label,val)=>val?`<div style="margin-top:12px"><div style="font-weight:800;font-size:12px;color:${accent};margin-bottom:4px">${label}</div><div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:12px;line-height:1.6;white-space:pre-wrap">${esc(val)}</div></div>`:'';
+  document.getElementById('printArea').innerHTML=`
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#111827">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${accent};padding-bottom:12px">
+      <div>
+        ${logoHtml}
+        <div style="font-size:20px;font-weight:900;color:${accent}">${esc(s.company||'Veltrox Technologies W.L.L.')}</div>
+        <div style="font-size:11px;color:#374151">${esc(s.address||'')}</div>
+        <div style="font-size:11px;color:#374151">${s.vatNo?'VAT No: '+esc(s.vatNo):''} ${s.crNo?' | CR No: '+esc(s.crNo):''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:900;letter-spacing:1px;color:${accent}">SERVICE REPORT</div>
+        <div style="font-size:13px;margin-top:6px"><b>Ticket No:</b> ${esc(t.ticketNo)}</div>
+        <div style="font-size:13px"><b>Date:</b> ${esc(t.date)}</div>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;margin-top:16px">
+      ${row('Customer',c.companyName)}
+      ${row('Contact Person',t.contactPerson)}
+      ${row('Site / Location',t.location)}
+      ${row('Product / Service',t.product)}
+      ${row('Service Type',t.serviceType)}
+      ${row('Issue Category',t.issueCategory)}
+      ${row('Serial / Asset No',t.serial)}
+      ${row('Engineer',t.engineer)}
+      ${row('Priority',t.priority)}
+      ${row('Time',(t.startTime||'-')+' to '+(t.endTime||'-')+(t.duration?' ('+t.duration+')':''))}
+      ${row('SLA Status',slaLine)}
+      ${row('AMC Covered',t.amc)}
+      ${row('Service Charges',t.charges?money(t.charges)+' BHD':(t.amc==='Yes'?'Covered under AMC':'-'))}
+      ${inv?row('Invoice Reference',inv.invoiceNo+' — '+money(inv.total)+' BHD ('+(inv.status||'Pending')+')'):''}
+      ${row('Ticket Status',t.status)}
+    </table>
+
+    ${textBlock('ISSUE REPORTED',t.issue)}
+    ${textBlock('SOLUTION & STEPS TAKEN',t.solution)}
+    ${textBlock('CUSTOMER FEEDBACK',t.customerFeedback)}
+
+    <div style="display:flex;justify-content:space-between;margin-top:70px;font-size:12px;color:#374151">
+      <div style="border-top:1px solid #9ca3af;padding-top:6px;width:200px">Engineer Signature<br><span style="color:#6b7280">${esc(t.engineer||'')}</span></div>
+      <div style="border-top:1px solid #9ca3af;padding-top:6px;width:200px;text-align:right">Customer Signature<br><span style="color:#6b7280">${esc(t.contactPerson||'')}</span></div>
+    </div>
+    <div style="margin-top:26px;text-align:center;font-size:10px;color:#9ca3af">Generated by ${esc(s.company||'Veltrox Technologies W.L.L.')} CRM — ${new Date().toLocaleString('en-GB')}</div>
+  </div>`;
+  setTimeout(()=>window.print(),100);
+}
+// ── END TICKET ↔ INVOICE LINK + SERVICE REPORT PRINT ─────────────
 
 // ── AUTO-UPDATE CHECK ─────────────────────────────────────────────
 // Runs once at startup. Asks GitHub Pages (bypassing all caches) for the
