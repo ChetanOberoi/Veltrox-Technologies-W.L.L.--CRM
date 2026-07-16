@@ -193,6 +193,7 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
     <button class="nav" id="nav-services" onclick="setModule('services')">⚙ Service Master</button>
     <button class="nav" id="nav-team" onclick="setModule('team')">👥 Team Master</button>
     <button class="nav" id="nav-issueCategories" onclick="setModule('issueCategories')">🏷 Issue Category Master</button>
+    <button class="nav" id="nav-referencePersons" onclick="setModule('referencePersons')">🤝 Reference Master</button>
     <div class="group-title">Reports</div>
     <button class="nav" id="nav-reports" onclick="setModule('reports')">📊 Reports</button>
     <button class="nav" id="nav-settings" onclick="setModule('settings')">⚙ Settings / Backup</button>
@@ -324,13 +325,13 @@ const fauth=firebase.auth();
 // instead of one giant doc per module. This removes the overwrite race
 // condition: editing Ticket A and Customer B at the same time now touches
 // two completely separate Firestore documents, not one shared array blob.
-const FB_MODULES=['settings','customers','leads','quotations','tickets','renewals','invoices','payments','followups','products','services','team','issueCategories'];
+const FB_MODULES=['settings','customers','leads','quotations','tickets','renewals','invoices','payments','followups','products','services','team','issueCategories','referencePersons'];
 const FB_KEY_FIELD={
   customers:'customerId', leads:'leadId', quotations:'quotationNo', tickets:'ticketNo',
   renewals:'renewalId', invoices:'invoiceNo', payments:'paymentId', followups:'followupId'
 };
 // products/services/team/issueCategories are plain string arrays (no key field) — stored whole, rarely change
-const FB_ARRAY_MODULES=['products','services','team','issueCategories'];
+const FB_ARRAY_MODULES=['products','services','team','issueCategories','referencePersons'];
 
 function showLoadingOverlay(msg){const el=document.getElementById('fbOverlay');const m=document.getElementById('fbMsg');if(el)el.style.display='flex';if(m&&msg)m.textContent=msg;}
 function hideLoadingOverlay(){const el=document.getElementById('fbOverlay');if(el)el.style.display='none';}
@@ -436,7 +437,7 @@ async function migrateOldFirestoreFormat(){
   }catch(e){console.error('Migration check failed:',e);return false;}
 }
 // ─────────────────────────────────────────────────────────────────
-const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10,invoiceTemplate:'nbr',invoiceAccentColor:'#1e3a8a',invoiceFont:'sans',invoiceLogo:'',invoiceLogoPosition:'left',invoiceFields:{showVatNo:true,showCrNo:true,showDescription:true,showSignature:true,showItemDescription:true,showPaymentTerms:true}},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TallyPrime Auditor','TSS 1 Year','TSS 3 Year','Tally on Cloud','AWS Cloud','TDL Development','Other'],services:['Tally Support','Tally AMC Support','Tally Customization','Tally Training','Tally on Cloud','VAT Filing','IT Support','CCTV Service','Network Setup','Hardware Support','Other'],team:['Chetan','Support Team','Engineer 1'],issueCategories:['License / Activation','Data Corruption','Slow Performance','VAT / Tax Config','Payroll Setup','Bank Reconciliation','Report Mismatch','New Company Setup','Network / WiFi','Hardware Issue','Windows / OS','Software Install','Training Request','CCTV Issue','Email / Outlook','Other'],followups:[]};
+const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10,invoiceTemplate:'nbr',invoiceAccentColor:'#1e3a8a',invoiceFont:'sans',invoiceLogo:'',invoiceLogoPosition:'left',invoiceFields:{showVatNo:true,showCrNo:true,showDescription:true,showSignature:true,showItemDescription:true,showPaymentTerms:true}},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TallyPrime Auditor','TSS 1 Year','TSS 3 Year','Tally on Cloud','AWS Cloud','TDL Development','Other'],services:['Tally Support','Tally AMC Support','Tally Customization','Tally Training','Tally on Cloud','VAT Filing','IT Support','CCTV Service','Network Setup','Hardware Support','Other'],team:['Chetan','Support Team','Engineer 1'],issueCategories:['License / Activation','Data Corruption','Slow Performance','VAT / Tax Config','Payroll Setup','Bank Reconciliation','Report Mismatch','New Company Setup','Network / WiFi','Hardware Issue','Windows / OS','Software Install','Training Request','CCTV Issue','Email / Outlook','Other'],followups:[],referencePersons:[]};
 
 function normalizeDB(raw){
   const base=structuredClone(defaultDB);
@@ -452,6 +453,7 @@ function normalizeDB(raw){
   base.services=Array.isArray(raw.services)?raw.services:(Array.isArray(raw.settings?.productServices)?raw.settings.productServices:base.services);
   base.team=Array.isArray(raw.team)?raw.team:(Array.isArray(raw.agents)?raw.agents:base.team);
   base.issueCategories=Array.isArray(raw.issueCategories)?raw.issueCategories:base.issueCategories;
+  base.referencePersons=Array.isArray(raw.referencePersons)?raw.referencePersons:base.referencePersons;
   base.customers=(raw.customers||[]).map(c=>({
     customerId:c.customerId||c.id||uidSafe('CUS'), companyName:c.companyName||c.customer||c.name||'', contactPerson:c.contactPerson||c.contact||'',
     mobile:c.mobile||c.phone||'', email:c.email||'', vatNo:c.vatNo||'', crNo:c.crNo||'', location:c.location||'', documentLink:c.documentLink||'', address:c.address||'', remarks:c.remarks||'',
@@ -461,7 +463,7 @@ function normalizeDB(raw){
     leadId:l.leadId||l.id||uidSafe('LEAD'), leadDate:l.leadDate||l.date||today(), customerId:l.customerId||findCustomerIdByName(base.customers,l.customer)||'',
     leadSource:l.leadSource||l.source||'', product:l.product||l.productService||'', value:l.value||l.expectedDealValue||'', priority:l.priority||'Medium',
     status:mapLeadStatus(l.status), nextFollowup:l.nextFollowup||l.nextFollowupDate||'', assignedTo:l.assignedTo||l.salesman||'',
-    requirement:l.requirement||l.requirementNotes||'', remarks:l.remarks||''
+    requirement:l.requirement||l.requirementNotes||'', remarks:l.remarks||'', referencePerson:l.referencePerson||''
   }));
   base.quotations=(raw.quotations||[]).map(q=>{
     // Multi-line items: if old single-item format exists and no items array, convert it to a 1-row items array
@@ -1104,7 +1106,7 @@ function match(o){
   const term=q();
   if(!term)return true;
   // Build a plain-text searchable string from the record's own meaningful fields
-  const ownFields=['companyName','contactPerson','mobile','email','location','leadId','quotationNo','ticketNo','invoiceNo','paymentId','renewalId','followupId','product','item','issue','status','engineer','assignedTo','serial','remarks'];
+  const ownFields=['companyName','contactPerson','mobile','email','location','leadId','quotationNo','ticketNo','invoiceNo','paymentId','renewalId','followupId','product','item','issue','status','engineer','assignedTo','serial','remarks','referencePerson','leadSource'];
   let text=ownFields.map(f=>o[f]!=null?String(o[f]):'').join(' ').toLowerCase();
   // Also include the linked customer's name/mobile so searching a customer
   // name or phone finds their tickets/invoices/leads etc. too
@@ -1118,8 +1120,8 @@ function upsert(arr,key,obj){const i=arr.findIndex(x=>x[key]===obj[key]);i>=0?ar
 function customer(id){return db.customers.find(c=>c.customerId===id)||{}}
 function badge(s){let cls='badge';let x=String(s||'').toLowerCase();if(['won','paid','closed','renewed','approved','resolved'].includes(x))cls+=' b-green';else if(['lost','rejected','overdue'].includes(x))cls+=' b-red';else if(['pending','partial','quotation sent','negotiation','in progress','waiting customer','contacted'].includes(x))cls+=' b-orange';else if(['demo scheduled','assigned'].includes(x))cls+=' b-purple';else if(['not qualified'].includes(x)||!s)cls+=' b-gray';return `<span class="${cls}">${esc(s||'-')}</span>`}
 
-function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.nav').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m)?.classList.add('active');const titles={dashboard:'Dashboard',leads:'Leads Register',followups:'Follow-up Register',customers:'Customers 360°',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals Center',invoices:'Tax Invoices',payments:'Payment Collection',products:'Product Master',services:'Service Master',team:'Team Master',reports:'Reports',settings:'Settings / Backup',issueCategories:'Issue Category Master'};document.getElementById('pageTitle').innerText=titles[m]||'CRM';document.getElementById('addBtn').style.display=['dashboard','reports','settings'].includes(m)?'none':'inline-block';document.getElementById('addBtn').innerText='+ Add '+(titles[m]||'');document.title='Veltrox CRM — '+(titles[m]||'CRM');render()}
-function render(){cards();document.getElementById('sectionActions').innerHTML='';({dashboard:renderDashboard,leads:renderLeads,followups:renderFollowups,customers:renderCustomers,quotations:renderQuotations,tickets:renderTickets,renewals:renderRenewals,invoices:renderInvoices,payments:renderPayments,products:renderProducts,services:renderServices,team:renderTeam,reports:renderReports,settings:renderSettings,issueCategories:renderIssueCategories}[currentModule]||renderDashboard)()}
+function setModule(m){currentModule=m;editId=null;document.querySelectorAll('.nav').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m)?.classList.add('active');const titles={dashboard:'Dashboard',leads:'Leads Register',followups:'Follow-up Register',customers:'Customers 360°',quotations:'Quotations',tickets:'Service Tickets',renewals:'Renewals Center',invoices:'Tax Invoices',payments:'Payment Collection',products:'Product Master',services:'Service Master',team:'Team Master',reports:'Reports',settings:'Settings / Backup',issueCategories:'Issue Category Master',referencePersons:'Reference Master'};document.getElementById('pageTitle').innerText=titles[m]||'CRM';document.getElementById('addBtn').style.display=['dashboard','reports','settings'].includes(m)?'none':'inline-block';document.getElementById('addBtn').innerText='+ Add '+(titles[m]||'');document.title='Veltrox CRM — '+(titles[m]||'CRM');render()}
+function render(){cards();document.getElementById('sectionActions').innerHTML='';({dashboard:renderDashboard,leads:renderLeads,followups:renderFollowups,customers:renderCustomers,quotations:renderQuotations,tickets:renderTickets,renewals:renderRenewals,invoices:renderInvoices,payments:renderPayments,products:renderProducts,services:renderServices,team:renderTeam,reports:renderReports,settings:renderSettings,issueCategories:renderIssueCategories,referencePersons:renderRefPersons}[currentModule]||renderDashboard)()}
 function cards(){let invTotal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),rec=db.payments.reduce((s,x)=>s+Number(x.received||0),0);let dueRen=db.renewals.filter(x=>x.expiryDate&&x.expiryDate<=new Date(Date.now()+30*86400000).toISOString().slice(0,10)&&x.status!=='Renewed').length;document.getElementById('summaryCards').innerHTML=`<div class="card click" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value">${db.leads.length}</div><div class="card-foot">Pipeline opportunities</div></div><div class="card click" onclick="setModule('quotations')"><div class="card-title">Open Quotations</div><div class="card-value">${db.quotations.filter(x=>!['Approved','Rejected','Converted'].includes(x.status)).length}</div><div class="card-foot">Pending conversion</div></div><div class="card click" onclick="setModule('tickets')"><div class="card-title">Open Tickets</div><div class="card-value">${db.tickets.filter(x=>x.status!=='Closed').length}</div><div class="card-foot">Service workload</div></div><div class="card click" onclick="setModule('payments')"><div class="card-title">Pending Collection</div><div class="card-value">${money(invTotal-rec)}</div><div class="card-foot">BHD outstanding</div></div><div class="card click" onclick="setModule('renewals')"><div class="card-title">Renewals Due</div><div class="card-value">${dueRen}</div><div class="card-foot">Next 30 days</div></div>`}
 function table(h,r){return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r||`<tr><td colspan="${h.length}">No records found.</td></tr>`}</tbody></table></div>`}
 function renderDashboard(){
@@ -1353,6 +1355,7 @@ function leadTableView() {
       <td>${esc(c.contactPerson)}</td>
       <td>${esc(c.mobile)}</td>
       <td>${esc(l.product)}</td>
+      <td>${esc(l.leadSource||'-')}${l.referencePerson?'<br><span style="font-size:11px;color:#7c3aed;font-weight:800">🤝 '+esc(l.referencePerson)+'</span>':''}</td>
       <td>${money(l.value)}</td>
       <td>${esc(l.nextFollowup)}</td>
       <td>${esc(l.assignedTo)}</td>
@@ -1369,7 +1372,7 @@ function leadTableView() {
   document.getElementById('content').innerHTML =
     '<div class="hint">Excel-style lead register: search, edit, follow-up, and convert leads to quotations.</div>' +
     filterBar('leads',leadStatuses,db.team,'Amount (BHD)') +
-    table(['Lead No','Date','Company','Contact','Mobile','Product','Value','Next Follow-up','Salesman','Status','Action'], rows);
+    table(['Lead No','Date','Company','Contact','Mobile','Product','Source / Ref','Value','Next Follow-up','Salesman','Status','Action'], rows);
 }
 
 function renderFollowups(){document.getElementById('sectionTitle').innerText='Follow-up Register';
@@ -1402,6 +1405,21 @@ function renderIssueCategories(){
   document.getElementById('content').innerHTML='<div class="hint">These categories appear in <b>Service Tickets</b> under &quot;Issue Category&quot;. Add your own categories here — e.g. Tally License, VAT Config, Hardware Fault.</div>';
   let rows=(db.issueCategories||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td><button class="btn small red" onclick="db.issueCategories.splice(${i},1);saveDB();render()">Delete</button></td></tr>`).join('');
   document.getElementById('content').innerHTML+= table(['No','Issue Category','Action'],rows);
+}
+function renderRefPersons(){
+  document.getElementById('sectionTitle').innerText='Reference Person Master — used in Leads';
+  let rows=(db.referencePersons||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>{
+    const usedIn=db.leads.filter(l=>l.referencePerson===x).length;
+    return `<tr><td>${i+1}</td><td>${esc(x)}</td><td>${usedIn?`<span class="badge">${usedIn} lead${usedIn>1?'s':''}</span>`:'-'}</td><td><button class="btn small red" onclick="delRefPerson(${i})">Delete</button></td></tr>`;
+  }).join('');
+  document.getElementById('content').innerHTML='<div class="hint">Reference persons are created <b>once</b> and reused in every lead where Lead Source = <b>Reference</b>. Add them here or with the <b>+ Ref</b> button inside the Add Lead form.</div>'+table(['No','Reference Person','Used In','Action'],rows);
+}
+function delRefPerson(i){
+  const name=db.referencePersons[i];
+  const usedIn=db.leads.filter(l=>l.referencePerson===name).length;
+  if(usedIn&&!confirm('"'+name+'" is used in '+usedIn+' lead(s). Existing leads keep the name, but it will no longer appear in the dropdown. Delete anyway?'))return;
+  if(!usedIn&&!confirm('Delete "'+name+'" from Reference Master?'))return;
+  db.referencePersons.splice(i,1);saveDB();render();
 }
 function renderProducts(){document.getElementById('sectionTitle').innerText='Product Master — used in Leads, Quotations & Invoices';document.getElementById('content').innerHTML='<div class="hint">These products appear in <b>Leads, Quotations and Invoices</b> under &quot;Product (What we sell)&quot;. Examples: TallyPrime Silver, TSS Renewal.</div>';masterRenderWithHint('products')}function renderServices(){document.getElementById('sectionTitle').innerText='Service Master — used in Service Tickets';document.getElementById('content').innerHTML='<div class="hint">These services appear in the <b>Service Tickets</b> form under &quot;Service (What we do)&quot;. Examples: Tally Support, IT Support, CCTV Service.</div>';masterRenderWithHint('services')}function renderTeam(){masterRender('team','Team Master')}function masterRender(key,title){document.getElementById('sectionTitle').innerText=title;let rows=(db[key]||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td><button class="btn small red" onclick="db['${key}'].splice(${i},1);saveDB();render()">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=table(['No','Name','Action'],rows)}
 function masterRenderWithHint(key){let rows=(db[key]||[]).filter(x=>x.toLowerCase().includes(q())).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td><button class="btn small red" onclick="db['${key}'].splice(${i},1);saveDB();render()">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML+=table(['No','Name','Action'],rows)}
@@ -1443,7 +1461,7 @@ function salesReportBody(){
     else ageBuckets['31+ days']++;
   });
 
-  const rows=leads.map(l=>`<tr><td>${esc(l.leadId)}</td><td>${esc(l.leadDate)}</td><td>${esc(customer(l.customerId).companyName)}</td><td>${esc(l.leadSource)}</td><td>${esc(l.product)}</td><td>${money(l.value)}</td><td>${esc(l.assignedTo)}</td><td>${badge(l.status)}</td></tr>`).join('');
+  const rows=leads.map(l=>`<tr><td>${esc(l.leadId)}</td><td>${esc(l.leadDate)}</td><td>${esc(customer(l.customerId).companyName)}</td><td>${esc(l.leadSource)}${l.referencePerson?'<br><span style="font-size:11px;color:#7c3aed;font-weight:800">🤝 '+esc(l.referencePerson)+'</span>':''}</td><td>${esc(l.product)}</td><td>${money(l.value)}</td><td>${esc(l.assignedTo)}</td><td>${badge(l.status)}</td></tr>`).join('');
 
   return `
     <div class="cards" style="margin-bottom:16px">
@@ -2307,7 +2325,7 @@ function recalcLineItems(){
 }
 // ────────────────────────────────────────────────────────────────
 function serviceSel(v=''){return `<div><label>Service (What we do)</label><select id="product"><option value="">Select Service</option>${[...db.services,'Other'].map(s=>`<option value="${esc(s)}" ${s===v?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`}
-function openForm(id=null){editId=id;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,followups:followupForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm,issueCategories:issueCategoryForm}[currentModule]||leadForm)(id);if(['invoices','quotations'].includes(currentModule)){showQuickToolbar();}else{hideQuickToolbar();}}function closeForm(){document.getElementById('formModal').style.display='none';editId=null;hideQuickToolbar();}
+function openForm(id=null){editId=id;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,followups:followupForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm,issueCategories:issueCategoryForm,referencePersons:refPersonForm}[currentModule]||leadForm)(id);if(['invoices','quotations'].includes(currentModule)){showQuickToolbar();}else{hideQuickToolbar();}}function closeForm(){document.getElementById('formModal').style.display='none';editId=null;hideQuickToolbar();}
 function quickNewCustomer(){currentModule='customers';editId=null;customerForm();}
 function followupForm(id){let r=db.followups.find(x=>x.followupId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Follow-up':'Add Follow-up';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('followupId','Follow-up No',r.followupId||uid('FOL'),'text',true)}${inp('fdate','Date',r.date||today(),'date')}${sel('ftype','Type',['Lead','Quotation','Service','Invoice','Payment','Renewal','General'],r.type||'Lead')}${inp('refNo','Reference No',r.refNo||'')}${custSel(r.customerId)}${inp('fnext','Next Follow-up',r.nextFollowup||'','date')}${sel('fupdatedBy','Updated By',db.team,r.updatedBy||db.team[0]||'')}${sel('fstatus','Status',['Open','Pending','Completed','Closed'],r.status||'Open')}${txt('fdiscussion','Discussion / Action Taken',r.discussion||'')}${txt('fremarks','Remarks',r.remarks||'')}</div>`}
 function customerForm(id){
@@ -2346,7 +2364,40 @@ function addContactRow(){
     <button type="button" onclick="this.parentElement.remove()" style="border:0;background:#fee2e2;color:#991b1b;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer">✕</button>`;
   document.getElementById('contactsList').appendChild(div);
 }
-function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${sel('leadSource','Lead Source',['Cold Call','WhatsApp','Reference','Existing Customer','Website','Walk-In','Google','Email','Other'],r.leadSource||'Cold Call')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('leadPriority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('leadStatus','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Qualified'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
+// ── REFERENCE PERSON (one-time master, reused in every lead) ─────
+function leadSourceSel(v){
+  const opts=['Cold Call','WhatsApp','Reference','Existing Customer','Website','Walk-In','Google','Email','Other'];
+  return `<div><label>Lead Source</label><select id="leadSource" onchange="toggleRefPersonField(this.value)">${opts.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
+}
+function refPersonBlock(source,val){
+  const show=source==='Reference';
+  const list=db.referencePersons||[];
+  return `<div id="refPersonWrap" style="${show?'':'display:none'}"><label>Reference Person</label><div style="display:flex;gap:8px;align-items:center">
+    <select id="refPerson" style="flex:1"><option value="">Select Reference Person</option>${list.map(p=>`<option value="${esc(p)}" ${p===val?'selected':''}>${esc(p)}</option>`).join('')}</select>
+    <button type="button" class="btn green" style="white-space:nowrap" onclick="quickAddRefPerson()">+ Ref</button>
+  </div></div>`;
+}
+function toggleRefPersonField(v){
+  const w=document.getElementById('refPersonWrap');
+  if(w)w.style.display=v==='Reference'?'':'none';
+}
+function quickAddRefPerson(){
+  const name=prompt('Reference person name (created once, reused in all future leads):');
+  if(!name)return;
+  const v=name.trim();
+  if(!v)return;
+  if(!Array.isArray(db.referencePersons))db.referencePersons=[];
+  const exists=db.referencePersons.find(p=>p.toLowerCase()===v.toLowerCase());
+  if(!exists){db.referencePersons.push(v);saveDB();}
+  const selEl=document.getElementById('refPerson');
+  if(selEl){
+    selEl.innerHTML='<option value="">Select Reference Person</option>'+db.referencePersons.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    selEl.value=exists||v;
+  }
+  if(exists)alert('"'+exists+'" already exists in the Reference Master — selected it for you.');
+}
+// ─────────────────────────────────────────────────────────────────
+function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${leadSourceSel(r.leadSource||'Cold Call')}${refPersonBlock(r.leadSource||'Cold Call',r.referencePerson||'')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('leadPriority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('leadStatus','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Qualified'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
 function quotationForm(id){let r=db.quotations.find(x=>x.quotationNo===id)||{};const mode=r.invoiceMode||(r.items&&r.items.length&&r.items[0].type==='Service'?'service':'item');document.getElementById('formTitle').innerText=id?'Edit Quotation':'Add Quotation';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('quotationNo','Quotation No',r.quotationNo||uid('QT'),'text',true)}${inp('qdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('leadIdRef','Lead Ref',r.leadId||'')}${invoiceModeToggle(mode)}${lineItemsEditor(r.items,r.vatPercent,mode)}${txt('qdescription','Description',r.description||'')}${inp('validTill','Valid Till',r.validTill||'','date')}${sel('qstatus','Status',['Draft','Sent','Follow-up','Approved','Rejected','Converted'],r.status||'Draft')}${txt('terms','Terms',r.terms||'60% advance on confirmation, balance on delivery.')}${txt('qremarks','Remarks',r.remarks||'')}</div>`;setTimeout(recalcLineItems,0);}
 function ticketForm(id){
   let r=db.tickets.find(x=>x.ticketNo===id)||{};
@@ -2408,6 +2459,7 @@ function invoiceForm(id){window._invoiceFromTicket=null;let r=db.invoices.find(x
 function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Payment':'Add Payment';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('paymentId','Payment ID',r.paymentId||uid('PAY'),'text',true)}${inp('pdate','Payment Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('pinvoiceNo','Invoice No',r.invoiceNo||'')}${inp('invoiceAmount','Invoice Amount',r.invoiceAmount||'','number')}${inp('received','Received Amount',r.received||'','number')}${inp('dueDate','Due Date',r.dueDate||'','date')}${sel('pstatus','Status',['Pending','Partial','Paid','Overdue'],r.status||'Pending')}${sel('mode','Mode',['Cash','BenefitPay','Bank Transfer','Cheque','Card','Other'],r.mode||'Bank Transfer')}${inp('referenceNo','Reference No',r.referenceNo||'')}${txt('premarks','Remarks',r.remarks||'')}</div>`}
 function productForm(){document.getElementById('formTitle').innerText='Add Product';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Product Name','')}</div>`}function serviceMasterForm(){document.getElementById('formTitle').innerText='Add Service';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Service Name','')}</div>`}function teamForm(){document.getElementById('formTitle').innerText='Add Team Member';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Team Member Name','')}</div>`}
 function issueCategoryForm(){document.getElementById('formTitle').innerText='Add Issue Category';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Issue Category Name','')}</div>`}
+function refPersonForm(){document.getElementById('formTitle').innerText='Add Reference Person';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Reference Person Name','')}</div>`}
 function saveForm(){
   if(window._crmUserFormMode){saveCrmUserForm();return;}
   try{
@@ -2419,7 +2471,7 @@ function saveForm(){
     if(currentModule==='renewals')saveRenewal();
     if(currentModule==='invoices')saveInvoice();
     if(currentModule==='payments')savePayment();
-    if(['products','services','team','issueCategories'].includes(currentModule))saveMaster();
+    if(['products','services','team','issueCategories','referencePersons'].includes(currentModule))saveMaster();
     saveDB(); // non-blocking now
     closeForm();
     render();
@@ -2455,7 +2507,9 @@ function saveLead(){
   const leadStatusValue=document.getElementById('leadStatus').value;
   const leadPriorityValue=document.getElementById('leadPriority').value;
   if(!document.getElementById('customerId').value)return alert('Select customer');
-  upsert(db.leads,'leadId',{leadId:document.getElementById('leadId').value,leadDate:document.getElementById('leadDate').value,customerId:document.getElementById('customerId').value,leadSource:document.getElementById('leadSource').value,product:document.getElementById('product').value,value:document.getElementById('value').value,priority:leadPriorityValue,status:leadStatusValue,nextFollowup:document.getElementById('nextFollowup').value,assignedTo:document.getElementById('assignedTo').value,requirement:document.getElementById('requirement').value,remarks:document.getElementById('leadRemarks').value})
+  const _leadSrc=document.getElementById('leadSource').value;
+  const _refP=(_leadSrc==='Reference'&&document.getElementById('refPerson'))?document.getElementById('refPerson').value:'';
+  upsert(db.leads,'leadId',{leadId:document.getElementById('leadId').value,leadDate:document.getElementById('leadDate').value,customerId:document.getElementById('customerId').value,leadSource:_leadSrc,referencePerson:_refP,product:document.getElementById('product').value,value:document.getElementById('value').value,priority:leadPriorityValue,status:leadStatusValue,nextFollowup:document.getElementById('nextFollowup').value,assignedTo:document.getElementById('assignedTo').value,requirement:document.getElementById('requirement').value,remarks:document.getElementById('leadRemarks').value})
 }
 function saveQuotation(){
   if(!customerId.value)return alert('Select customer');
@@ -2793,9 +2847,9 @@ function runExportExcel(){
   const pf=filterByCust(filterByPeriod(db.payments,'date'));
   const allSections={
     leads:{title:'Leads Register',icon:'🎯',color:'#2563eb',
-      headers:['Lead No','Date','Customer','Contact Person','Mobile','Product','Value (BHD)','Salesman','Next Follow-up','Status'],
-      rows:lf.map(x=>{const c=customer(x.customerId);return[x.leadId,x.leadDate,c.companyName,c.contactPerson,c.mobile,x.product,mf(x.value),x.assignedTo,x.nextFollowup,x.status];}),
-      totalRow:['TOTAL','','','','','',mf(lf.reduce((s,x)=>s+Number(x.value||0),0)),'','','']},
+      headers:['Lead No','Date','Customer','Contact Person','Mobile','Product','Source','Ref Person','Value (BHD)','Salesman','Next Follow-up','Status'],
+      rows:lf.map(x=>{const c=customer(x.customerId);return[x.leadId,x.leadDate,c.companyName,c.contactPerson,c.mobile,x.product,x.leadSource,x.referencePerson||'',mf(x.value),x.assignedTo,x.nextFollowup,x.status];}),
+      totalRow:['TOTAL','','','','','','','',mf(lf.reduce((s,x)=>s+Number(x.value||0),0)),'','','']},
     followups:{title:'Follow-up Register',icon:'📞',color:'#7c3aed',
       headers:['Follow-up No','Date','Type','Reference','Customer','Discussion','Next Follow-up','Updated By','Status'],
       rows:ff.map(x=>{const c=customer(x.customerId);return[x.followupId,x.date,x.type,x.refNo,c.companyName,x.discussion,x.nextFollowup,x.updatedBy,x.status];})},
