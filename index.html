@@ -1355,7 +1355,8 @@ function leadTableView() {
       <td>${esc(c.contactPerson)}</td>
       <td>${esc(c.mobile)}</td>
       <td>${esc(l.product)}</td>
-      <td>${esc(l.leadSource||'-')}${l.referencePerson?'<br><span style="font-size:11px;color:#7c3aed;font-weight:800">🤝 '+esc(l.referencePerson)+'</span>':''}</td>
+      <td>${esc(l.leadSource||'-')}</td>
+      <td>${l.referencePerson?'<span style="color:#7c3aed;font-weight:800">🤝 '+esc(l.referencePerson)+'</span>':'-'}</td>
       <td>${money(l.value)}</td>
       <td>${esc(l.nextFollowup)}</td>
       <td>${esc(l.assignedTo)}</td>
@@ -1372,7 +1373,7 @@ function leadTableView() {
   document.getElementById('content').innerHTML =
     '<div class="hint">Excel-style lead register: search, edit, follow-up, and convert leads to quotations.</div>' +
     filterBar('leads',leadStatuses,db.team,'Amount (BHD)') +
-    table(['Lead No','Date','Company','Contact','Mobile','Product','Source / Ref','Value','Next Follow-up','Salesman','Status','Action'], rows);
+    table(['Lead No','Date','Company','Contact','Mobile','Product','Source','Ref Person','Value','Next Follow-up','Salesman','Status','Action'], rows);
 }
 
 function renderFollowups(){document.getElementById('sectionTitle').innerText='Follow-up Register';
@@ -1461,7 +1462,7 @@ function salesReportBody(){
     else ageBuckets['31+ days']++;
   });
 
-  const rows=leads.map(l=>`<tr><td>${esc(l.leadId)}</td><td>${esc(l.leadDate)}</td><td>${esc(customer(l.customerId).companyName)}</td><td>${esc(l.leadSource)}${l.referencePerson?'<br><span style="font-size:11px;color:#7c3aed;font-weight:800">🤝 '+esc(l.referencePerson)+'</span>':''}</td><td>${esc(l.product)}</td><td>${money(l.value)}</td><td>${esc(l.assignedTo)}</td><td>${badge(l.status)}</td></tr>`).join('');
+  const rows=leads.map(l=>`<tr><td>${esc(l.leadId)}</td><td>${esc(l.leadDate)}</td><td>${esc(customer(l.customerId).companyName)}</td><td>${esc(l.leadSource)}</td><td>${l.referencePerson?esc(l.referencePerson):'-'}</td><td>${esc(l.product)}</td><td>${money(l.value)}</td><td>${esc(l.assignedTo)}</td><td>${badge(l.status)}</td></tr>`).join('');
 
   return `
     <div class="cards" style="margin-bottom:16px">
@@ -1492,7 +1493,7 @@ function salesReportBody(){
         <h3 style="margin:0">Detailed Lead Report</h3>
         <button class="btn gray" onclick="exportSalesReportCSV()">Export CSV</button>
       </div>
-      ${table(['Lead No','Date','Customer','Source','Product','Value','Salesman','Status'],rows)}
+      ${table(['Lead No','Date','Customer','Source','Ref Person','Product','Value','Salesman','Status'],rows)}
     </div>
   `;
 }
@@ -1539,8 +1540,8 @@ function drawSalesReportCharts(){
 }
 
 function exportSalesReportCSV(){
-  let rows=[['Lead No','Date','Customer','Source','Product','Value','Salesman','Status'],
-    ...db.leads.map(l=>[l.leadId,l.leadDate,customer(l.customerId).companyName,l.leadSource,l.product,l.value,l.assignedTo,l.status])];
+  let rows=[['Lead No','Date','Customer','Source','Ref Person','Product','Value','Salesman','Status'],
+    ...db.leads.map(l=>[l.leadId,l.leadDate,customer(l.customerId).companyName,l.leadSource,l.referencePerson||'',l.product,l.value,l.assignedTo,l.status])];
   let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n');
   let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='veltrox-sales-report.csv';a.click();
 }
@@ -2370,16 +2371,14 @@ function leadSourceSel(v){
   return `<div><label>Lead Source</label><select id="leadSource" onchange="toggleRefPersonField(this.value)">${opts.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
 }
 function refPersonBlock(source,val){
-  const show=source==='Reference';
   const list=db.referencePersons||[];
-  return `<div id="refPersonWrap" style="${show?'':'display:none'}"><label>Reference Person</label><div style="display:flex;gap:8px;align-items:center">
+  return `<div id="refPersonWrap"><label>Reference Person</label><div style="display:flex;gap:8px;align-items:center">
     <select id="refPerson" style="flex:1"><option value="">Select Reference Person</option>${list.map(p=>`<option value="${esc(p)}" ${p===val?'selected':''}>${esc(p)}</option>`).join('')}</select>
     <button type="button" class="btn green" style="white-space:nowrap" onclick="quickAddRefPerson()">+ Ref</button>
   </div></div>`;
 }
 function toggleRefPersonField(v){
-  const w=document.getElementById('refPersonWrap');
-  if(w)w.style.display=v==='Reference'?'':'none';
+  // Reference Person field is always visible — kept as a no-op for compatibility
 }
 function quickAddRefPerson(){
   const name=prompt('Reference person name (created once, reused in all future leads):');
@@ -2508,7 +2507,7 @@ function saveLead(){
   const leadPriorityValue=document.getElementById('leadPriority').value;
   if(!document.getElementById('customerId').value)return alert('Select customer');
   const _leadSrc=document.getElementById('leadSource').value;
-  const _refP=(_leadSrc==='Reference'&&document.getElementById('refPerson'))?document.getElementById('refPerson').value:'';
+  const _refP=document.getElementById('refPerson')?document.getElementById('refPerson').value:'';
   upsert(db.leads,'leadId',{leadId:document.getElementById('leadId').value,leadDate:document.getElementById('leadDate').value,customerId:document.getElementById('customerId').value,leadSource:_leadSrc,referencePerson:_refP,product:document.getElementById('product').value,value:document.getElementById('value').value,priority:leadPriorityValue,status:leadStatusValue,nextFollowup:document.getElementById('nextFollowup').value,assignedTo:document.getElementById('assignedTo').value,requirement:document.getElementById('requirement').value,remarks:document.getElementById('leadRemarks').value})
 }
 function saveQuotation(){
