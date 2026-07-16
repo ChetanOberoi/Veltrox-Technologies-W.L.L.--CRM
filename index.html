@@ -1826,7 +1826,50 @@ function previewTemplateSettings(){
   db.settings=backup; // restore actual saved settings after building the preview HTML
   setTimeout(()=>window.print(),100);
 }
-function inp(id,l,v='',type='text',ro=false){return `<div><label>${l}</label><input id="${id}" type="${type}" value="${esc(v)}" ${ro?'readonly':''}></div>`}function txt(id,l,v=''){return `<div class="full"><label>${l}</label><textarea id="${id}">${esc(v)}</textarea></div>`}function sel(id,l,opts,v=''){return `<div><label>${l}</label><select id="${id}">${opts.map(o=>`<option value="${esc(o)}" ${o==v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`}function custSel(v=''){return `<div><label>Customer</label><div style="display:flex;gap:8px;align-items:center"><select id="customerId" style="flex:1"><option value="">Select Customer</option>${db.customers.map(c=>`<option value="${c.customerId}" ${c.customerId==v?'selected':''}>${esc(c.companyName)} - ${esc(c.mobile)}</option>`).join('')}</select><button type="button" class="btn green" style="white-space:nowrap" onclick="quickNewCustomer()">+ Customer</button></div></div>`}// ══════════════════════════════════════════════════════════════════
+function inp(id,l,v='',type='text',ro=false){return `<div><label>${l}</label><input id="${id}" type="${type}" value="${esc(v)}" ${ro?'readonly':''}></div>`}function txt(id,l,v=''){return `<div class="full"><label>${l}</label><textarea id="${id}">${esc(v)}</textarea></div>`}function sel(id,l,opts,v=''){return `<div><label>${l}</label><select id="${id}">${opts.map(o=>`<option value="${esc(o)}" ${o==v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`}function custSel(v=''){const c=db.customers.find(x=>x.customerId===v);return `<div><label>Customer</label><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;position:relative"><input type="text" id="customerSearch" placeholder="Type to search or click to select..." value="${c?esc(c.companyName):''}" autocomplete="off" oninput="custComboFilter()" onfocus="custComboFilter()"><input type="hidden" id="customerId" value="${esc(v)}"><div id="custComboList" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #2563eb;border-radius:10px;max-height:230px;overflow:auto;z-index:1200;box-shadow:0 10px 26px rgba(15,23,42,.18)"></div></div><button type="button" class="btn green" style="white-space:nowrap" onclick="quickNewCustomer()">+ Customer</button></div></div>`}
+// ── SEARCHABLE CUSTOMER COMBO (type OR select) ───────────────────
+function custComboFilter(){
+  const inp=document.getElementById('customerSearch');
+  const list=document.getElementById('custComboList');
+  const hid=document.getElementById('customerId');
+  if(!inp||!list)return;
+  const term=inp.value.toLowerCase().trim();
+  // If typed text exactly matches one company name, auto-link it; otherwise clear until a pick is made
+  const exact=db.customers.find(c=>(c.companyName||'').toLowerCase()===term);
+  if(hid)hid.value=exact?exact.customerId:'';
+  const matches=db.customers.filter(c=>!term
+    ||(c.companyName||'').toLowerCase().includes(term)
+    ||(c.mobile||'').toLowerCase().includes(term)
+    ||(c.contactPerson||'').toLowerCase().includes(term));
+  list.innerHTML=matches.length
+    ?matches.slice(0,60).map(c=>`<div onclick="custComboPick('${esc(c.customerId)}')" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'" style="padding:9px 13px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px"><b>${esc(c.companyName)}</b>${c.mobile?` <span style="color:#6b7280;font-size:12px">— ${esc(c.mobile)}</span>`:''}</div>`).join('')
+    :'<div style="padding:11px 13px;color:#9ca3af;font-size:12px">No matching customer — use <b>+ Customer</b> to add a new one</div>';
+  list.style.display='block';
+}
+function custComboPick(id){
+  const c=db.customers.find(x=>x.customerId===id);if(!c)return;
+  const inp=document.getElementById('customerSearch');
+  const hid=document.getElementById('customerId');
+  const list=document.getElementById('custComboList');
+  if(inp)inp.value=c.companyName;
+  if(hid)hid.value=id;
+  if(list)list.style.display='none';
+}
+// Programmatic setter — used when forms are pre-filled (Quote from Lead, Invoice from Ticket, etc.)
+function setCustomerCombo(id){
+  const hid=document.getElementById('customerId');
+  if(hid)hid.value=id||'';
+  const c=db.customers.find(x=>x.customerId===id);
+  const inp=document.getElementById('customerSearch');
+  if(inp)inp.value=c?c.companyName:'';
+}
+// Close the combo list when clicking anywhere outside it
+document.addEventListener('click',function(e){
+  const list=document.getElementById('custComboList');
+  const inp=document.getElementById('customerSearch');
+  if(list&&list.style.display==='block'&&e.target!==inp&&!list.contains(e.target))list.style.display='none';
+});
+// ─────────────────────────────────────────────────────────────────// ══════════════════════════════════════════════════════════════════
 // INVOICE TEMPLATE ENGINE — 5 selectable designs + customization
 // (logo, accent color, font, layout position, visible fields)
 // ══════════════════════════════════════════════════════════════════
@@ -2648,7 +2691,7 @@ function miniTable(arr,type){
   }).join('')}</tr>`).join('');
   return arr.length?table(headers,rows):'<div class="hint">No records found for this customer yet.</div>';
 }function timeline(id){let ev=[...db.leads.filter(x=>x.customerId===id).map(x=>['Lead',x.leadDate,x.status,x.product]),...db.quotations.filter(x=>x.customerId===id).map(x=>['Quotation',x.date,x.status,x.item]),...db.tickets.filter(x=>x.customerId===id).map(x=>['Ticket',x.date,x.status,x.issue]),...db.invoices.filter(x=>x.customerId===id).map(x=>['Invoice',x.date,x.status,x.item])].sort((a,b)=>String(b[1]).localeCompare(String(a[1])));return `<div class="timeline">${ev.map(e=>`<div class="event"><b>${esc(e[0])}</b> - ${esc(e[1])}<br>${esc(e[3])}<br>${badge(e[2])}</div>`).join('')}</div>`}
-function quickFollowup(type,ref,cid){currentModule='followups';openForm();ftype.value=type;refNo.value=ref;customerId.value=cid;fdiscussion.value='Follow-up call / WhatsApp discussion';fstatus.value='Open'}
+function quickFollowup(type,ref,cid){currentModule='followups';openForm();ftype.value=type;refNo.value=ref;setCustomerCombo(cid);fdiscussion.value='Follow-up call / WhatsApp discussion';fstatus.value='Open'}
 
 // Fills the first row of the multi-line item editor with one item, after the
 // form has rendered (the editor always starts with exactly one empty row).
@@ -2675,14 +2718,14 @@ function createQuotationFromLead(id){
   let l=db.leads.find(x=>x.leadId===id);if(!l)return;
   l.status='Quotation Sent';saveDB();
   currentModule='quotations';openForm();
-  customerId.value=l.customerId;leadIdRef.value=l.leadId;qstatus.value='Sent';
+  setCustomerCombo(l.customerId);leadIdRef.value=l.leadId;qstatus.value='Sent';
   setTimeout(()=>{setInvoiceMode('item');setFirstLineItem('Product',l.product,1,l.value||0);},0);
 }
 
 function createInvoiceFromQuotation(no){
   let q=db.quotations.find(x=>x.quotationNo===no);if(!q)return;
   currentModule='invoices';openForm();
-  customerId.value=q.customerId;quotationNo.value=q.quotationNo;
+  setCustomerCombo(q.customerId);quotationNo.value=q.quotationNo;
   setTimeout(()=>{
     const mode=q.invoiceMode||'item';
     setInvoiceMode(mode);
@@ -2702,7 +2745,7 @@ function createInvoiceFromTicket(no){
   currentModule='invoices';openForm();
   // Remember which ticket this invoice is being raised for (saved on the invoice)
   window._invoiceFromTicket=no;
-  customerId.value=t.customerId;
+  setCustomerCombo(t.customerId);
   setTimeout(()=>{setInvoiceMode('service');setFirstLineItem('Service',t.product,1,t.charges||0);const d=document.getElementById('idescription');if(d&&!d.value)d.value='Service rendered against ticket '+no+(t.issue?' — '+t.issue:'');},0);
 }
 function printInvoice(no){
