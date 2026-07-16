@@ -1836,7 +1836,13 @@ function custComboFilter(){
   const term=inp.value.toLowerCase().trim();
   // If typed text exactly matches one company name, auto-link it; otherwise clear until a pick is made
   const exact=db.customers.find(c=>(c.companyName||'').toLowerCase()===term);
-  if(hid)hid.value=exact?exact.customerId:'';
+  if(hid){
+    const nv=exact?exact.customerId:'';
+    if(hid.value!==nv){
+      hid.value=nv;
+      if(nv&&window._custPickHook)try{window._custPickHook(nv);}catch(e){}
+    }
+  }
   const matches=db.customers.filter(c=>!term
     ||(c.companyName||'').toLowerCase().includes(term)
     ||(c.mobile||'').toLowerCase().includes(term)
@@ -1854,6 +1860,7 @@ function custComboPick(id){
   if(inp)inp.value=c.companyName;
   if(hid)hid.value=id;
   if(list)list.style.display='none';
+  if(window._custPickHook)try{window._custPickHook(id);}catch(e){}
 }
 // Programmatic setter — used when forms are pre-filled (Quote from Lead, Invoice from Ticket, etc.)
 function setCustomerCombo(id){
@@ -1868,6 +1875,52 @@ document.addEventListener('click',function(e){
   const list=document.getElementById('custComboList');
   const inp=document.getElementById('customerSearch');
   if(list&&list.style.display==='block'&&e.target!==inp&&!list.contains(e.target))list.style.display='none';
+});
+// ─────────────────────────────────────────────────────────────────
+// ── GENERIC TYPE-OR-SELECT COMBO (works for any list field) ──────
+// Renders a text input (type to filter / free-type) + hidden input that
+// keeps the SAME element id, so every existing save function keeps
+// working unchanged. Picking from the list OR typing both work; typed
+// text that matches a list entry snaps to the canonical spelling.
+const _comboOpts={};
+function comboSel(id,label,options,value,extraBtnHtml){
+  _comboOpts[id]=(options||[]).slice();
+  return `<div><label>${label}</label><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;position:relative"><input type="text" data-combo="${id}" placeholder="Type or select..." value="${esc(value||'')}" autocomplete="off" oninput="comboFilter('${id}')" onfocus="comboFilter('${id}')"><input type="hidden" id="${id}" value="${esc(value||'')}"><div data-combo-list="${id}" class="combo-pop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #2563eb;border-radius:10px;max-height:210px;overflow:auto;z-index:1200;box-shadow:0 10px 26px rgba(15,23,42,.18)"></div></div>${extraBtnHtml||''}</div></div>`;
+}
+function comboFilter(id){
+  const inp=document.querySelector(`[data-combo="${id}"]`);
+  const list=document.querySelector(`[data-combo-list="${id}"]`);
+  const hid=document.getElementById(id);
+  if(!inp||!list||!hid)return;
+  const term=inp.value.toLowerCase().trim();
+  const opts=_comboOpts[id]||[];
+  const exact=opts.find(o=>String(o).toLowerCase()===term);
+  hid.value=exact!==undefined?exact:inp.value; // snap to canonical spelling, otherwise keep the free-typed text
+  const matches=opts.filter(o=>!term||String(o).toLowerCase().includes(term));
+  list.innerHTML=matches.length
+    ?matches.map(o=>{const oi=opts.indexOf(o);return `<div onclick="comboPick('${id}',${oi})" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'" style="padding:9px 13px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px">${esc(o)}</div>`;}).join('')
+    :'<div style="padding:11px 13px;color:#9ca3af;font-size:12px">No match in the list — your typed text will be saved as-is</div>';
+  list.style.display='block';
+}
+function comboPick(id,idx){
+  const opts=_comboOpts[id]||[];
+  const val=opts[idx];
+  if(val===undefined)return;
+  const inp=document.querySelector(`[data-combo="${id}"]`);
+  const hid=document.getElementById(id);
+  const list=document.querySelector(`[data-combo-list="${id}"]`);
+  if(inp)inp.value=val;
+  if(hid)hid.value=val;
+  if(list)list.style.display='none';
+}
+// Close any open generic combo list when clicking outside it
+document.addEventListener('click',function(e){
+  document.querySelectorAll('.combo-pop').forEach(list=>{
+    if(list.style.display!=='block')return;
+    const id=list.getAttribute('data-combo-list');
+    const inp=document.querySelector(`[data-combo="${id}"]`);
+    if(e.target!==inp&&!list.contains(e.target))list.style.display='none';
+  });
 });
 // ─────────────────────────────────────────────────────────────────// ══════════════════════════════════════════════════════════════════
 // INVOICE TEMPLATE ENGINE — 5 selectable designs + customization
@@ -2154,7 +2207,7 @@ function renderInvoiceDocument(opts){
   return body;
 }
 
-function productSel(v=''){return sel('product','Product (What we sell)',[...db.products,'Other'],v)}
+function productSel(v=''){return comboSel('product','Product (What we sell)',db.products,v)}
 
 function quickToolbar(){
   return `<div class="quick-toolbar">
@@ -2368,10 +2421,10 @@ function recalcLineItems(){
   const totEl=document.getElementById('liTotal');if(totEl)totEl.textContent=money(subtotal+vatAmt);
 }
 // ────────────────────────────────────────────────────────────────
-function serviceSel(v=''){return `<div><label>Service (What we do)</label><select id="product"><option value="">Select Service</option>${[...db.services,'Other'].map(s=>`<option value="${esc(s)}" ${s===v?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`}
-function openForm(id=null){editId=id;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,followups:followupForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm,issueCategories:issueCategoryForm,referencePersons:refPersonForm}[currentModule]||leadForm)(id);if(['invoices','quotations'].includes(currentModule)){showQuickToolbar();}else{hideQuickToolbar();}}function closeForm(){document.getElementById('formModal').style.display='none';editId=null;hideQuickToolbar();}
+function serviceSel(v=''){return comboSel('product','Service (What we do)',db.services,v)}
+function openForm(id=null){editId=id;window._custPickHook=null;document.getElementById('formModal').style.display='flex';({customers:customerForm,leads:leadForm,followups:followupForm,quotations:quotationForm,tickets:ticketForm,renewals:renewalForm,invoices:invoiceForm,payments:paymentForm,products:productForm,services:serviceMasterForm,team:teamForm,issueCategories:issueCategoryForm,referencePersons:refPersonForm}[currentModule]||leadForm)(id);if(['invoices','quotations'].includes(currentModule)){showQuickToolbar();}else{hideQuickToolbar();}}function closeForm(){document.getElementById('formModal').style.display='none';editId=null;hideQuickToolbar();}
 function quickNewCustomer(){currentModule='customers';editId=null;customerForm();}
-function followupForm(id){let r=db.followups.find(x=>x.followupId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Follow-up':'Add Follow-up';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('followupId','Follow-up No',r.followupId||uid('FOL'),'text',true)}${inp('fdate','Date',r.date||today(),'date')}${sel('ftype','Type',['Lead','Quotation','Service','Invoice','Payment','Renewal','General'],r.type||'Lead')}${inp('refNo','Reference No',r.refNo||'')}${custSel(r.customerId)}${inp('fnext','Next Follow-up',r.nextFollowup||'','date')}${sel('fupdatedBy','Updated By',db.team,r.updatedBy||db.team[0]||'')}${sel('fstatus','Status',['Open','Pending','Completed','Closed'],r.status||'Open')}${txt('fdiscussion','Discussion / Action Taken',r.discussion||'')}${txt('fremarks','Remarks',r.remarks||'')}</div>`}
+function followupForm(id){let r=db.followups.find(x=>x.followupId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Follow-up':'Add Follow-up';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('followupId','Follow-up No',r.followupId||uid('FOL'),'text',true)}${inp('fdate','Date',r.date||today(),'date')}${sel('ftype','Type',['Lead','Quotation','Service','Invoice','Payment','Renewal','General'],r.type||'Lead')}${inp('refNo','Reference No',r.refNo||'')}${custSel(r.customerId)}${inp('fnext','Next Follow-up',r.nextFollowup||'','date')}${comboSel('fupdatedBy','Updated By',db.team,r.updatedBy||db.team[0]||'')}${sel('fstatus','Status',['Open','Pending','Completed','Closed'],r.status||'Open')}${txt('fdiscussion','Discussion / Action Taken',r.discussion||'')}${txt('fremarks','Remarks',r.remarks||'')}</div>`}
 function customerForm(id){
   let r=db.customers.find(x=>x.customerId===id)||{};
   let contacts=r.contacts&&r.contacts.length?r.contacts:[{name:r.contactPerson||'',mobile:r.mobile||''}];
@@ -2414,11 +2467,8 @@ function leadSourceSel(v){
   return `<div><label>Lead Source</label><select id="leadSource" onchange="toggleRefPersonField(this.value)">${opts.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
 }
 function refPersonBlock(source,val){
-  const list=db.referencePersons||[];
-  return `<div id="refPersonWrap"><label>Reference Person</label><div style="display:flex;gap:8px;align-items:center">
-    <select id="refPerson" style="flex:1"><option value="">Select Reference Person</option>${list.map(p=>`<option value="${esc(p)}" ${p===val?'selected':''}>${esc(p)}</option>`).join('')}</select>
-    <button type="button" class="btn green" style="white-space:nowrap" onclick="quickAddRefPerson()">+ Ref</button>
-  </div></div>`;
+  const btn=`<button type="button" class="btn green" style="white-space:nowrap" onclick="quickAddRefPerson()">+ Ref</button>`;
+  return comboSel('refPerson','Reference Person',db.referencePersons||[],val,btn);
 }
 function toggleRefPersonField(v){
   // Reference Person field is always visible — kept as a no-op for compatibility
@@ -2431,35 +2481,27 @@ function quickAddRefPerson(){
   if(!Array.isArray(db.referencePersons))db.referencePersons=[];
   const exists=db.referencePersons.find(p=>p.toLowerCase()===v.toLowerCase());
   if(!exists){db.referencePersons.push(v);saveDB();}
-  const selEl=document.getElementById('refPerson');
-  if(selEl){
-    selEl.innerHTML='<option value="">Select Reference Person</option>'+db.referencePersons.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
-    selEl.value=exists||v;
-  }
+  _comboOpts['refPerson']=(db.referencePersons||[]).slice();
+  const val=exists||v;
+  const inp=document.querySelector('[data-combo="refPerson"]');
+  const hid=document.getElementById('refPerson');
+  if(inp)inp.value=val;
+  if(hid)hid.value=val;
   if(exists)alert('"'+exists+'" already exists in the Reference Master — selected it for you.');
 }
 // ─────────────────────────────────────────────────────────────────
-function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${leadSourceSel(r.leadSource||'Cold Call')}${refPersonBlock(r.leadSource||'Cold Call',r.referencePerson||'')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('leadPriority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('leadStatus','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Qualified'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
+function leadForm(id){let r=db.leads.find(x=>x.leadId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Lead':'Add Lead';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('leadId','Lead No',r.leadId||uid('LEAD'),'text',true)}${inp('leadDate','Lead Date',r.leadDate||today(),'date')}${custSel(r.customerId)}${leadSourceSel(r.leadSource||'Cold Call')}${refPersonBlock(r.leadSource||'Cold Call',r.referencePerson||'')}${productSel(r.product||'')}${inp('value','Expected Value BHD',r.value||'','number')}${sel('leadPriority','Priority',['High','Medium','Low'],r.priority||'Medium')}${sel('leadStatus','Status',['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Qualified'],r.status||'New')}${inp('nextFollowup','Next Follow-up',r.nextFollowup||'','date')}${comboSel('assignedTo','Assigned To',db.team,r.assignedTo||db.team[0]||'')}${txt('requirement','Requirement / Notes',r.requirement||'')}${txt('leadRemarks','Remarks',r.remarks||'')}</div>`}
 function quotationForm(id){let r=db.quotations.find(x=>x.quotationNo===id)||{};const mode=r.invoiceMode||(r.items&&r.items.length&&r.items[0].type==='Service'?'service':'item');document.getElementById('formTitle').innerText=id?'Edit Quotation':'Add Quotation';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('quotationNo','Quotation No',r.quotationNo||uid('QT'),'text',true)}${inp('qdate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('leadIdRef','Lead Ref',r.leadId||'')}${invoiceModeToggle(mode)}${lineItemsEditor(r.items,r.vatPercent,mode)}${txt('qdescription','Description',r.description||'')}${inp('validTill','Valid Till',r.validTill||'','date')}${sel('qstatus','Status',['Draft','Sent','Follow-up','Approved','Rejected','Converted'],r.status||'Draft')}${txt('terms','Terms',r.terms||'60% advance on confirmation, balance on delivery.')}${txt('qremarks','Remarks',r.remarks||'')}</div>`;setTimeout(recalcLineItems,0);}
 function ticketForm(id){
   let r=db.tickets.find(x=>x.ticketNo===id)||{};
   document.getElementById('formTitle').innerText=id?'Edit Ticket':'Add Ticket';
-  // Build customer dropdown with onchange trigger
-  const custDropdown=`<div><label>Customer</label><div style="display:flex;gap:8px;align-items:center">
-    <select id="customerId" style="flex:1" onchange="ticketCustomerChanged(this.value)">
-      <option value="">Select Customer</option>
-      ${db.customers.map(c=>`<option value="${c.customerId}" ${c.customerId==r.customerId?'selected':''}>${esc(c.companyName)} - ${esc(c.mobile)}</option>`).join('')}
-    </select>
-    <button type="button" class="btn green" style="white-space:nowrap" onclick="quickNewCustomer()">+ Customer</button>
-  </div></div>`;
-  // Build contact dropdown
+  // Searchable customer combo — picking/typing a customer auto-fills location + contact list
+  window._custPickHook=ticketCustomerChanged;
+  const custDropdown=custSel(r.customerId);
+  // Contact person combo built from the selected customer's contacts
   const cust=r.customerId?db.customers.find(x=>x.customerId===r.customerId):null;
-  const contacts=cust&&cust.contacts&&cust.contacts.length?cust.contacts:[];
-  const contactDropdown=`<div><label>Contact Person</label>
-    <select id="contactPerson">
-      <option value="">Select Customer First</option>
-      ${contacts.map(c=>`<option value="${esc(c.name)}" ${c.name===r.contactPerson?'selected':''}>${esc(c.name)}${c.mobile?' — '+esc(c.mobile):''}</option>`).join('')}
-    </select></div>`;
+  const contacts=cust&&cust.contacts&&cust.contacts.length?cust.contacts:(cust&&cust.contactPerson?[{name:cust.contactPerson,mobile:cust.mobile}]:[]);
+  const contactDropdown=comboSel('contactPerson','Contact Person',contacts.map(c=>c.name).filter(Boolean),r.contactPerson||'');
   document.getElementById('formArea').innerHTML=`<div class="form-grid">
     ${inp('ticketNo','Ticket No',r.ticketNo||uid('TKT'),'text',true)}
     ${inp('tdate','Date',r.date||today(),'date')}
@@ -2467,13 +2509,13 @@ function ticketForm(id){
     ${contactDropdown}
     ${inp('location','Site / Location',r.location||cust?.location||'')}
     ${serviceSel(r.product||'')}
-    ${sel('serviceType','Service Type',['On-Site Visit','Remote — AnyDesk','Remote — TeamViewer','Phone Support','WhatsApp Support','Email Support','Training','Installation','Customization','AMC Visit','Other'],r.serviceType||'On-Site Visit')}
-    ${sel('issueCategory','Issue Category',db.issueCategories,r.issueCategory||db.issueCategories[0]||'')}
+    ${comboSel('serviceType','Service Type',['On-Site Visit','Remote — AnyDesk','Remote — TeamViewer','Phone Support','WhatsApp Support','Email Support','Training','Installation','Customization','AMC Visit','Other'],r.serviceType||'On-Site Visit')}
+    ${comboSel('issueCategory','Issue Category',db.issueCategories,r.issueCategory||db.issueCategories[0]||'')}
     ${inp('serial','Serial / Asset No',r.serial||'')}
     ${inp('startTime','Start Time',r.startTime||'','time')}
     ${inp('endTime','End Time',r.endTime||'','time')}
     ${sel('priority','Priority',['High','Medium','Low'],r.priority||'Medium')}
-    ${sel('engineer','Engineer',db.team,r.engineer||'')}
+    ${comboSel('engineer','Engineer',db.team,r.engineer||'')}
     ${sel('tstatus','Status',['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'],r.status||'Open')}
     ${sel('amc','AMC Covered',['Yes','No'],r.amc||'No')}
     ${inp('charges','Service Charges',r.charges||'','number')}
@@ -2485,18 +2527,21 @@ function ticketForm(id){
 }
 function ticketCustomerChanged(customerId){
   const cust=db.customers.find(x=>x.customerId===customerId);
-  const contactSel=document.getElementById('contactPerson');
   const locationFld=document.getElementById('location');
-  if(!cust){contactSel.innerHTML='<option value="">Select Customer First</option>';return;}
+  const inp=document.querySelector('[data-combo="contactPerson"]');
+  const hid=document.getElementById('contactPerson');
+  if(!cust){_comboOpts['contactPerson']=[];if(inp)inp.value='';if(hid)hid.value='';return;}
   // Auto-fill location
   if(locationFld)locationFld.value=cust.location||'';
-  // Fill contact dropdown
+  // Refresh contact combo with this customer's contacts, pre-select the first one
   const contacts=cust.contacts&&cust.contacts.length?cust.contacts:(cust.contactPerson?[{name:cust.contactPerson,mobile:cust.mobile}]:[]);
-  contactSel.innerHTML=contacts.length
-    ?contacts.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}${c.mobile?' — '+esc(c.mobile):''}</option>`).join('')
-    :'<option value="">No contacts found</option>';
+  const names=contacts.map(c=>c.name).filter(Boolean);
+  _comboOpts['contactPerson']=names;
+  const first=names[0]||'';
+  if(inp)inp.value=first;
+  if(hid)hid.value=first;
 }
-function renewalForm(id){let r=db.renewals.find(x=>x.renewalId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Renewal':'Add Renewal';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('renewalId','Renewal ID',r.renewalId||uid('REN'),'text',true)}${custSel(r.customerId)}${sel('rtype','Renewal Type',['TSS Renewal','AMC Renewal','Cloud Renewal'],r.type||'TSS Renewal')}${inp('license','License Type / Serial No',r.license||'')}${inp('expiryDate','Expiry Date',r.expiryDate||'','date')}${inp('amount','Renewal Amount',r.amount||'','number')}${sel('assignedTo','Assigned To',db.team,r.assignedTo||'')}${sel('rstatus','Status',['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'],r.status||'Upcoming')}${txt('rremarks','Remarks',r.remarks||'')}</div>`}
+function renewalForm(id){let r=db.renewals.find(x=>x.renewalId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Renewal':'Add Renewal';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('renewalId','Renewal ID',r.renewalId||uid('REN'),'text',true)}${custSel(r.customerId)}${sel('rtype','Renewal Type',['TSS Renewal','AMC Renewal','Cloud Renewal'],r.type||'TSS Renewal')}${inp('license','License Type / Serial No',r.license||'')}${inp('expiryDate','Expiry Date',r.expiryDate||'','date')}${inp('amount','Renewal Amount',r.amount||'','number')}${comboSel('assignedTo','Assigned To',db.team,r.assignedTo||'')}${sel('rstatus','Status',['Upcoming','Contacted','Quotation Sent','Negotiation','Renewed','Lost'],r.status||'Upcoming')}${txt('rremarks','Remarks',r.remarks||'')}</div>`}
 function invoiceForm(id){window._invoiceFromTicket=null;let r=db.invoices.find(x=>x.invoiceNo===id)||{};const mode=r.invoiceMode||(r.items&&r.items.length&&r.items[0].type==='Service'?'service':'item');document.getElementById('formTitle').innerText=id?'Edit Invoice':'Add Invoice';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('invoiceNo','Invoice No',r.invoiceNo||uid('INV'),'text',true)}${inp('idate','Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('quotationNo','Quotation Ref',r.quotationNo||'')}${invoiceModeToggle(mode)}${lineItemsEditor(r.items,r.vatPercent,mode)}${txt('idescription','Description',r.description||'')}${sel('istatus','Payment Status',['Pending','Partial','Paid'],r.status||'Pending')}${txt('iremarks','Remarks',r.remarks||'')}</div>`;setTimeout(recalcLineItems,0);}
 function paymentForm(id){let r=db.payments.find(x=>x.paymentId===id)||{};document.getElementById('formTitle').innerText=id?'Edit Payment':'Add Payment';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('paymentId','Payment ID',r.paymentId||uid('PAY'),'text',true)}${inp('pdate','Payment Date',r.date||today(),'date')}${custSel(r.customerId)}${inp('pinvoiceNo','Invoice No',r.invoiceNo||'')}${inp('invoiceAmount','Invoice Amount',r.invoiceAmount||'','number')}${inp('received','Received Amount',r.received||'','number')}${inp('dueDate','Due Date',r.dueDate||'','date')}${sel('pstatus','Status',['Pending','Partial','Paid','Overdue'],r.status||'Pending')}${sel('mode','Mode',['Cash','BenefitPay','Bank Transfer','Cheque','Card','Other'],r.mode||'Bank Transfer')}${inp('referenceNo','Reference No',r.referenceNo||'')}${txt('premarks','Remarks',r.remarks||'')}</div>`}
 function productForm(){document.getElementById('formTitle').innerText='Add Product';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Product Name','')}</div>`}function serviceMasterForm(){document.getElementById('formTitle').innerText='Add Service';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Service Name','')}</div>`}function teamForm(){document.getElementById('formTitle').innerText='Add Team Member';document.getElementById('formArea').innerHTML=`<div class="form-grid">${inp('masterName','Team Member Name','')}</div>`}
