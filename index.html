@@ -17,11 +17,12 @@
 body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
 button,input,select,textarea{font-family:inherit}
 .app{display:flex;min-height:100vh}
-.sidebar{width:280px;background:linear-gradient(180deg,var(--dark),var(--dark2));color:#fff;position:fixed;inset:0 auto 0 0;padding:22px 16px;overflow:auto}
-.brand{font-size:24px;font-weight:900;letter-spacing:.2px}.brand-sub{font-size:12px;color:#cbd5e1;margin:5px 0 22px}
-.group-title{font-size:11px;text-transform:uppercase;color:#94a3b8;margin:18px 10px 6px;font-weight:800;letter-spacing:.8px}
-.nav{width:100%;border:0;background:transparent;color:#dbe4ef;text-align:left;padding:11px 12px;border-radius:11px;margin:3px 0;cursor:pointer;font-weight:700;display:flex;gap:9px;align-items:center}
-.nav:hover,.nav.active{background:var(--primary);color:#fff}
+.sidebar{width:280px;background:linear-gradient(180deg,#eff6ff,#dbeafe);color:#0f172a;position:fixed;inset:0 auto 0 0;padding:22px 16px;overflow:auto;border-right:1px solid #bfdbfe}
+.brand{font-size:24px;font-weight:900;letter-spacing:.2px;color:#1e3a8a}.brand-sub{font-size:12px;color:#64748b;margin:5px 0 22px}
+.group-title{font-size:11px;text-transform:uppercase;color:#93a8c9;margin:18px 10px 6px;font-weight:800;letter-spacing:.8px}
+.nav{width:100%;border:0;background:transparent;color:#1e3a5f;text-align:left;padding:11px 12px;border-radius:11px;margin:3px 0;cursor:pointer;font-weight:700;display:flex;gap:9px;align-items:center}
+.nav:hover{background:#fff;color:#1d4ed8}
+.nav.active{background:var(--primary);color:#fff}
 .main{margin-left:280px;width:calc(100% - 280px);padding:22px}
 .topbar{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
 h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
@@ -43,32 +44,34 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 #printArea{display:none}
 @media print{
   @page{size:A4;margin:12mm}
-  html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;width:auto!important;margin:0!important;padding:0!important}
   body>*:not(#printArea){display:none!important}
-  #printArea{display:block!important;position:static;width:100%;max-width:100%;margin:0;padding:0;box-sizing:border-box;font-size:12px;background:#fff!important}
-  #printArea table{width:100%!important;min-width:0!important;table-layout:fixed;word-wrap:break-word}
+  #printArea{display:block!important;position:static;width:186mm!important;max-width:186mm!important;margin:0!important;padding:0!important;box-sizing:border-box;font-size:12px;background:#fff!important;overflow:hidden!important}
+  #printArea>div{width:186mm!important;max-width:186mm!important;overflow:hidden!important}
+  #printArea table{width:100%!important;min-width:0!important;max-width:186mm!important;table-layout:fixed!important;word-wrap:break-word;border-spacing:0}
   #printArea *{box-sizing:border-box;max-width:100%}
-  #printArea th,#printArea td{white-space:normal!important}
-  #printArea img{max-width:100%}
+  #printArea th,#printArea td{white-space:normal!important;overflow-wrap:break-word;word-break:break-word}
+  #printArea img{max-width:100%!important;height:auto}
+  #printArea div[style*="display:flex"],#printArea div[style*="display: flex"]{flex-wrap:wrap}
   .no-print{display:none!important}
 }
 
-#fbOverlay{position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;color:#fff}
-.fb-spinner{width:40px;height:40px;border:4px solid #334155;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:20px}
+#fbOverlay{position:fixed;inset:0;background:#f5f7fb;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;color:#0f172a}
+.fb-spinner{width:40px;height:40px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:20px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-#syncIndicator{position:fixed;bottom:16px;right:16px;background:#0f172a;color:#fff;border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;z-index:9998;display:flex;align-items:center;gap:7px;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:all .3s}
-#syncIndicator.syncing{background:#1d4ed8}
-#syncIndicator.success{background:#15803d}
-#syncIndicator.error{background:#dc2626}
+#syncIndicator{position:fixed;bottom:16px;right:16px;background:#fff;color:#334155;border:1px solid #e5e7eb;border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;z-index:9998;display:flex;align-items:center;gap:7px;box-shadow:0 4px 16px rgba(15,23,42,.1);transition:all .3s}
+#syncIndicator.syncing{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+#syncIndicator.success{background:#15803d;color:#fff;border-color:#15803d}
+#syncIndicator.error{background:#dc2626;color:#fff;border-color:#dc2626}
 #syncDot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
 #syncIndicator.syncing #syncDot{background:#93c5fd;animation:pulse 1s infinite}
 #syncIndicator.success #syncDot{background:#86efac}
 #syncIndicator.error #syncDot{background:#fca5a5}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);display:flex;align-items:center;justify-content:center;z-index:99998}
-#loginBox{background:#fff;border-radius:24px;padding:40px;width:400px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 50%,#e0e7ff 100%);display:flex;align-items:center;justify-content:center;z-index:99998}
+#loginBox{background:#fff;border-radius:24px;padding:40px;width:400px;max-width:95vw;box-shadow:0 20px 50px rgba(30,58,138,.15);border:1px solid #e5e7eb}
 #loginBox .lb-logo{font-size:40px;text-align:center;margin-bottom:8px}
 #loginBox .lb-title{font-size:22px;font-weight:900;text-align:center;color:#0f172a;margin-bottom:4px}
 #loginBox .lb-sub{font-size:13px;color:#6b7280;text-align:center;margin-bottom:28px}
@@ -80,25 +83,25 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 #loginBox .lb-btn:disabled{background:#93c5fd;cursor:not-allowed}
 #loginBox .lb-err{background:#fee2e2;color:#991b1b;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;display:none}
 #loginBox .lb-foot{text-align:center;font-size:12px;color:#6b7280;margin-top:16px}
-#userBar{background:#0f172a;color:#fff;padding:7px 18px;font-size:12px;display:flex;justify-content:space-between;align-items:center;position:fixed;top:0;left:0;right:0;z-index:999}
-#userBar span{color:#94a3b8}
+#userBar{background:#fff;color:#0f172a;padding:7px 18px;font-size:12px;display:flex;justify-content:space-between;align-items:center;position:fixed;top:0;left:0;right:0;z-index:999;border-bottom:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(15,23,42,.05)}
+#userBar span{color:#6b7280}
 #userBar button{border:0;background:#dc2626;color:#fff;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:800;cursor:pointer}
 .app{margin-top:32px}
 .sidebar{top:32px!important;height:calc(100vh - 32px)!important}
 
-#introScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#0f172a 100%);overflow-y:auto;z-index:99997;display:flex;align-items:center;justify-content:center;padding:40px 20px}
-.intro-wrap{max-width:980px;width:100%;color:#fff;text-align:center}
+#introScreen{position:fixed;inset:0;background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 50%,#e0e7ff 100%);overflow-y:auto;z-index:99997;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.intro-wrap{max-width:980px;width:100%;color:#0f172a;text-align:center}
 .intro-logo{font-size:56px;margin-bottom:12px}
-.intro-title{font-size:38px;font-weight:900;margin-bottom:8px;letter-spacing:-.5px}
-.intro-sub{font-size:16px;color:#cbd5e1;margin-bottom:44px}
+.intro-title{font-size:38px;font-weight:900;margin-bottom:8px;letter-spacing:-.5px;color:#1e3a8a}
+.intro-sub{font-size:16px;color:#6b7280;margin-bottom:44px}
 .intro-features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:40px}
-.intro-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px 18px;text-align:left;backdrop-filter:blur(8px)}
+.intro-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:24px 18px;text-align:left;box-shadow:0 6px 18px rgba(30,58,138,.06)}
 .intro-card .ic-emoji{font-size:28px;margin-bottom:10px}
-.intro-card .ic-title{font-size:15px;font-weight:800;margin-bottom:6px;color:#fff}
-.intro-card .ic-desc{font-size:12.5px;color:#94a3b8;line-height:1.5}
-.intro-btn{background:#2563eb;color:#fff;border:0;padding:15px 44px;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(37,99,235,.4)}
+.intro-card .ic-title{font-size:15px;font-weight:800;margin-bottom:6px;color:#0f172a}
+.intro-card .ic-desc{font-size:12.5px;color:#6b7280;line-height:1.5}
+.intro-btn{background:#2563eb;color:#fff;border:0;padding:15px 44px;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(37,99,235,.3)}
 .intro-btn:hover{background:#1d4ed8}
-.intro-foot{margin-top:20px;font-size:12px;color:#64748b}
+.intro-foot{margin-top:20px;font-size:12px;color:#9ca3af}
 @media (max-width:780px){.intro-features{grid-template-columns:1fr}.intro-title{font-size:28px}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -169,7 +172,7 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 <div id="userBar" style="display:none">
   <span style="display:flex;align-items:center;gap:10px">
     <span>🔥</span>
-    <span id="userDisplayName" style="font-weight:800;color:#fff;font-size:13px"></span>
+    <span id="userDisplayName" style="font-weight:800;color:#0f172a;font-size:13px"></span>
     <span id="userRoleBadge" style="background:#1e40af;color:#bfdbfe;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:800"></span>
     <span id="userEmail" style="color:#94a3b8;font-size:11px"></span>
   </span>
@@ -1732,6 +1735,16 @@ function renderSettings(){setTimeout(afterRenderSettings,100);
         <input type="file" id="setLogoFile" accept="image/*" onchange="handleLogoUpload(this)">
         ${db.settings.invoiceLogo?'<div style="margin-top:6px;font-size:11px;color:#16a34a">✓ Logo uploaded — <a href="#" onclick="clearLogo();return false" style="color:#dc2626">remove</a></div>':''}
       </div>
+      <div>
+        <label>Header Image (full-width letterhead top)</label>
+        <input type="file" id="setHeaderImgFile" accept="image/*" onchange="handleHFImgUpload(this,'invoiceHeaderImg')">
+        ${db.settings.invoiceHeaderImg?'<div style="margin-top:6px;font-size:11px;color:#16a34a">✓ Header image saved — <a href="#" onclick="clearHFImg(\'invoiceHeaderImg\');return false" style="color:#dc2626">remove</a></div>':'<div style="margin-top:6px;font-size:11px;color:#6b7280">Replaces the text header on the Enigma Style template</div>'}
+      </div>
+      <div>
+        <label>Footer Image (full-width letterhead bottom)</label>
+        <input type="file" id="setFooterImgFile" accept="image/*" onchange="handleHFImgUpload(this,'invoiceFooterImg')">
+        ${db.settings.invoiceFooterImg?'<div style="margin-top:6px;font-size:11px;color:#16a34a">✓ Footer image saved — <a href="#" onclick="clearHFImg(\'invoiceFooterImg\');return false" style="color:#dc2626">remove</a></div>':'<div style="margin-top:6px;font-size:11px;color:#6b7280">Replaces the text footer on the Enigma Style template</div>'}
+      </div>
     </div>
 
     <h3 style="margin:18px 0 10px">Visible Fields on Invoice</h3>
@@ -1773,7 +1786,7 @@ function fieldToggle(key,label,checked){
   </label>`;
 }
 function tplPreviewGlyph(key){
-  const glyphs={nbr:'🇧🇭 NBR Compliant',classic:'▭ Bordered',modern:'▬ Header Band',minimal:'· Whitespace',compact:'≡ Dense',bold:'■ Big Header'};
+  const glyphs={nbr:'🇧🇭 NBR Compliant',enigma:'▦ Letterhead Bands',classic:'▭ Bordered',modern:'▬ Header Band',minimal:'· Whitespace',compact:'≡ Dense',bold:'■ Big Header'};
   return glyphs[key]||key;
 }
 function selectInvoiceTemplate(key){
@@ -1794,6 +1807,22 @@ function handleLogoUpload(input){
 }
 function clearLogo(){
   db.settings.invoiceLogo='';
+  saveDB();
+  renderSettings();
+}
+// Header/footer letterhead images (used by Enigma Style template).
+// Saved immediately to settings + Firebase. Kept under 350KB each because
+// all settings share one Firestore document with a 1MB limit.
+function handleHFImgUpload(input,key){
+  const file=input.files[0];
+  if(!file)return;
+  if(file.size>350000){alert('Please choose an image under 350KB. Tip: export the letterhead strip as JPG at around 1200px width.');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=()=>{db.settings[key]=reader.result;saveDB();alert('Image saved! It will appear on the Enigma Style template.');renderSettings();};
+  reader.readAsDataURL(file);
+}
+function clearHFImg(key){
+  db.settings[key]='';
   saveDB();
   renderSettings();
 }
@@ -1945,6 +1974,7 @@ document.addEventListener('click',function(e){
 // ══════════════════════════════════════════════════════════════════
 const INVOICE_TEMPLATES={
   nbr:{name:'Bahrain NBR',desc:'NBR-compliant tax invoice (recommended)'},
+  enigma:{name:'Enigma Style',desc:'Letterhead + colored bands, header/footer images'},
   classic:{name:'Classic',desc:'Traditional bordered layout, formal tone'},
   modern:{name:'Modern',desc:'Bold header band, clean sans-serif'},
   minimal:{name:'Minimal',desc:'Lots of whitespace, understated'},
@@ -2038,6 +2068,94 @@ function renderInvoiceDocument(opts){
     </tr>`;
 
   let body='';
+
+  if(tpl==='enigma'){
+    const headerImg=s.invoiceHeaderImg||'';
+    const footerImg=s.invoiceFooterImg||'';
+    const headerBlock=headerImg
+      ?`<img src="${headerImg}" style="width:100%;object-fit:contain;display:block">`
+      :`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+          <div>
+            <div style="font-size:25px;font-weight:900;letter-spacing:.3px">${esc((s.company||'').toUpperCase())}</div>
+            <div style="font-size:11px;line-height:1.7;color:#374151;margin-top:4px">${esc(s.address||'')}${s.crNo?'. CR-'+esc(s.crNo):''}<br>${[s.phone,s.email,(s.vatNo?'VAT:-'+s.vatNo:'')].filter(Boolean).map(x=>esc(x)).join(' | ')}</div>
+          </div>
+          ${logoHtml}
+        </div>`;
+    const footerBlock=footerImg
+      ?`<img src="${footerImg}" style="width:100%;object-fit:contain;display:block;margin-top:26px">`
+      :`<div style="border-top:3px solid #b91c1c;margin-top:34px;padding-top:8px;font-size:11px">
+          <b>Contact Details for Direct Clarification</b>
+          <div style="margin-top:4px">${esc(s.phone||'')}${s.email?' | '+esc(s.email):''}<span style="float:right">Page 1/1</span></div>
+        </div>`;
+    const enItems=opts.items.map((it,idx)=>`<tr>
+        <td style="border:1px solid ${accent}55;padding:9px;text-align:center;font-size:12px;vertical-align:top">${idx+1}.</td>
+        <td style="border:1px solid ${accent}55;padding:9px;font-size:12px;vertical-align:top"><b>${esc(it.name)}</b>${(fields.showItemDescription!==false&&it.description)?'<br><span style="font-size:11.5px;line-height:1.7">'+esc(it.description).replaceAll('\n','<br>')+'</span>':''}</td>
+        <td style="border:1px solid ${accent}55;padding:9px;text-align:right;font-size:12px;vertical-align:top">BD ${money(it.rate)}</td>
+        <td style="border:1px solid ${accent}55;padding:9px;text-align:center;font-size:12px;vertical-align:top">${esc(it.qty)} Nos</td>
+        <td style="border:1px solid ${accent}55;padding:9px;text-align:right;font-size:12px;vertical-align:top">BD ${money(it.qty*it.rate)}</td>
+      </tr>`).join('');
+    const workSummary=(fields.showDescription!==false&&opts.description)?opts.description:opts.items.map(it=>it.name).filter(Boolean).join(', ');
+    const bankBlock=(s.bankAccName||s.bankAccNo||s.bankIban)?`
+      <div style="font-size:12px;line-height:1.8;margin-top:22px">
+        Please make your Payment / Bank Transfer to<br>
+        <b>${esc(s.bankAccName||s.company||'')}</b><br>
+        ${s.bankAccNo?'A/C # '+esc(s.bankAccNo)+',<br>':''}
+        ${s.bankIban?'IBAN # '+esc(s.bankIban):''}
+      </div>`:'';
+    body=`<div style="font-family:${font};color:#111827">
+      ${headerBlock}
+      <div style="height:3px;background:#b91c1c;margin:10px 0 16px"></div>
+      <div style="display:flex;justify-content:space-between;gap:14px;margin-bottom:16px">
+        <div style="font-size:12.5px;line-height:1.7">
+          <div>To,</div>
+          <div style="font-weight:900;font-size:14px">${esc(opts.customerName||'')}</div>
+          ${opts.customerAddress?`<div>${esc(opts.customerAddress)}</div>`:''}
+          ${opts.customerVat?`<div>TRN:${esc(opts.customerVat)}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:26px;font-weight:900;color:${accent}">${esc(opts.docLabel)}</div>
+          <div style="font-size:12px;margin-top:4px">INVOICE NO : ${esc(opts.docNo)}</div>
+          <div style="font-size:12px">INVOICE DATE : ${esc(opts.date)}</div>
+          ${opts.quoteRef?`<div style="font-size:12px">QUOTE REF: ${esc(opts.quoteRef)}</div>`:''}
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <tr style="background:${accent};color:#fff"><th style="padding:9px;font-size:12px;border:1px solid ${accent}">WORK/PRODUCT DESCRIPTION</th><th style="padding:9px;font-size:12px;border:1px solid ${accent};width:24%">DELIVERY DATE</th></tr>
+        <tr><td style="border:1px solid ${accent}55;padding:9px;text-align:center;font-size:12px">${esc(workSummary)}</td><td style="border:1px solid ${accent}55;padding:9px;text-align:center;font-size:12px">${esc(opts.supplyDate||opts.date)}</td></tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse">
+        <tr style="background:${accent};color:#fff">
+          <th style="padding:9px;font-size:12px;border:1px solid ${accent};width:6%">S/N</th>
+          <th style="padding:9px;font-size:12px;border:1px solid ${accent}">WORK / DESCRIPTION</th>
+          <th style="padding:9px;font-size:12px;border:1px solid ${accent};width:13%">UNIT PRICE</th>
+          <th style="padding:9px;font-size:12px;border:1px solid ${accent};width:10%">QTY</th>
+          <th style="padding:9px;font-size:12px;border:1px solid ${accent};width:14%">LINE TOTAL</th>
+        </tr>
+        ${enItems}
+        <tr>
+          <td colspan="3" rowspan="3" style="border:1px solid ${accent}55;padding:9px;text-align:center;font-weight:800;font-size:12px;vertical-align:middle">${esc(amountInWords(opts.total))}<br>(Inc.VAT@${esc(opts.vatPercent)}%)</td>
+          <td style="border:1px solid ${accent}55;padding:7px;font-size:11.5px;font-weight:800;text-align:right">SUBTOTAL (EXC. VAT)</td>
+          <td style="border:1px solid ${accent}55;padding:7px;font-size:12px;text-align:right">BD ${money(opts.amount)}</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid ${accent}55;padding:7px;font-size:11.5px;font-weight:800;text-align:right">VAT ${esc(opts.vatPercent)}%</td>
+          <td style="border:1px solid ${accent}55;padding:7px;font-size:12px;text-align:right">BD ${money(opts.vat)}</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid ${accent}55;padding:7px;font-size:12px;font-weight:900;text-align:right">TOTAL (INC. VAT)</td>
+          <td style="border:1px solid ${accent}55;padding:7px;font-size:12px;font-weight:900;text-align:right">BD ${money(opts.total)}</td>
+        </tr>
+      </table>
+      ${bankBlock}
+      ${termsBlock}
+      <div style="text-align:right;margin-top:26px;font-size:13px">
+        <div style="font-weight:700">For ${esc((s.company||'').toUpperCase())}</div>
+        <div style="margin-top:22px;font-weight:800">${esc((s.signName||'').toUpperCase())}</div>
+        ${s.phone?`<div>${esc(s.phone)}</div>`:''}
+      </div>
+      ${footerBlock}
+    </div>`;
+  }
 
   if(tpl==='nbr'){
     // Bahrain NBR mandatory fields: invoice date, supply date (if different),
@@ -2994,7 +3112,7 @@ function printInvoice(no){
   const items=i.items&&i.items.length?i.items:[{type:'Product',name:i.item||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0}];
   const typeLabel=i.invoiceMode==='service'?'SERVICE INVOICE':'TAX INVOICE';
   document.getElementById('printArea').innerHTML=renderInvoiceDocument({
-    docLabel:typeLabel, docNo:i.invoiceNo, date:i.date, supplyDate:i.date,
+    docLabel:typeLabel, docNo:i.invoiceNo, date:i.date, supplyDate:i.date, quoteRef:i.quotationNo||'',
     customerName:c.companyName, customerVat:c.vatNo, customerAddress:c.address,
     items, description:i.description, terms:i.terms,
     amount:i.amount, vatPercent:i.vatPercent, vat:i.vat, total:i.total
