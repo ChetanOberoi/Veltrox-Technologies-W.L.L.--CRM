@@ -116,7 +116,7 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
   <div class="intro-wrap">
     <div class="intro-logo">🔥</div>
     <div class="intro-title">Veltrox CRM</div>
-    <div class="intro-sub">Veltrox Technologies W.L.L. — Built for Tally Support &amp; IT Services in Bahrain</div>
+    <div class="intro-sub">Veltrox Technologies W.L.L. — Built for Sales &amp; Service</div>
     <div class="intro-features">
       <div class="intro-card">
         <div class="ic-emoji">🎯</div>
@@ -3713,5 +3713,356 @@ function printTicket(no){
   }catch(e){}
 })();
 </script>
+
+
+
+<!-- ============================================================
+     VELTROX GOLD 3D INTRO THEME (permanent welcome page reskin)
+     Append-only block: overrides the intro screen styling and
+     adds the 3D gold logo + tilting cards. Does NOT modify any
+     existing HTML, Firebase auth, login flow, or Get Started
+     button logic — the original intro DOM stays exactly as is.
+     ============================================================ -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&display=swap">
+<style id="vtx3dIntroTheme">
+  /* ---- page backdrop ---- */
+  #introScreen{
+    background:
+      radial-gradient(90% 60% at 50% 0%, #1c140a 0%, transparent 70%),
+      radial-gradient(80% 60% at 80% 100%, #17110a 0%, transparent 60%),
+      #0a0703 !important;
+  }
+  /* ---- hide the flame emoji, the 3D logo replaces it ---- */
+  #introScreen .intro-logo{display:none !important;}
+  #vtxIntroStage{
+    width:min(70vw,320px);
+    height:min(30vh,230px);
+    margin:0 auto;
+    cursor:grab;
+    touch-action:none;
+  }
+  #vtxIntroStage.dragging{cursor:grabbing}
+  /* ---- gold wordmark title ---- */
+  #introScreen .intro-title{
+    font-family:'Michroma',Arial,sans-serif !important;
+    letter-spacing:.14em !important;
+    padding-left:.14em;
+    background:linear-gradient(180deg,#fdf3d0 0%,#ecd18a 30%,#d3a84c 47%,#6e4c14 52%,#e0bd6a 68%,#fdf3d0 100%);
+    -webkit-background-clip:text !important;
+    background-clip:text !important;
+    color:transparent !important;
+    filter:drop-shadow(0 3px 16px rgba(232,184,75,.18));
+    margin-top:-4px;
+  }
+  #introScreen .intro-sub{
+    color:#9a8d6f !important;
+    letter-spacing:.04em;
+  }
+  /* ---- 3D tilting cards ---- */
+  #introScreen .intro-features{perspective:1400px;}
+  #introScreen .intro-card{
+    background:rgba(28,22,12,.72) !important;
+    border:1px solid rgba(211,168,76,.22) !important;
+    box-shadow:0 12px 40px rgba(0,0,0,.45) !important;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    transform-style:preserve-3d;
+    transition:transform .18s ease-out, border-color .3s, box-shadow .3s !important;
+    position:relative;
+  }
+  #introScreen .intro-card:hover{
+    border-color:rgba(232,184,75,.5) !important;
+    box-shadow:0 26px 60px rgba(0,0,0,.6), 0 0 40px rgba(232,184,75,.07) !important;
+  }
+  #introScreen .intro-card .ic-emoji{
+    width:54px;height:54px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:13px;
+    background:linear-gradient(160deg, rgba(232,184,75,.16), rgba(232,184,75,.04));
+    border:1px solid rgba(232,184,75,.28);
+    transform:translateZ(42px);
+    box-shadow:0 8px 20px rgba(0,0,0,.35);
+    margin-bottom:6px;
+  }
+  #introScreen .intro-card .ic-title{
+    color:#fdf3d0 !important;
+    transform:translateZ(32px);
+  }
+  #introScreen .intro-card .ic-desc{
+    color:#9a8d6f !important;
+    transform:translateZ(20px);
+  }
+  #introScreen .intro-card .vtx-glare{
+    position:absolute;inset:0;border-radius:inherit;
+    background:radial-gradient(320px circle at var(--gx,50%) var(--gy,50%), rgba(253,243,208,.10), transparent 60%);
+    pointer-events:none;
+    transform:translateZ(1px);
+  }
+  /* ---- gold Get Started button (same onclick, new skin) ---- */
+  #introScreen .intro-btn{
+    font-family:'Michroma',Arial,sans-serif !important;
+    font-size:13px !important;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:#1c140a !important;
+    background:linear-gradient(180deg,#fdf3d0 0%,#e8b84b 45%,#c9963a 100%) !important;
+    box-shadow:0 14px 34px rgba(232,184,75,.22), inset 0 1px 0 rgba(255,255,255,.6), inset 0 -3px 6px rgba(110,76,20,.45) !important;
+    transition:transform .2s, box-shadow .2s;
+  }
+  #introScreen .intro-btn:hover{
+    background:linear-gradient(180deg,#fdf3d0 0%,#e8b84b 45%,#c9963a 100%) !important;
+    transform:translateY(-3px) scale(1.02);
+    box-shadow:0 22px 46px rgba(232,184,75,.3), inset 0 1px 0 rgba(255,255,255,.6), inset 0 -3px 6px rgba(110,76,20,.45) !important;
+  }
+  #introScreen .intro-foot{color:#5c5238 !important;letter-spacing:.2em;text-transform:uppercase;font-size:11px !important;}
+  @media (prefers-reduced-motion:reduce){
+    #introScreen .intro-card, #introScreen .intro-btn{transition:none !important;}
+  }
+</style>
+<script>
+(function(){
+  var intro = document.getElementById('introScreen');
+  if (!intro) return;
+  // If the intro was already skipped this session, don't spend resources on the 3D scene
+  var visible = window.getComputedStyle(intro).display !== 'none';
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- card tilt + glare (mouse only; touch stays flat) ---- */
+  var MAX_TILT = 8;
+  intro.querySelectorAll('.intro-card').forEach(function(card){
+    var glare = document.createElement('div');
+    glare.className = 'vtx-glare';
+    card.appendChild(glare);
+    card.addEventListener('pointermove', function(e){
+      if (reduceMotion || e.pointerType === 'touch') return;
+      var r = card.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width;
+      var y = (e.clientY - r.top) / r.height;
+      card.style.transform = 'rotateX(' + ((y - 0.5) * -2 * MAX_TILT).toFixed(2) + 'deg) rotateY(' + ((x - 0.5) * 2 * MAX_TILT).toFixed(2) + 'deg)';
+      card.style.setProperty('--gx', (x * 100) + '%');
+      card.style.setProperty('--gy', (y * 100) + '%');
+    });
+    card.addEventListener('pointerleave', function(){
+      card.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    });
+  });
+
+  if (!visible) return;
+
+  /* ---- 3D gold logo above the title ---- */
+  var title = intro.querySelector('.intro-title');
+  if (!title) return;
+  var stage = document.createElement('div');
+  stage.id = 'vtxIntroStage';
+  title.parentNode.insertBefore(stage, title);
+
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  s.onerror = function(){ stage.remove(); intro.querySelector('.intro-logo').style.display = ''; };
+  s.onload = function(){
+    try {
+      var renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+      renderer.setSize(stage.clientWidth, stage.clientHeight);
+      stage.appendChild(renderer.domElement);
+
+      var scene = new THREE.Scene();
+      var camera = new THREE.PerspectiveCamera(38, stage.clientWidth / stage.clientHeight, 0.1, 100);
+      camera.position.set(0, 0.15, 8.4);
+
+      var c = document.createElement('canvas');
+      c.width = 512; c.height = 256;
+      var g = c.getContext('2d');
+      var base = g.createLinearGradient(0, 0, 0, c.height);
+      base.addColorStop(0, '#120c05'); base.addColorStop(0.45, '#2c2010');
+      base.addColorStop(0.55, '#4a3512'); base.addColorStop(1, '#0a0602');
+      g.fillStyle = base; g.fillRect(0, 0, c.width, c.height);
+      [[0.16,0.055,0.95,'255,248,225'],[0.34,0.03,0.72,'255,236,190'],[0.52,0.018,0.55,'255,255,250'],[0.72,0.045,0.42,'232,184,75']].forEach(function(sp){
+        var y = sp[0]*c.height, h = sp[1]*c.height;
+        var gr = g.createLinearGradient(0, y-h, 0, y+h);
+        gr.addColorStop(0,'rgba('+sp[3]+',0)');
+        gr.addColorStop(0.5,'rgba('+sp[3]+','+sp[2]+')');
+        gr.addColorStop(1,'rgba('+sp[3]+',0)');
+        g.fillStyle = gr; g.fillRect(0, y-h, c.width, h*2);
+      });
+      var envTex = new THREE.CanvasTexture(c);
+      envTex.mapping = THREE.EquirectangularReflectionMapping;
+      envTex.encoding = THREE.sRGBEncoding;
+      scene.environment = envTex;
+
+      var gold = new THREE.MeshStandardMaterial({color:0xf4c95d, metalness:1, roughness:0.12, envMap:envTex, envMapIntensity:1.3});
+      var champagne = new THREE.MeshStandardMaterial({color:0xfff1cf, metalness:1, roughness:0.08, envMap:envTex, envMapIntensity:1.35, emissive:0x2a1c05, emissiveIntensity:0.35});
+      var bronze = new THREE.MeshStandardMaterial({color:0x8a6a2f, metalness:1, roughness:0.3, envMap:envTex, envMapIntensity:1.0});
+
+      var logo = new THREE.Group();
+      scene.add(logo);
+
+      function vShape(W, H, T, tip){
+        var sh = new THREE.Shape();
+        sh.moveTo(-W, H/2); sh.lineTo(-W+T, H/2);
+        sh.lineTo(0, -H/2 + T*0.95);
+        sh.lineTo(W-T, H/2); sh.lineTo(W, H/2);
+        sh.lineTo(tip, -H/2); sh.lineTo(-tip, -H/2);
+        sh.closePath(); return sh;
+      }
+      var vMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(vShape(2.6,3.0,0.85,0.28), {depth:0.55, bevelEnabled:true, bevelThickness:0.1, bevelSize:0.085, bevelSegments:5, curveSegments:24}), gold);
+      vMesh.geometry.center(); logo.add(vMesh);
+      var blade = new THREE.Mesh(new THREE.ExtrudeGeometry(vShape(1.55,1.9,0.28,0.12), {depth:0.18, bevelEnabled:true, bevelThickness:0.04, bevelSize:0.035, bevelSegments:3, curveSegments:16}), champagne);
+      blade.geometry.center(); blade.position.set(0, 0.42, 0.52); logo.add(blade);
+      var ring = new THREE.Mesh(new THREE.TorusGeometry(2.55, 0.055, 24, 120), bronze);
+      ring.rotation.x = Math.PI / 2.25; logo.add(ring);
+
+      scene.add(new THREE.AmbientLight(0x40331c, 0.7));
+      var key = new THREE.DirectionalLight(0xfff4dd, 0.9); key.position.set(4,6,6); scene.add(key);
+      var rim = new THREE.DirectionalLight(0xe8b84b, 0.5); rim.position.set(-6,-2,-4); scene.add(rim);
+
+      var dragging=false, px=0, py=0, velX=0, velY=0, rotX=0.12, rotY=-0.35, idleTime=0;
+      stage.addEventListener('pointerdown', function(e){
+        stage.setPointerCapture(e.pointerId);
+        dragging=true; px=e.clientX; py=e.clientY;
+        stage.classList.add('dragging');
+      });
+      stage.addEventListener('pointermove', function(e){
+        if(!dragging) return;
+        velY=(e.clientX-px)*0.006; velX=(e.clientY-py)*0.006;
+        rotY+=velY; rotX+=velX; px=e.clientX; py=e.clientY; idleTime=0;
+      });
+      var up=function(){dragging=false; stage.classList.remove('dragging');};
+      stage.addEventListener('pointerup', up);
+      stage.addEventListener('pointercancel', up);
+
+      window.addEventListener('resize', function(){
+        if (!stage.clientWidth) return;
+        renderer.setSize(stage.clientWidth, stage.clientHeight);
+        camera.aspect = stage.clientWidth / stage.clientHeight;
+        camera.updateProjectionMatrix();
+      });
+
+      var clock = new THREE.Clock();
+      (function animate(){
+        // stop rendering once the intro is hidden (after Get Started)
+        if (window.getComputedStyle(intro).display === 'none'){ renderer.dispose(); return; }
+        requestAnimationFrame(animate);
+        var dt=clock.getDelta(), t=clock.elapsedTime;
+        if(!dragging){
+          velX*=0.94; velY*=0.94; rotX+=velX; rotY+=velY; idleTime+=dt;
+          if(!reduceMotion && idleTime>1.5){ rotY+=dt*0.35; rotX+=Math.sin(t*0.5)*dt*0.02; }
+        }
+        rotX=Math.max(-0.9,Math.min(0.9,rotX));
+        logo.rotation.x=rotX; logo.rotation.y=rotY;
+        if(!reduceMotion || dragging){
+          ring.rotation.z-=dt*0.4;
+          blade.position.z=0.52+Math.sin(t*1.4)*0.05;
+        }
+        renderer.render(scene, camera);
+      })();
+    } catch(e){ stage.remove(); var fl = intro.querySelector('.intro-logo'); if (fl) fl.style.display = ''; }
+  };
+  document.head.appendChild(s);
+})();
+</script>
+<!-- ============= END VELTROX GOLD 3D INTRO THEME ============= -->
+
+
+<!-- ============================================================
+     VELTROX GOLD LOGIN THEME (CSS-only reskin of the login page)
+     Append-only: overrides login screen styling to match the gold
+     3D intro. No changes to login DOM, doLogin(), forgot password,
+     or any Firebase auth code.
+     ============================================================ -->
+<style id="vtxGoldLoginTheme">
+  #loginScreen{
+    background:
+      radial-gradient(90% 60% at 50% 0%, #1c140a 0%, transparent 70%),
+      radial-gradient(80% 60% at 80% 100%, #17110a 0%, transparent 60%),
+      #0a0703 !important;
+  }
+  #loginBox{
+    background:rgba(28,22,12,.82) !important;
+    border:1px solid rgba(211,168,76,.28) !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.6), 0 0 60px rgba(232,184,75,.06) !important;
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+  /* replace flame emoji with a gold V emblem */
+  #loginBox .lb-logo{
+    font-size:0 !important;
+    height:56px;
+    margin-bottom:12px !important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fdf3d0'/%3E%3Cstop offset='.5' stop-color='%23d3a84c'/%3E%3Cstop offset='1' stop-color='%236e4c14'/%3E%3C/linearGradient%3E%3ClinearGradient id='g2' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff8e0'/%3E%3Cstop offset='1' stop-color='%23c9963a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='10,25 23,25 50,63 77,25 90,25 54,75 46,75' fill='url(%23g)'/%3E%3Cpolygon points='32,30 38,30 50,47 62,30 68,30 52,58 48,58' fill='url(%23g2)'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:contain;
+  }
+  #loginBox .lb-title{
+    font-family:'Michroma',Arial,sans-serif !important;
+    font-weight:400 !important;
+    letter-spacing:.12em;
+    background:linear-gradient(180deg,#fdf3d0 0%,#ecd18a 30%,#d3a84c 47%,#6e4c14 52%,#e0bd6a 68%,#fdf3d0 100%);
+    -webkit-background-clip:text !important;
+    background-clip:text !important;
+    color:transparent !important;
+    filter:drop-shadow(0 2px 10px rgba(232,184,75,.15));
+  }
+  #loginBox .lb-sub{color:#9a8d6f !important;}
+  #loginBox .lb-label{color:#c9bc9a !important;}
+  #loginBox .lb-input{
+    background:rgba(253,243,208,.05) !important;
+    border:1.5px solid rgba(211,168,76,.3) !important;
+    color:#e8e2d4 !important;
+    caret-color:#e8b84b;
+  }
+  #loginBox .lb-input::placeholder{color:#6e6349 !important;}
+  #loginBox .lb-input:focus{
+    border-color:#e8b84b !important;
+    box-shadow:0 0 0 3px rgba(232,184,75,.12);
+  }
+  /* keep dark inputs dark when the browser autofills */
+  #loginBox .lb-input:-webkit-autofill,
+  #loginBox .lb-input:-webkit-autofill:hover,
+  #loginBox .lb-input:-webkit-autofill:focus{
+    -webkit-box-shadow:0 0 0 100px #221a0e inset !important;
+    -webkit-text-fill-color:#e8e2d4 !important;
+    caret-color:#e8b84b;
+  }
+  #loginBox .lb-btn{
+    font-family:'Michroma',Arial,sans-serif !important;
+    font-weight:400 !important;
+    font-size:13px !important;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:#1c140a !important;
+    background:linear-gradient(180deg,#fdf3d0 0%,#e8b84b 45%,#c9963a 100%) !important;
+    box-shadow:0 12px 30px rgba(232,184,75,.2), inset 0 1px 0 rgba(255,255,255,.6), inset 0 -3px 6px rgba(110,76,20,.45);
+    transition:transform .2s, box-shadow .2s;
+  }
+  #loginBox .lb-btn:hover{
+    background:linear-gradient(180deg,#fdf3d0 0%,#e8b84b 45%,#c9963a 100%) !important;
+    transform:translateY(-2px);
+    box-shadow:0 18px 40px rgba(232,184,75,.28), inset 0 1px 0 rgba(255,255,255,.6), inset 0 -3px 6px rgba(110,76,20,.45);
+  }
+  #loginBox .lb-btn:disabled{
+    background:linear-gradient(180deg,#8f8468 0%,#6e6349 100%) !important;
+    color:#332c1c !important;
+    transform:none;
+    box-shadow:none;
+  }
+  #loginBox .lb-err{
+    background:rgba(127,29,29,.25) !important;
+    color:#fca5a5 !important;
+    border:1px solid rgba(252,165,165,.25);
+  }
+  #loginBox .lb-foot{color:#8a7a5c !important;}
+  /* forgot password link (overrides its inline blue) */
+  #loginBox a{color:#e8b84b !important;}
+  @media (prefers-reduced-motion:reduce){
+    #loginBox .lb-btn{transition:none !important;}
+  }
+</style>
+<!-- ============= END VELTROX GOLD LOGIN THEME ============= -->
+
 </body>
 </html>
