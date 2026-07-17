@@ -43,9 +43,12 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 #printArea{display:none}
 @media print{
   @page{size:A4;margin:12mm}
+  html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body>*:not(#printArea){display:none!important}
-  #printArea{display:block!important;position:static;width:100%;max-width:100%;margin:0;padding:0;box-sizing:border-box;font-size:12px}
-  #printArea table{width:100%!important;table-layout:fixed;word-wrap:break-word}
+  #printArea{display:block!important;position:static;width:100%;max-width:100%;margin:0;padding:0;box-sizing:border-box;font-size:12px;background:#fff!important}
+  #printArea table{width:100%!important;min-width:0!important;table-layout:fixed;word-wrap:break-word}
+  #printArea *{box-sizing:border-box;max-width:100%}
+  #printArea th,#printArea td{white-space:normal!important}
   #printArea img{max-width:100%}
   .no-print{display:none!important}
 }
@@ -437,7 +440,7 @@ async function migrateOldFirestoreFormat(){
   }catch(e){console.error('Migration check failed:',e);return false;}
 }
 // ─────────────────────────────────────────────────────────────────
-const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10,invoiceTemplate:'nbr',invoiceAccentColor:'#1e3a8a',invoiceFont:'sans',invoiceLogo:'',invoiceLogoPosition:'left',invoiceFields:{showVatNo:true,showCrNo:true,showDescription:true,showSignature:true,showItemDescription:true,showPaymentTerms:true}},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TallyPrime Auditor','TSS 1 Year','TSS 3 Year','Tally on Cloud','AWS Cloud','TDL Development','Other'],services:['Tally Support','Tally AMC Support','Tally Customization','Tally Training','Tally on Cloud','VAT Filing','IT Support','CCTV Service','Network Setup','Hardware Support','Other'],team:['Chetan','Support Team','Engineer 1'],issueCategories:['License / Activation','Data Corruption','Slow Performance','VAT / Tax Config','Payroll Setup','Bank Reconciliation','Report Mismatch','New Company Setup','Network / WiFi','Hardware Issue','Windows / OS','Software Install','Training Request','CCTV Issue','Email / Outlook','Other'],followups:[],referencePersons:[]};
+const defaultDB={settings:{company:'Veltrox Technologies W.L.L.',address:'Kingdom of Bahrain',vatNo:'',crNo:'',vatPercent:10,invoiceTemplate:'nbr',invoiceAccentColor:'#1e3a8a',invoiceFont:'sans',invoiceLogo:'',invoiceLogoPosition:'left',website:'',email:'',phone:'',tagline:'Your Trusted Partner for Tally, Cloud & IT Solutions',bankAccName:'',bankName:'',bankAccNo:'',bankIban:'',bankSwift:'',bankBranch:'',signName:'',paymentTermsDefault:'100% Advance with Purchase Order.',deliveryTermsDefault:'7 working days from the day of confirmation',invoiceFields:{showVatNo:true,showCrNo:true,showDescription:true,showSignature:true,showItemDescription:true,showPaymentTerms:true}},customers:[],leads:[],quotations:[],tickets:[],renewals:[],invoices:[],payments:[],products:['TallyPrime Silver','TallyPrime Gold','TallyPrime Auditor','TSS 1 Year','TSS 3 Year','Tally on Cloud','AWS Cloud','TDL Development','Other'],services:['Tally Support','Tally AMC Support','Tally Customization','Tally Training','Tally on Cloud','VAT Filing','IT Support','CCTV Service','Network Setup','Hardware Support','Other'],team:['Chetan','Support Team','Engineer 1'],issueCategories:['License / Activation','Data Corruption','Slow Performance','VAT / Tax Config','Payroll Setup','Bank Reconciliation','Report Mismatch','New Company Setup','Network / WiFi','Hardware Issue','Windows / OS','Software Install','Training Request','CCTV Issue','Email / Outlook','Other'],followups:[],referencePersons:[]};
 
 function normalizeDB(raw){
   const base=structuredClone(defaultDB);
@@ -1384,7 +1387,7 @@ function renderCustomers(){document.getElementById('sectionTitle').innerText='Cu
 function renderQuotations(){document.getElementById('sectionTitle').innerText='Odoo Style Quotations';
   const qtStatuses=['Draft','Sent','Follow-up','Approved','Rejected','Converted'];
   let filtered=applyFilters(db.quotations.filter(match),'quotations','date','status','assignedTo','total');
-  let rows=filtered.map(x=>`<tr><td>${esc(x.quotationNo)}</td><td>${esc(x.date)}</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.item)}</td><td>${money(x.total)}</td><td>${badge(x.status)}</td><td>${esc(x.validTill)}</td><td><button class="btn small green" onclick="convertQuotationToInvoice('${x.quotationNo}')">🔄 Convert</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waQuotation('${x.quotationNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${x.quotationNo}')">Edit</button><button class="btn small red" onclick="del('quotations','quotationNo','${x.quotationNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=filterBar('quotations',qtStatuses,db.team,'Total (BHD)')+table(['Quotation No','Date','Customer','Item','Total BHD','Status','Valid Till','Action'],rows)}
+  let rows=filtered.map(x=>`<tr><td>${esc(x.quotationNo)}</td><td>${esc(x.date)}</td><td>${esc(customer(x.customerId).companyName)}</td><td>${esc(x.item)}</td><td>${money(x.total)}</td><td>${badge(x.status)}</td><td>${esc(x.validTill)}</td><td><button class="btn small" style="background:#1e3a8a;color:#fff" onclick="printProposal('${x.quotationNo}')">📑 Proposal</button><button class="btn small green" onclick="convertQuotationToInvoice('${x.quotationNo}')">🔄 Convert</button><button class="btn small" style="background:#25D366;color:#fff" onclick="waQuotation('${x.quotationNo}')">💬 WhatsApp</button><button class="btn small orange" onclick="openForm('${x.quotationNo}')">Edit</button><button class="btn small red" onclick="del('quotations','quotationNo','${x.quotationNo}')">Delete</button></td></tr>`).join('');document.getElementById('content').innerHTML=filterBar('quotations',qtStatuses,db.team,'Total (BHD)')+table(['Quotation No','Date','Customer','Item','Total BHD','Status','Valid Till','Action'],rows)}
 function renderTickets(){document.getElementById('sectionTitle').innerText='Service Ticket Register';
   const tkStatuses=['Open','Assigned','In Progress','Waiting Customer','Resolved','Closed'];
   let filtered=applyFilters(db.tickets.filter(match),'tickets','date','status','engineer','charges');
@@ -1684,7 +1687,21 @@ function renderSettings(){setTimeout(afterRenderSettings,100);
       <div style="font-size:11px;color:#6b7280">${t.desc}</div>
     </div>`).join('');
   document.getElementById('content').innerHTML=`<div class="hint">Data is saved in this browser local storage and synced to Firebase. Export backup regularly.</div>
-    <div class="form-grid">${inp('setCompany','Company',db.settings.company)}${inp('setAddress','Address',db.settings.address)}${inp('setVatNo','VAT No',db.settings.vatNo)}${inp('setCrNo','CR No',db.settings.crNo)}${inp('setVat','VAT %',db.settings.vatPercent,'number')}</div>
+    <div class="form-grid">${inp('setCompany','Company',db.settings.company)}${inp('setAddress','Address',db.settings.address)}${inp('setVatNo','VAT No',db.settings.vatNo)}${inp('setCrNo','CR No',db.settings.crNo)}${inp('setVat','VAT %',db.settings.vatPercent,'number')}${inp('setWebsite','Website',db.settings.website||'')}${inp('setEmailS','Company Email',db.settings.email||'','email')}${inp('setPhone','Company Phone',db.settings.phone||'')}${inp('setTagline','Tagline (proposal cover page)',db.settings.tagline||'')}</div>
+    <br><button class="btn green" onclick="saveSettings()">Save Settings</button>
+    <hr>
+    <h3 style="margin-bottom:10px">📑 Proposal / Bank Details (used on Proposal print &amp; quotations)</h3>
+    <div class="form-grid">
+      ${inp('setBankAccName','Account Name',db.settings.bankAccName||'')}
+      ${inp('setBankName','Bank Name',db.settings.bankName||'')}
+      ${inp('setBankAccNo','Account No',db.settings.bankAccNo||'')}
+      ${inp('setBankIban','IBAN No',db.settings.bankIban||'')}
+      ${inp('setBankSwift','Swift Code',db.settings.bankSwift||'')}
+      ${inp('setBankBranch','Branch',db.settings.bankBranch||'')}
+      ${inp('setSignName','Signature Name (Thanks & Regards)',db.settings.signName||'')}
+      ${inp('setPayTerms','Default Payment Terms',db.settings.paymentTermsDefault||'')}
+      ${inp('setDelTerms','Default Delivery Terms',db.settings.deliveryTermsDefault||'')}
+    </div>
     <br><button class="btn green" onclick="saveSettings()">Save Settings</button>
     <hr>
     <h3 style="margin-bottom:10px">Invoice / Quotation Template</h3>
@@ -2793,6 +2810,185 @@ function createInvoiceFromTicket(no){
   setCustomerCombo(t.customerId);
   setTimeout(()=>{setInvoiceMode('service');setFirstLineItem('Service',t.product,1,t.charges||0);const d=document.getElementById('idescription');if(d&&!d.value)d.value='Service rendered against ticket '+no+(t.issue?' — '+t.issue:'');},0);
 }
+// ══════════════════════════════════════════════════════════════════
+// PROPOSAL PRINT — 4 fixed brochure pages + quotation page
+// Edit the PROPOSAL_CONFIG texts below to change the fixed pages.
+// Company name/address/logo/bank/contacts come from Settings.
+// ══════════════════════════════════════════════════════════════════
+const PROPOSAL_CONFIG={
+  aboutTitle:'About us',
+  aboutText1:'<b>Veltrox Technologies W.L.L</b> is a Bahrain-based provider of business accounting and IT solutions, specializing in <b>Tally software</b>. We serve clients across the Kingdom of Bahrain with expert support, Tally customization, Tally on Cloud, integration, and automation solutions tailored to each business.',
+  aboutText2:'Alongside Tally, we provide complete <b>IT Support</b> — hardware upgrades, network setup, server installations, firewalls and surveillance systems — ensuring a seamless and secure working environment for your team.',
+  aboutText3:'At Veltrox Technologies, we deliver reliable, end-to-end solutions that grow with your business.',
+  vision:'To be the leading provider of innovative enterprise solutions, empowering businesses in Bahrain to achieve operational excellence and sustainable growth through technology-driven services.',
+  mission:'Empowering businesses with tailored software solutions and dedicated support to enhance efficiency, trust and drive sustainable growth.',
+  serviceCols:[
+    {title:'Tally',items:['Tally Subscription Services','Tally on Cloud','Data Backup Services','Tally Customization (TDL)','Tally Automations','Integrations with Other Software','Tally Annual Maintenance Contract']},
+    {title:'Cloud',items:['Tally on AWS Cloud','Standard Cloud Access','Multi-user Cloud Setup','Cloud Data Security','Remote Access Anywhere','Cloud Backup & Recovery']},
+    {title:'IT Services',items:['Hardware & OS Upgrades','Networking Solutions','Firewall & Security Setup','Server Installation & Configuration','Surveillance & Security Systems','CCTV Service']}
+  ],
+  whyTitle:'Why Choose Our Company',
+  whyText:'We deliver exceptional service support and effective customer management to foster business growth. Our dedicated team ensures seamless implementation and ongoing assistance, building trust through consistent and reliable solutions. Partner with us to experience a commitment to excellence and a collaborative approach that empowers your business to thrive.'
+};
+
+function printProposal(no){
+  const qt=db.quotations.find(x=>x.quotationNo===no);
+  if(!qt)return alert('Quotation not found');
+  const c=customer(qt.customerId);
+  document.getElementById('printArea').innerHTML=buildProposalHTML(qt,c);
+  setTimeout(()=>window.print(),150);
+}
+
+function buildProposalHTML(qt,c){
+  const s=db.settings||{};
+  const accent=s.invoiceAccentColor||'#1e3a8a';
+  const P=PROPOSAL_CONFIG;
+  const logoHtml=s.invoiceLogo
+    ?`<img src="${s.invoiceLogo}" style="max-height:56px;max-width:190px;object-fit:contain">`
+    :`<div style="font-size:22px;font-weight:900;color:${accent}">${esc(s.company||'')}</div>`;
+  const pageStyle='font-family:\'Segoe UI\',Arial,sans-serif;color:#111827;padding:20px 16px;page-break-after:always;min-height:232mm;box-sizing:border-box';
+
+  // ── PAGE 1 — COVER ──
+  const page1=`<div style="${pageStyle};display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center">${logoHtml}<span style="font-size:14px;color:#374151">${esc(s.website||'')}</span></div>
+    <div style="margin-top:90px">
+      <div style="font-size:42px;font-weight:900;line-height:1.08;letter-spacing:-.5px">${esc((s.company||'').toUpperCase())}</div>
+      <div style="font-size:17px;font-weight:800;margin-top:12px">${esc(s.tagline||'Your Trusted Partner for Tally, Cloud & IT Solutions')}</div>
+      <p style="font-size:15px;max-width:560px;line-height:1.6;margin-top:16px;color:#374151">At ${esc(s.company||'our company')}, we don't just provide software — we deliver smart business solutions that simplify complexity and support long-term growth.</p>
+    </div>
+    <div style="margin-top:auto;height:10px;background:${accent};border-radius:4px"></div>
+  </div>`;
+
+  // ── PAGE 2 — ABOUT + VISION/MISSION ──
+  const page2=`<div style="${pageStyle}">
+    <div style="font-size:30px;font-weight:900;color:${accent};margin-bottom:14px">${esc(P.aboutTitle)}</div>
+    <p style="font-size:14px;line-height:1.8;text-align:justify">${P.aboutText1}</p>
+    <p style="font-size:14px;line-height:1.8;text-align:justify">${P.aboutText2}</p>
+    <p style="font-size:14px;line-height:1.8;text-align:justify">${P.aboutText3}</p>
+    <div style="width:60%;height:3px;background:${accent};margin:30px auto"></div>
+    <div style="font-size:26px;font-weight:900;color:${accent};margin-bottom:14px">Our Company<br>Vision &amp; Mission</div>
+    <div style="font-size:15px;font-weight:800;color:${accent};margin-bottom:5px">Vision</div>
+    <p style="font-size:13.5px;line-height:1.7;margin-top:0">${P.vision}</p>
+    <div style="font-size:15px;font-weight:800;color:${accent};margin:14px 0 5px">Mission</div>
+    <p style="font-size:13.5px;line-height:1.7;margin-top:0">${P.mission}</p>
+  </div>`;
+
+  // ── PAGE 3 — SERVICES + WHY US ──
+  const cols=P.serviceCols.map(col=>`<div style="flex:1">
+      <div style="font-size:16px;font-weight:900;text-align:center;margin-bottom:12px;color:${accent}">${esc(col.title)}</div>
+      <ul style="font-size:12.5px;line-height:1.9;padding-left:18px;font-weight:700;margin:0">${col.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>
+    </div>`).join('');
+  const page3=`<div style="${pageStyle}">
+    <div style="font-size:28px;font-weight:900;color:${accent};margin-bottom:24px">Our Services</div>
+    <div style="display:flex;gap:24px">${cols}</div>
+    <div style="width:60%;height:3px;background:${accent};margin:30px auto"></div>
+    <div style="font-size:26px;font-weight:900;color:${accent};margin-bottom:14px">${esc(P.whyTitle)}</div>
+    <p style="font-size:14px;line-height:1.8;text-align:justify;max-width:640px">${esc(P.whyText)}</p>
+  </div>`;
+
+  // ── PAGE 4 — CLIENTS + CONTACT ──
+  const clientNames=db.customers.slice(0,18).map(x=>x.companyName).filter(Boolean);
+  const clientGrid=clientNames.length
+    ?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:30px">${clientNames.map(n=>`<div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:14px 10px;text-align:center;font-size:12px;font-weight:800;color:#374151;display:flex;align-items:center;justify-content:center;min-height:52px">${esc(n)}</div>`).join('')}</div>`
+    :'';
+  const contactItem=(label,val)=>val?`<div style="border-left:4px solid ${accent};padding:6px 14px"><div style="font-weight:900;color:${accent};font-size:13px;margin-bottom:4px">${label}</div><div style="font-size:14px;line-height:1.5">${esc(val)}</div></div>`:'';
+  const page4=`<div style="${pageStyle}">
+    ${clientNames.length?`<div style="font-size:28px;font-weight:900;color:${accent};margin-bottom:20px">Our Clients</div>${clientGrid}<div style="width:60%;height:3px;background:${accent};margin:30px auto"></div>`:''}
+    <div style="font-size:28px;font-weight:900;color:${accent};text-decoration:underline;margin-bottom:26px">Contact Us</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
+      ${contactItem('ADDRESS',s.address)}
+      ${contactItem('WEBSITE',s.website)}
+      ${contactItem('PHONE',s.phone)}
+      ${contactItem('EMAIL',s.email)}
+    </div>
+    ${(!s.website&&!s.phone&&!s.email)?`<div style="margin-top:20px;font-size:12px;color:#9ca3af">Tip: fill Website, Phone and Email under Settings to show them here.</div>`:''}
+  </div>`;
+
+  // ── PAGE 5 — THE QUOTATION ──
+  const items=qt.items&&qt.items.length?qt.items:[{type:'Product',name:qt.item||'',qty:1,rate:qt.amount||0,amount:qt.amount||0,description:''}];
+  const itemRows=items.map((it,idx)=>`<tr>
+      <td style="border:1px solid #111;padding:6px;text-align:center;font-size:11px;vertical-align:top">${idx+1}</td>
+      <td style="border:1px solid #111;padding:6px;font-size:11.5px;vertical-align:top"><b>${esc(it.name)}</b>${it.description?'<br><span style="font-size:11px">'+esc(it.description)+'</span>':''}</td>
+      <td style="border:1px solid #111;padding:6px;text-align:center;font-size:11px;vertical-align:top">${esc(it.qty)} NOS</td>
+      <td style="border:1px solid #111;padding:6px;text-align:right;font-size:11px;vertical-align:top">${money(it.rate)}</td>
+      <td style="border:1px solid #111;padding:6px;text-align:right;font-size:11px;vertical-align:top">${money(it.qty*it.rate)}</td>
+    </tr>`).join('');
+  const vatRow=Number(qt.vat)>0?`<tr><td colspan="3" style="border:1px solid #111;padding:5px 8px"></td><td style="border:1px solid #111;padding:5px 8px;font-weight:800;font-size:11.5px">VAT (${esc(qt.vatPercent)}%)</td><td style="border:1px solid #111;padding:5px 8px;text-align:right;font-weight:800;font-size:11.5px">BHD ${money(qt.vat)}</td></tr>`:'';
+  const propTitle=qt.description?qt.description:(items[0]?items[0].name:'');
+  const bank=(s.bankAccName||s.bankName||s.bankAccNo)?`
+    <div style="font-size:11.5px;margin-top:10px"><u style="font-weight:900">Our Bank Details :</u>
+      <table style="font-size:11.5px;margin-top:4px">
+        ${s.bankAccName?`<tr><td style="padding:1px 6px 1px 0">Acc. Name:</td><td style="font-weight:800">${esc(s.bankAccName)}</td></tr>`:''}
+        ${s.bankName?`<tr><td style="padding:1px 6px 1px 0">Bank Name :</td><td style="font-weight:800">${esc(s.bankName)}</td></tr>`:''}
+        ${s.bankAccNo?`<tr><td style="padding:1px 6px 1px 0">A/C No. :</td><td style="font-weight:800">${esc(s.bankAccNo)}</td></tr>`:''}
+        ${s.bankIban?`<tr><td style="padding:1px 6px 1px 0">IBAN No. :</td><td style="font-weight:800">${esc(s.bankIban)}</td></tr>`:''}
+        ${s.bankSwift?`<tr><td style="padding:1px 6px 1px 0">Swiftcode:</td><td style="font-weight:800">${esc(s.bankSwift)}</td></tr>`:''}
+        ${s.bankBranch?`<tr><td style="padding:1px 6px 1px 0">Branch :</td><td style="font-weight:800">${esc(s.bankBranch)}</td></tr>`:''}
+      </table>
+    </div>`:'';
+  const page5=`<div style="font-family:'Segoe UI',Arial,sans-serif;color:#111827;padding:20px 16px;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">${logoHtml}<div style="font-size:20px;font-weight:900;color:${accent}">${esc(s.company||'')}</div></div>
+    <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+      <tr>
+        <td style="border:1px solid #111;padding:8px;width:58%;vertical-align:top">
+          <div style="font-size:10.5px">To:</div>
+          <div style="font-weight:700">${esc(c.contactPerson||'')}</div>
+          <div style="font-weight:900">${esc(c.companyName||'')}</div>
+          <div style="line-height:1.5">${esc(c.address||c.location||'')}</div>
+          ${c.email?`<div>Email: ${esc(c.email)}</div>`:''}
+        </td>
+        <td style="border:1px solid #111;padding:0;vertical-align:top">
+          <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+            <tr><td style="border-bottom:1px solid #111;padding:5px 8px">Quote No. :</td><td style="border-bottom:1px solid #111;padding:5px 8px;font-weight:900">${esc(qt.quotationNo)}</td></tr>
+            <tr><td style="border-bottom:1px solid #111;padding:5px 8px">Quote Date.:</td><td style="border-bottom:1px solid #111;padding:5px 8px;font-weight:900">${esc(qt.date)}</td></tr>
+            <tr><td style="border-bottom:1px solid #111;padding:5px 8px">Valid Till:</td><td style="border-bottom:1px solid #111;padding:5px 8px;font-weight:900">${esc(qt.validTill||'15 Days')}</td></tr>
+            <tr><td style="padding:5px 8px">Delivery Terms:</td><td style="padding:5px 8px;font-weight:900">${esc(s.deliveryTermsDefault||'7 working days from the day of confirmation')}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+    <div style="text-align:center;font-size:19px;font-weight:900;margin:12px 0 8px;text-decoration:underline">Proposal for ${esc(propTitle)}</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <th style="border:1px solid #111;padding:6px;font-size:10.5px;width:6%">SL. No.</th>
+        <th style="border:1px solid #111;padding:6px;font-size:10.5px">Description</th>
+        <th style="border:1px solid #111;padding:6px;font-size:10.5px;width:11%">Quantity</th>
+        <th style="border:1px solid #111;padding:6px;font-size:10.5px;width:11%">Rate</th>
+        <th style="border:1px solid #111;padding:6px;font-size:10.5px;width:14%">Amount BHD</th>
+      </tr>
+      ${itemRows}
+      <tr><td colspan="5" style="border:1px solid #111;height:120px"></td></tr>
+      <tr>
+        <td colspan="3" style="border:1px solid #111;padding:6px 8px;font-weight:800;font-size:11.5px">${esc(amountInWords(qt.total))}</td>
+        <td style="border:1px solid #111;padding:6px 8px;font-weight:900;font-size:12px">TOTAL</td>
+        <td style="border:1px solid #111;padding:6px 8px;text-align:right;font-weight:900;font-size:12px">BHD ${money(qt.amount)}</td>
+      </tr>
+      ${vatRow}
+      <tr>
+        <td colspan="3" style="border:1px solid #111;padding:5px 8px"></td>
+        <td style="border:1px solid #111;padding:5px 8px;font-weight:900;font-size:12px">Net Total</td>
+        <td style="border:1px solid #111;padding:5px 8px;text-align:right;font-weight:900;font-size:12px">BHD ${money(qt.total)}</td>
+      </tr>
+    </table>
+    <div style="border:1px solid #111;border-top:0;padding:10px;font-size:11.5px">
+      <div style="font-weight:900">**All Customisation will be charged extra based on the requirement</div>
+      <div style="font-weight:900;margin-top:8px">Payment Terms</div>
+      <div>${esc(qt.terms||s.paymentTermsDefault||'100% Advance with Purchase Order.')}</div>
+      <div style="font-weight:900;margin-top:8px">Delivery Terms</div>
+      <div>${esc(s.deliveryTermsDefault||'7 working days from the day of confirmation')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div>${bank}</div>
+        <div style="text-align:left;padding-right:30px"><div style="font-weight:900;margin-bottom:16px">Thanks &amp; Warm Regards</div><div>${esc(s.signName||s.company||'')}</div>${s.phone?`<div>${esc(s.phone)}</div>`:''}</div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:10px;margin-top:8px">This is a Computer Generated Document</div>
+    <div style="text-align:center;font-size:11px;font-weight:900;color:${accent}">${esc(s.address||'')}${s.phone?', Tel: '+esc(s.phone):''}</div>
+    <div style="text-align:center;font-size:10.5px;font-style:italic">${s.email?'Email: '+esc(s.email):''}</div>
+  </div>`;
+
+  return page1+page2+page3+page4+page5;
+}
+// ══════════════════════════════════════════════════════════════════
 function printInvoice(no){
   let i=db.invoices.find(x=>x.invoiceNo===no),c=customer(i.customerId);
   const items=i.items&&i.items.length?i.items:[{type:'Product',name:i.item||'',qty:i.qty||1,rate:i.rate||0,amount:i.amount||0}];
@@ -2805,7 +3001,14 @@ function printInvoice(no){
   });
   setTimeout(()=>window.print(),100);
 }
-function saveSettings(){db.settings={company:setCompany.value,address:setAddress.value,vatNo:setVatNo.value,crNo:setCrNo.value,vatPercent:setVat.value};saveDB();alert('Settings saved!');}function exportBackup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='veltrox-crm-backup.json';a.click()}function importBackup(){
+function saveSettings(){db.settings={...db.settings,company:setCompany.value,address:setAddress.value,vatNo:setVatNo.value,crNo:setCrNo.value,vatPercent:setVat.value,
+  website:document.getElementById('setWebsite')?.value||'',email:document.getElementById('setEmailS')?.value||'',phone:document.getElementById('setPhone')?.value||'',
+  tagline:document.getElementById('setTagline')?.value||db.settings.tagline||'',
+  bankAccName:document.getElementById('setBankAccName')?.value||'',bankName:document.getElementById('setBankName')?.value||'',
+  bankAccNo:document.getElementById('setBankAccNo')?.value||'',bankIban:document.getElementById('setBankIban')?.value||'',
+  bankSwift:document.getElementById('setBankSwift')?.value||'',bankBranch:document.getElementById('setBankBranch')?.value||'',
+  signName:document.getElementById('setSignName')?.value||'',
+  paymentTermsDefault:document.getElementById('setPayTerms')?.value||'',deliveryTermsDefault:document.getElementById('setDelTerms')?.value||''};saveDB();alert('Settings saved!');}function exportBackup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='veltrox-crm-backup.json';a.click()}function importBackup(){
   let f=backupFile.files[0];
   if(!f)return alert('Select backup file');
   showLoadingOverlay('Reading backup file...');
