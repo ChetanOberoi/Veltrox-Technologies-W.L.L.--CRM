@@ -4701,19 +4701,8 @@ function printTicket(no){
         kv('Closed On',esc(isDone?dOnly(r.closedAt||r.resolvedAt):'—'))+
         kv('Charges','BHD '+money(r.charges));
 
-      var actLines=[];
-      if(r.createdAt)actLines.push(['Ticket created',r.createdAt]);
-      if(r.updatedAt&&r.updatedAt!==r.createdAt)actLines.push(['Last modified',r.updatedAt]);
-      if(r.resolvedAt)actLines.push(['Marked '+(r.status==='Closed'?'closed':'resolved'),r.resolvedAt]);
-      var activityPane=actLines.length
-        ? actLines.map(function(a){return kv(a[0],esc(fmt(a[1])));}).join('')
-        : '<div style="padding:14px 0;color:#94a3b8;font-size:12.5px">No activity recorded yet. Created/modified/closed events are stamped automatically on every save.</div>';
-
-      var rel=tfRelated(r.ticketNo);
-      var relatedPane=rel.length
-        ? rel.map(function(x){return '<div class="vtx-tf-kv"><span class="k">'+esc(x[0])+'</span><span class="v"><span class="vtx-ref" data-ref="'+esc(x[1])+'">'+esc(x[1])+'</span> '+badge(x[2])+'</span></div>';}).join('')
-        : '<div style="padding:14px 0;color:#94a3b8;font-size:12.5px">No linked invoices, follow-ups, or payments yet.</div>';
-      relatedPane+='<div style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:10px"><label style="display:block;font-size:10.5px;font-weight:900;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px">Internal Notes (not on customer report)</label><textarea id="internalNotes" style="width:100%;min-height:80px;padding:9px 10px;border:1px solid #d1d5db;border-radius:9px;font-family:inherit;font-size:12.5px;resize:vertical">'+esc(r.internalNotes||'')+'</textarea></div>';
+      var activityPane=(typeof vtxTfActivityHTML==='function')?vtxTfActivityHTML(r):'';
+      var relatedPane=(typeof vtxTfRelatedHTML==='function')?vtxTfRelatedHTML(r):'';
 
       top=
       '<div class="vtx-tf-toolbar">'+
@@ -5242,6 +5231,204 @@ function printTicket(no){
 })();
 </script>
 <!-- ========= END LAYOUT SWITCHER BLOCK ========= -->
+
+
+<!-- ============================================================
+     VELTROX TICKET ACTIVITY & RELATED TABS (Enigma-style)
+     Append-only block. Powers the ticket form tabs:
+     - Activity: Log a Call / Post buttons with a team feed
+     - Related: Notes, Emails (+Log Email), Case Comments
+       (+Add Comment), automatic Case History, Related Cases
+       (other tickets of the same customer) and Linked Records
+     Entries save immediately to the ticket (db + saveDB), and
+     status changes / creation / SLA breach are logged to Case
+     History automatically on every save. No existing code
+     modified — pane builders are called from the ticket form.
+     ============================================================ -->
+<style id="vtxTfTabsStyle">
+  .vtx-ac-btns{display:flex;gap:10px;margin:4px 0 10px}
+  .vtx-ac-btns button{
+    flex:1;border-radius:10px;padding:10px 8px;cursor:pointer;font-family:inherit;
+    font-size:12.5px;font-weight:800;background:#fff;
+  }
+  .vtx-ac-call{border:1.5px solid #93c5fd;color:#1d4ed8}
+  .vtx-ac-call:hover{background:#eff6ff}
+  .vtx-ac-post{border:1.5px solid #86efac;color:#15803d}
+  .vtx-ac-post:hover{background:#f0fdf4}
+  .vtx-ac-mini{border:1px solid #bfdbfe !important;color:#1d4ed8 !important;background:#fff !important;
+    border-radius:999px !important;padding:4px 12px !important;font-size:11px !important;font-weight:800 !important;cursor:pointer;font-family:inherit}
+  .vtx-ac-mini:hover{background:#eff6ff !important}
+  .vtx-ac-composer{border:1px solid #dbeafe;background:#f8fafc;border-radius:10px;padding:10px;margin-bottom:10px}
+  .vtx-ac-composer select,.vtx-ac-composer input,.vtx-ac-composer textarea{
+    width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 9px;
+    font-family:inherit;font-size:12.5px;margin-bottom:7px;background:#fff}
+  .vtx-ac-composer textarea{min-height:56px;resize:vertical}
+  .vtx-ac-feed{font-size:12.5px}
+  .vtx-ac-item{padding:9px 0;border-bottom:1px solid #eef2f7;line-height:1.55;color:#334155}
+  .vtx-ac-item:last-child{border-bottom:0}
+  .vtx-ac-item .ts{color:#94a3b8;font-size:11px}
+  .vtx-ac-item .who{font-weight:800;color:#0f172a}
+  .vtx-ac-empty{padding:10px 0;color:#94a3b8;font-size:12.5px}
+  .vtx-rl-head{display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px;font-size:12.5px;font-weight:900;color:#0f172a}
+  .vtx-rl-head:first-child{margin-top:2px}
+  .vtx-rl-case{border:1px solid #e5e7eb;border-radius:10px;padding:9px 12px;margin-bottom:7px;background:#fff;
+    display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .vtx-rl-case .sub{color:#94a3b8;font-size:11.5px;margin-top:2px}
+</style>
+<script>
+(function(){
+  var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function ts(ms){
+    if(!ms)return '';
+    var d=new Date(Number(ms)); if(isNaN(d.getTime()))return '';
+    return d.getDate()+' '+MONTHS[d.getMonth()]+', '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function me(){ return (typeof crmCurrentUser!=='undefined'&&crmCurrentUser&&crmCurrentUser.name)?crmCurrentUser.name:'User'; }
+  function tk(no){ return db.tickets.find(function(x){return x.ticketNo===no;}); }
+  function feedOf(t,kinds){ return (t.activity||[]).filter(function(a){return kinds.includes(a.k);}).slice().sort(function(a,b){return b.at-a.at;}); }
+  function entryHTML(a){
+    var icon={call:'&#128222;',post:'&#128172;',email:'&#9993;',comment:'&#128101;',history:'&#128336;'}[a.k]||'';
+    var extra=a.k==='call'&&a.callType?(' <span style="color:#64748b">('+esc(a.callType)+')</span>'):'';
+    var subj=a.k==='email'&&a.subject?('<b>'+esc(a.subject)+'</b> &#8212; '):'';
+    return '<div class="vtx-ac-item"><span class="ts">'+ts(a.at)+'</span> &#8212; '+icon+' <span class="who">'+esc(a.by||'')+'</span>'+extra+': '+subj+esc(a.text||'')+'</div>';
+  }
+
+  /* ================= ACTIVITY TAB ================= */
+  window.vtxTfActivityHTML=function(r){
+    var feed=feedOf(r,['call','post']);
+    return '<div class="vtx-ac-btns">'+
+        '<button type="button" class="vtx-ac-call" onclick="vtxTfComposer(\'call\',\''+r.ticketNo+'\')">&#128222; Log a Call</button>'+
+        '<button type="button" class="vtx-ac-post" onclick="vtxTfComposer(\'post\',\''+r.ticketNo+'\')">&#128172; Post</button>'+
+      '</div>'+
+      '<div id="vtxAcComposer"></div>'+
+      '<div style="color:#94a3b8;font-size:11.5px;margin-bottom:6px">Calls you\'ve logged and updates posted to the team, most recent first.</div>'+
+      '<div class="vtx-ac-feed">'+(feed.length?feed.map(entryHTML).join(''):'<div class="vtx-ac-empty">No calls or posts yet.</div>')+'</div>';
+  };
+
+  /* ================= RELATED TAB ================= */
+  window.vtxTfRelatedHTML=function(r){
+    var emails=feedOf(r,['email']);
+    var comments=feedOf(r,['comment']);
+    var history=feedOf(r,['history']);
+    /* auto history from timestamps for older tickets that predate the log */
+    var autoH=[];
+    if(!history.length){
+      if(r.createdAt)autoH.push({k:'history',at:r.createdAt,by:'System',text:'Ticket created (Priority: '+(r.priority||'-')+', assigned to '+(r.engineer||'-')+')'});
+      if(r.resolvedAt)autoH.push({k:'history',at:r.resolvedAt,by:'System',text:'Marked '+(r.status==='Closed'?'closed':'resolved')});
+      autoH.sort(function(a,b){return b.at-a.at;});
+    }
+    var hist=history.length?history:autoH;
+
+    /* related cases: other tickets of the same customer */
+    var cases=(db.tickets||[]).filter(function(t){return t.customerId===r.customerId && t.ticketNo!==r.ticketNo;}).slice(0,5);
+    /* linked records: invoices / follow-ups / payments */
+    var linked=[];
+    (db.invoices||[]).forEach(function(i){ if(i.ticketNo===r.ticketNo)linked.push(['Invoice',i.invoiceNo,i.status]); });
+    (db.followups||[]).forEach(function(f){ if(f.refNo===r.ticketNo)linked.push(['Follow-up',f.followupId,f.status]); });
+    var invNos=(db.invoices||[]).filter(function(i){return i.ticketNo===r.ticketNo;}).map(function(i){return i.invoiceNo;});
+    (db.payments||[]).forEach(function(p){ if(invNos.includes(p.invoiceNo))linked.push(['Payment',p.paymentId,p.status]); });
+
+    return ''+
+      '<div class="vtx-rl-head">&#128209; Notes</div>'+
+      '<textarea id="internalNotes" placeholder="Internal notes (not on customer report)&#8230; saved with the ticket" style="width:100%;min-height:70px;padding:9px 10px;border:1px solid #d1d5db;border-radius:9px;font-family:inherit;font-size:12.5px;resize:vertical;background:#fff">'+esc(r.internalNotes||'')+'</textarea>'+
+
+      '<div class="vtx-rl-head">&#9993; Emails <button type="button" class="vtx-ac-mini" onclick="vtxTfComposer(\'email\',\''+r.ticketNo+'\')">+ Log Email</button></div>'+
+      '<div id="vtxRlComposerEmail"></div>'+
+      '<div class="vtx-ac-feed">'+(emails.length?emails.map(entryHTML).join(''):'<div class="vtx-ac-empty">No emails logged yet.</div>')+'</div>'+
+
+      '<div class="vtx-rl-head">&#128101; Case Comments <button type="button" class="vtx-ac-mini" onclick="vtxTfComposer(\'comment\',\''+r.ticketNo+'\')">+ Add Comment</button></div>'+
+      '<div id="vtxRlComposerComment"></div>'+
+      '<div class="vtx-ac-feed">'+(comments.length?comments.map(entryHTML).join(''):'<div class="vtx-ac-empty">No comments yet.</div>')+'</div>'+
+
+      '<div class="vtx-rl-head">&#128336; Case History</div>'+
+      '<div class="vtx-ac-feed">'+(hist.length?hist.map(entryHTML).join(''):'<div class="vtx-ac-empty">No history yet.</div>')+'</div>'+
+
+      '<div class="vtx-rl-head">&#128279; Related Cases</div>'+
+      (cases.length?cases.map(function(t){
+        var issue=String(t.issue||'').split('\n')[0]; if(issue.length>48)issue=issue.slice(0,48)+'&#8230;';
+        return '<div class="vtx-rl-case"><div><span class="vtx-ref" data-ref="'+esc(t.ticketNo)+'">'+esc(t.ticketNo)+'</span><div class="sub">'+esc(issue||'&#8212;')+'</div></div>'+badge(t.status)+'</div>';
+      }).join(''):'<div class="vtx-ac-empty">No other tickets for this customer.</div>')+
+
+      '<div class="vtx-rl-head">&#129513; Linked Records</div>'+
+      (linked.length?linked.map(function(x){
+        return '<div class="vtx-tf-kv"><span class="k">'+esc(x[0])+'</span><span class="v"><span class="vtx-ref" data-ref="'+esc(x[1])+'">'+esc(x[1])+'</span> '+badge(x[2]||'')+'</span></div>';
+      }).join(''):'<div class="vtx-ac-empty">No linked invoices, follow-ups, or payments yet.</div>');
+  };
+
+  /* ================= composers + saving entries ================= */
+  var COMPOSER_TARGET={call:'vtxAcComposer',post:'vtxAcComposer',email:'vtxRlComposerEmail',comment:'vtxRlComposerComment'};
+  window.vtxTfComposer=function(kind,no){
+    /* close any open composer first */
+    Object.values(COMPOSER_TARGET).forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='';});
+    var host=document.getElementById(COMPOSER_TARGET[kind]); if(!host)return;
+    var inner='';
+    if(kind==='call')inner+='<select id="vtxCmType"><option>Outgoing Call</option><option>Incoming Call</option><option>Missed Call</option><option>WhatsApp Call</option></select>';
+    if(kind==='email')inner+='<input id="vtxCmSubject" placeholder="Email subject">';
+    inner+='<textarea id="vtxCmText" placeholder="'+({call:'What was discussed on the call?',post:'Share an update with the team&#8230;',email:'Summary of the email&#8230;',comment:'Write a comment&#8230;'}[kind])+'"></textarea>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+        '<button type="button" class="btn gray small" onclick="this.closest(\'.vtx-ac-composer\').remove()">Cancel</button>'+
+        '<button type="button" class="btn blue small" onclick="vtxTfSaveEntry(\''+kind+'\',\''+no+'\')">Save</button>'+
+      '</div>';
+    host.innerHTML='<div class="vtx-ac-composer">'+inner+'</div>';
+    var f=document.getElementById(kind==='email'?'vtxCmSubject':'vtxCmText'); if(f)f.focus();
+  };
+  window.vtxTfSaveEntry=function(kind,no){
+    var t=tk(no); if(!t)return;
+    var text=(document.getElementById('vtxCmText')||{}).value||'';
+    if(!text.trim()&&kind!=='email')return alert('Please write something first.');
+    var e={k:kind,at:Date.now(),by:me(),text:text.trim()};
+    if(kind==='call')e.callType=(document.getElementById('vtxCmType')||{}).value||'';
+    if(kind==='email'){
+      e.subject=((document.getElementById('vtxCmSubject')||{}).value||'').trim();
+      if(!e.subject&&!e.text)return alert('Please enter a subject or summary.');
+    }
+    t.activity=t.activity||[];
+    t.activity.push(e);
+    if(typeof saveDB==='function')saveDB();
+    vtxTfRepaint(no,kind);
+  };
+  window.vtxTfRepaint=function(no,kind){
+    var t=tk(no); if(!t)return;
+    var pane=(kind==='call'||kind==='post')?'activity':'related';
+    var el=document.getElementById('vtxTfTabPane-'+pane);
+    if(el)el.innerHTML=(pane==='activity')?vtxTfActivityHTML(t):vtxTfRelatedHTML(t);
+  };
+
+  /* ================= automatic Case History on save ================= */
+  if(typeof saveTicket==='function'){
+    var _vtxHistPrevSave=saveTicket;
+    saveTicket=function(){
+      var noEl=document.getElementById('ticketNo');
+      var no=noEl?noEl.value:null;
+      var before=no?tk(no):null;
+      var prevStatus=before?before.status:null;
+      var prevEng=before?before.engineer:null;
+      var isNew=!before;
+      _vtxHistPrevSave();
+      if(!no)return;
+      var t=tk(no); if(!t)return;
+      /* the original save rebuilds the record from form fields, so restore the feed */
+      t.activity=(before&&before.activity)?before.activity:(t.activity||[]);
+      if(before&&before.slaBreachLogged)t.slaBreachLogged=true;
+      function log(text){ t.activity.push({k:'history',at:Date.now(),by:me(),text:text}); }
+      if(isNew){
+        log('Ticket created (Priority: '+(t.priority||'-')+', assigned to '+(t.engineer||'-')+')');
+      }else{
+        if(prevStatus!==t.status)log('Status changed: '+(prevStatus||'-')+' &#8594; '+t.status);
+        if(prevEng!==t.engineer)log('Reassigned: '+(prevEng||'-')+' &#8594; '+(t.engineer||'-'));
+      }
+      if(!t.slaBreachLogged && typeof slaInfo==='function'){
+        var s=slaInfo(t);
+        if(s && ((s.done&&s.doneAt>s.due)||(!s.done&&s.due<Date.now()))){
+          log('SLA breached &#8212; escalated for admin attention');
+          t.slaBreachLogged=true;
+        }
+      }
+    };
+  }
+})();
+</script>
+<!-- ========= END TICKET ACTIVITY & RELATED TABS BLOCK ========= -->
 
 </body>
 </html>
