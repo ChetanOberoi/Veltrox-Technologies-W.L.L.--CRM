@@ -317,7 +317,16 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 
 
 <script>
-const STORAGE_KEY='VELTROX_FULL_CRM_V2';
+const STORAGE_KEY='VELTROX_CRM';
+/* One-time migration: move data saved under the old key to the new key so nothing is lost */
+try{
+  const _oldKey='VELTROX_FULL_CRM_V2', _old=localStorage.getItem(_oldKey);
+  if(_old && !localStorage.getItem(STORAGE_KEY)){ localStorage.setItem(STORAGE_KEY,_old); }
+  if(_old && localStorage.getItem(STORAGE_KEY)===_old){ localStorage.removeItem(_oldKey); }
+  /* Security cleanup: remove legacy users key that stored a plaintext password.
+     The current CRM uses Firebase Authentication only and never reads this key. */
+  localStorage.removeItem('VELTROX_USERS');
+}catch(e){}
 const LAST_SAVE_KEY='VELTROX_LAST_SAVE_TS';
 let currentModule='dashboard';let editId=null;let customerTab='overview';let reportTab='sales';
 
@@ -4063,6 +4072,291 @@ function printTicket(no){
   }
 </style>
 <!-- ============= END VELTROX GOLD LOGIN THEME ============= -->
+
+
+<!-- ============================================================
+     VELTROX CLICKABLE REFERENCE NUMBERS + DETAILS POPUP
+     Append-only feature block. Turns every record number shown
+     anywhere in the CRM (TKT / LEAD / QT / INV / PAY / REN / CUS
+     / FOL) into a clickable link that opens a read-only details
+     popup, with related records and quick actions.
+     No existing HTML, render functions, or Firebase auth touched.
+     ============================================================ -->
+<style id="vtxRefLinkStyle">
+  .vtx-ref{
+    color:#2563eb;
+    font-weight:700;
+    cursor:pointer;
+    border-bottom:1px dotted #93c5fd;
+  }
+  .vtx-ref:hover{border-bottom:1px solid #2563eb;background:#eff6ff;border-radius:3px;}
+  #vtxRefModal{
+    position:fixed;inset:0;z-index:99990;
+    background:rgba(15,23,42,.55);
+    display:none;align-items:center;justify-content:center;
+    padding:20px;
+  }
+  #vtxRefCard{
+    background:#fff;border-radius:18px;
+    width:640px;max-width:96vw;max-height:86vh;
+    display:flex;flex-direction:column;
+    box-shadow:0 30px 80px rgba(0,0,0,.35);
+    border-top:4px solid #d3a84c;
+    overflow:hidden;
+  }
+  #vtxRefHead{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 22px;border-bottom:1px solid #f1f5f9;
+  }
+  #vtxRefHead .t{font-size:16px;font-weight:900;color:#0f172a}
+  #vtxRefHead .t small{display:block;font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+  #vtxRefBody{padding:18px 22px;overflow-y:auto;}
+  .vtx-dl{display:grid;grid-template-columns:170px 1fr;gap:8px 14px;font-size:13px;}
+  .vtx-dl dt{color:#64748b;font-weight:700}
+  .vtx-dl dd{color:#0f172a;word-break:break-word}
+  .vtx-items{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  .vtx-items th{background:#f8fafc;color:#475569;text-align:left;padding:7px 9px;border-bottom:1px solid #e2e8f0;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .vtx-items td{padding:7px 9px;border-bottom:1px solid #f1f5f9}
+  .vtx-sec{margin-top:18px;font-size:12px;font-weight:900;color:#92702c;letter-spacing:.08em;text-transform:uppercase;border-top:1px solid #f1f5f9;padding-top:14px}
+  .vtx-rel{margin-top:8px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+  .vtx-rel .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .vtx-rel .tag{background:#f1f5f9;color:#475569;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em}
+  #vtxRefFoot{
+    padding:14px 22px;border-top:1px solid #f1f5f9;
+    display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;
+  }
+  #vtxRefFoot button{
+    border:0;border-radius:10px;padding:9px 16px;
+    font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;
+  }
+  .vtx-b-gray{background:#f1f5f9;color:#334155}
+  .vtx-b-blue{background:#2563eb;color:#fff}
+  .vtx-b-gold{background:linear-gradient(180deg,#fdf3d0,#e8b84b 60%,#c9963a);color:#1c140a}
+  @media (max-width:640px){.vtx-dl{grid-template-columns:1fr}.vtx-dl dt{margin-top:6px}}
+</style>
+<div id="vtxRefModal" onclick="if(event.target===this)vtxCloseRef()">
+  <div id="vtxRefCard">
+    <div id="vtxRefHead">
+      <div class="t" id="vtxRefTitle"></div>
+      <button class="btn gray" onclick="vtxCloseRef()">X</button>
+    </div>
+    <div id="vtxRefBody"></div>
+    <div id="vtxRefFoot"></div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ---------- config ---------- */
+  var COLLS = {
+    CUS:{coll:'customers', key:'customerId', label:'Customer',    icon:'👤'},
+    LEAD:{coll:'leads',    key:'leadId',     label:'Lead',        icon:'🎯'},
+    QT:{coll:'quotations', key:'quotationNo',label:'Quotation',   icon:'📄'},
+    TKT:{coll:'tickets',   key:'ticketNo',   label:'Service Ticket', icon:'🎫'},
+    REN:{coll:'renewals',  key:'renewalId',  label:'Renewal',     icon:'🔁'},
+    INV:{coll:'invoices',  key:'invoiceNo',  label:'Tax Invoice', icon:'🧾'},
+    PAY:{coll:'payments',  key:'paymentId',  label:'Payment',     icon:'💰'},
+    FOL:{coll:'followups', key:'followupId', label:'Follow-up',   icon:'📞'}
+  };
+  var REF_RE = /\b(CUS|LEAD|QT|TKT|REN|INV|PAY|FOL)-\d{4,6}(?:\/\d{4})?\b/g;
+  var MONEY_FIELDS = ['amount','vat','total','charges','value','invoiceAmount','received','price','rate','subtotal'];
+  var SKIP_TAGS = {SCRIPT:1,STYLE:1,TEXTAREA:1,INPUT:1,SELECT:1,OPTION:1,BUTTON:1,A:1};
+
+  function findRecord(ref){
+    var m = ref.match(/^(CUS|LEAD|QT|TKT|REN|INV|PAY|FOL)-/);
+    if (!m) return null;
+    var cfg = COLLS[m[1]];
+    if (!cfg || typeof db === 'undefined' || !db[cfg.coll]) return null;
+    var rec = db[cfg.coll].find(function(r){ return r[cfg.key] === ref; });
+    return rec ? {cfg:cfg, rec:rec, ref:ref} : null;
+  }
+
+  /* ---------- linkify: wrap known refs in clickable spans ---------- */
+  var linkifying = false;
+  function shouldSkip(el){
+    for (var n = el; n && n !== document.body; n = n.parentElement){
+      if (SKIP_TAGS[n.tagName]) return true;
+      if (n.id === 'formModal' || n.id === 'vtxRefModal') return true;   /* forms & own modal untouched */
+      if (n.classList && n.classList.contains('vtx-ref')) return true;
+      if (n.isContentEditable) return true;
+    }
+    return false;
+  }
+  function linkify(root){
+    if (linkifying || !root || typeof db === 'undefined') return;
+    linkifying = true;
+    try{
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode:function(node){
+          if (!node.nodeValue || node.nodeValue.length < 6) return NodeFilter.FILTER_REJECT;
+          REF_RE.lastIndex = 0;
+          if (!REF_RE.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+          if (shouldSkip(node.parentElement)) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(function(node){
+        var text = node.nodeValue, frag = document.createDocumentFragment();
+        var last = 0, m; REF_RE.lastIndex = 0;
+        var any = false;
+        while ((m = REF_RE.exec(text))){
+          if (!findRecord(m[0])) continue;               /* only link refs that really exist */
+          any = true;
+          frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+          var s = document.createElement('span');
+          s.className = 'vtx-ref';
+          s.dataset.ref = m[0];
+          s.title = 'Click to view details';
+          s.textContent = m[0];
+          frag.appendChild(s);
+          last = m.index + m[0].length;
+        }
+        if (!any) return;
+        frag.appendChild(document.createTextNode(text.slice(last)));
+        node.parentNode.replaceChild(frag, node);
+      });
+    } finally { linkifying = false; }
+  }
+  /* watch the app for re-renders */
+  var pending = null;
+  new MutationObserver(function(){
+    if (linkifying || pending) return;
+    pending = setTimeout(function(){ pending = null; linkify(document.body); }, 120);
+  }).observe(document.body, {childList:true, subtree:true});
+  setTimeout(function(){ linkify(document.body); }, 800);   /* first pass after app boots */
+
+  /* ---------- click handling ---------- */
+  document.addEventListener('click', function(e){
+    var el = e.target.closest ? e.target.closest('.vtx-ref') : null;
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    vtxShowRef(el.dataset.ref);
+  }, true);
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') vtxCloseRef();
+  });
+
+  /* ---------- details popup ---------- */
+  function pretty(k){
+    var map = {customerId:'Customer', quotationNo:'Quotation Ref', ticketNo:'Ticket Ref', invoiceNo:'Invoice Ref',
+      refNo:'Reference No', amc:'AMC', vat:'VAT', tss:'TSS', sla:'SLA', dueDate:'Due Date', vatPercent:'VAT %'};
+    if (map[k]) return map[k];
+    return k.replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/^./, function(c){return c.toUpperCase();});
+  }
+  function refLink(ref){ return '<span class="vtx-ref" data-ref="'+esc(ref)+'">'+esc(ref)+'</span>'; }
+  function fmtVal(k, v){
+    if (v === null || v === undefined || v === '') return null;
+    if (k === 'status') return badge(v);
+    if (MONEY_FIELDS.indexOf(k) >= 0) return '<b>'+money(v)+' BHD</b>';
+    if (k === 'customerId'){
+      var c = customer(v);
+      return refLink(v) + (c.companyName ? ' — ' + esc(c.companyName) : '');
+    }
+    var s = String(v);
+    if (findRecord(s)) return refLink(s);
+    return esc(s);
+  }
+  function itemsTable(items){
+    if (!items || !items.length) return '';
+    var keys = Object.keys(items[0]).filter(function(k){ return items.some(function(it){ return it[k] !== '' && it[k] !== null && it[k] !== undefined; }); });
+    var head = keys.map(function(k){ return '<th>'+esc(pretty(k))+'</th>'; }).join('');
+    var rows = items.map(function(it){
+      return '<tr>' + keys.map(function(k){
+        var v = it[k];
+        if (MONEY_FIELDS.indexOf(k) >= 0 && v !== '' && !isNaN(v)) v = money(v);
+        return '<td>'+esc(v == null ? '' : v)+'</td>';
+      }).join('') + '</tr>';
+    }).join('');
+    return '<table class="vtx-items"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+  function relatedRecords(ref, ownColl){
+    var out = [];
+    Object.keys(COLLS).forEach(function(pfx){
+      var cfg = COLLS[pfx];
+      if (!db[cfg.coll]) return;
+      db[cfg.coll].forEach(function(r){
+        if (cfg.coll === ownColl && r[cfg.key] === ref) return;   /* itself */
+        var hit = Object.keys(r).some(function(k){ return k !== cfg.key && String(r[k]) === ref; });
+        if (hit) out.push({cfg:cfg, rec:r});
+      });
+    });
+    return out.slice(0, 15);
+  }
+
+  window.vtxShowRef = function(ref){
+    var found = findRecord(ref);
+    if (!found) return;
+    var cfg = found.cfg, rec = found.rec;
+
+    document.getElementById('vtxRefTitle').innerHTML =
+      cfg.icon + ' ' + esc(ref) + '<small>' + esc(cfg.label) + ' details</small>';
+
+    /* main fields */
+    var rows = '';
+    var orderFirst = ['date','customerId','contactPerson','status'];
+    var keys = Object.keys(rec).filter(function(k){ return k !== cfg.key; });
+    keys.sort(function(a,b){
+      var ia = orderFirst.indexOf(a), ib = orderFirst.indexOf(b);
+      return (ia<0?99:ia) - (ib<0?99:ib);
+    });
+    var itemsHtml = '';
+    keys.forEach(function(k){
+      var v = rec[k];
+      if (Array.isArray(v)){
+        if (k === 'items' && v.length) itemsHtml = '<div class="vtx-sec">Line Items</div>' + itemsTable(v);
+        else if (k === 'contacts' && v.length) itemsHtml += '<div class="vtx-sec">Contacts</div>' + itemsTable(v);
+        else if (k === 'logs' && v.length) itemsHtml += '<div class="vtx-sec">Logs ('+v.length+')</div>' + itemsTable(v.slice(-6));
+        return;
+      }
+      if (typeof v === 'object' && v !== null) return;
+      var f = fmtVal(k, v);
+      if (f === null) return;
+      rows += '<dt>'+esc(pretty(k))+'</dt><dd>'+f+'</dd>';
+    });
+
+    /* related records */
+    var rel = relatedRecords(ref, cfg.coll);
+    var relHtml = '';
+    if (rel.length){
+      relHtml = '<div class="vtx-sec">Linked Records</div><div class="vtx-rel">' + rel.map(function(x){
+        var c = customer(x.rec.customerId);
+        return '<div class="row"><span class="tag">'+esc(x.cfg.label)+'</span>' + refLink(x.rec[x.cfg.key]) +
+               (c.companyName ? '<span style="color:#64748b">'+esc(c.companyName)+'</span>' : '') +
+               (x.rec.status ? badge(x.rec.status) : '') + '</div>';
+      }).join('') + '</div>';
+    }
+
+    document.getElementById('vtxRefBody').innerHTML =
+      '<dl class="vtx-dl">' + rows + '</dl>' + itemsHtml + relHtml;
+
+    /* footer actions */
+    var foot = '<button class="vtx-b-gray" onclick="vtxCloseRef()">Close</button>';
+    if (cfg.coll === 'tickets' && typeof printTicket === 'function')
+      foot += '<button class="vtx-b-gray" onclick="printTicket(\''+ref.replace(/'/g,"\\'")+'\')">🖨 Print</button>';
+    if (cfg.coll === 'invoices' && typeof printInvoice === 'function')
+      foot += '<button class="vtx-b-gray" onclick="printInvoice(\''+ref.replace(/'/g,"\\'")+'\')">🖨 Print</button>';
+    foot += '<button class="vtx-b-blue" onclick="vtxOpenRegister(\''+cfg.coll+'\')">Open Register</button>';
+    foot += '<button class="vtx-b-gold" onclick="vtxEditRef(\''+cfg.coll+'\',\''+ref.replace(/'/g,"\\'")+'\')">Edit</button>';
+    document.getElementById('vtxRefFoot').innerHTML = foot;
+
+    document.getElementById('vtxRefModal').style.display = 'flex';
+  };
+  window.vtxCloseRef = function(){
+    document.getElementById('vtxRefModal').style.display = 'none';
+  };
+  window.vtxOpenRegister = function(coll){
+    vtxCloseRef();
+    if (typeof setModule === 'function') setModule(coll);
+  };
+  window.vtxEditRef = function(coll, ref){
+    vtxCloseRef();
+    if (typeof setModule === 'function') setModule(coll);
+    if (typeof openForm === 'function') setTimeout(function(){ openForm(ref); }, 50);
+  };
+})();
+</script>
+<!-- ========= END CLICKABLE REFERENCE NUMBERS BLOCK ========= -->
 
 </body>
 </html>
