@@ -318,53 +318,18 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 
 <script>
 /* ══════════════════════════════════════════════════════════════════
-   LOCALSTORAGE OBFUSCATION LAYER (Veltrox)
-   Encodes protected keys so DevTools shows scrambled values instead
-   of readable CRM data. Runs BEFORE any other code touches storage.
-   - Old plain-text data is auto-detected, loaded normally, and gets
-     re-saved encoded on the next save. No migration needed.
-   - Existing save/load/auth code needs ZERO changes.
+   SECURITY CLEANUP
+   CRM records are stored only in Firebase/Firestore.
+   Remove any legacy browser copies created by older versions.
+   Harmless UI preferences may still use localStorage/sessionStorage.
    ══════════════════════════════════════════════════════════════════ */
-(function(){
-  /* Any key starting with these prefixes gets encoded. Covers the main
-     CRM (VELTROX_*), the Service CRM (vcrm_*), nav mode (VTX_*) and
-     the deploy tag — i.e. everything this app family writes. */
-  const PROTECTED_PREFIXES=['VELTROX_','vcrm_','VTX_','crmDeployTag'];
-  const isProtected=k=>typeof k==='string'&&PROTECTED_PREFIXES.some(p=>k.startsWith(p));
-  const SALT='VTX9';
-  const _set=Storage.prototype.setItem;
-  const _get=Storage.prototype.getItem;
-  const enc=s=>{try{return btoa(unescape(encodeURIComponent(SALT+s.split('').reverse().join(''))));}catch(e){return s;}};
-  const dec=s=>{
-    try{
-      const raw=decodeURIComponent(escape(atob(s)));
-      if(!raw.startsWith(SALT))return s;               /* not ours — return untouched */
-      return raw.slice(SALT.length).split('').reverse().join('');
-    }catch(e){return s;}                               /* plain legacy data — return as-is */
-  };
-  Storage.prototype.setItem=function(k,v){
-    _set.call(this,k,(isProtected(k)&&typeof v==='string')?enc(v):v);
-  };
-  Storage.prototype.getItem=function(k){
-    const v=_get.call(this,k);
-    return (isProtected(k)&&v)?dec(v):v;
-  };
-})();
-/* ═══════════════ END OBFUSCATION LAYER ═══════════════ */
-
-const STORAGE_KEY='VELTROX_CRM';
-/* One-time migration: move data saved under the old key to the new key so nothing is lost */
 try{
-  const _oldKey='VELTROX_FULL_CRM_V2', _old=localStorage.getItem(_oldKey);
-  if(_old && !localStorage.getItem(STORAGE_KEY)){ localStorage.setItem(STORAGE_KEY,_old); }
-  /* Cleanup: once data exists under the new key, the legacy key is no
-     longer needed on any device — remove it unconditionally. */
-  if(localStorage.getItem(STORAGE_KEY)){ localStorage.removeItem(_oldKey); }
-  /* Security cleanup: remove legacy users key that stored a plaintext password.
-     The current CRM uses Firebase Authentication only and never reads this key. */
+  localStorage.removeItem('VELTROX_CRM');
+  localStorage.removeItem('VELTROX_FULL_CRM_V2');
+  localStorage.removeItem('VELTROX_LAST_SAVE_TS');
   localStorage.removeItem('VELTROX_USERS');
 }catch(e){}
-const LAST_SAVE_KEY='VELTROX_LAST_SAVE_TS';
+
 let currentModule='dashboard';let editId=null;let customerTab='overview';let reportTab='sales';
 
 // ── FIREBASE INIT ─────────────────────────────────────────────────
@@ -646,7 +611,8 @@ function doLogin(){
   const err=document.getElementById('loginErr');
   if(!email||!pass){err.style.display='block';err.textContent='Please enter email and password';return;}
   btn.disabled=true;btn.textContent='Logging in...';err.style.display='none';
-  fauth.signInWithEmailAndPassword(email,pass)
+  fauth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .then(()=>fauth.signInWithEmailAndPassword(email,pass))
     .then(()=>{btn.disabled=false;btn.textContent='Login to CRM';})
     .catch(e=>{
       btn.disabled=false;btn.textContent='Login to CRM';
@@ -835,59 +801,32 @@ function isFormOpen(){
   return (formModal && formModal.style.display==='flex') || (viewModal && viewModal.style.display==='flex');
 }
 
-fauth.onAuthStateChanged(user=>{
+fauth.onAuthStateChanged(async user=>{
   if(user){
     hideLogin(user.email);
-    // Load data instantly from localStorage first
-    db=normalizeDB(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'));
-    hideLoadingOverlay();
-    setModule('dashboard');
-    // Background Firebase sync — runs once on startup only
-    setTimeout(async ()=>{
-      setSyncStatus('syncing','🔄 Connecting to Firebase...');
-      try{
-        await migrateOldFirestoreFormat(); // one-time upgrade if needed
-        const raw=await loadFBAll();
-        const fbHasData=raw&&Array.isArray(raw.customers)&&raw.customers.length>0;
-        const localHasData=db.customers&&db.customers.length>0;
-
-        // Compare timestamps: only let Firestore overwrite local data if
-        // Firestore's last save is actually NEWER than our local copy.
-        // This prevents a slightly-delayed background sync from wiping out
-        // an edit you just made and saved locally moments ago.
-        let fbIsNewer=true;
-        try{
-          const metaDoc=await fdb.collection('crm_settings').doc('_meta').get();
-          const fbTs=metaDoc.exists?Number(metaDoc.data().lastModified||0):0;
-          const localTs=Number(localStorage.getItem(LAST_SAVE_KEY)||0);
-          fbIsNewer=fbTs>=localTs;
-          console.log('[Sync check] Firestore ts:',fbTs,new Date(fbTs).toLocaleTimeString(),'| Local ts:',localTs,new Date(localTs).toLocaleTimeString(),'| Using:',fbIsNewer?'FIRESTORE':'LOCAL');
-        }catch(e){console.warn('Could not compare sync timestamps, defaulting to Firebase:',e);}
-
-        if(fbHasData&&fbIsNewer){
-          if(isFormOpen()){
-            // Don't yank data out from under someone mid-edit — try again shortly
-            setTimeout(()=>{ if(!isFormOpen()){ db=normalizeDB(raw); try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));}catch(e){} render(); } },4000);
-          } else {
-            db=normalizeDB(raw);
-            try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));}catch(e){}
-            render();
-          }
-          const now=new Date();
-          const t=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
-          setSyncStatus('success','✅ Firebase connected — '+t);
-        } else if(localHasData){
-          // Local copy is newer (or just as new) — push it up instead of pulling down
-          await saveDB();
-        } else {
-          setSyncStatus('success','✅ Firebase connected');
-        }
-      }catch(e){
-        console.error('Startup sync error:',e);
-        setSyncStatus('error','❌ Firebase offline — using local data');
-      }
-    },1500);
+    showLoadingOverlay('Loading secure CRM data from Firebase...');
+    setSyncStatus('syncing','🔄 Connecting to Firebase...');
+    try{
+      await migrateOldFirestoreFormat();
+      const raw=await loadFBAll();
+      db=normalizeDB(raw);
+      setModule('dashboard');
+      render();
+      const now=new Date();
+      const t=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+      setSyncStatus('success','✅ Firebase connected — '+t);
+    }catch(e){
+      console.error('Firebase startup error:',e);
+      db=normalizeDB(null);
+      setModule('dashboard');
+      render();
+      setSyncStatus('error','❌ Unable to load Firebase data');
+      alert('CRM data could not be loaded from Firebase. Please check your internet connection and Firestore Security Rules.');
+    }finally{
+      hideLoadingOverlay();
+    }
   } else {
+    db=normalizeDB(null);
     showLogin();
     hideLoadingOverlay();
   }
@@ -901,18 +840,15 @@ function setSyncStatus(status,msg){
   txt.textContent=msg;
 }
 function saveDB(){
-  // 1. Save to localStorage immediately (instant), stamped with the save time
+  if(!fauth.currentUser){
+    alert('Your session has expired. Please log in again.');
+    return Promise.reject(new Error('Unauthenticated'));
+  }
+
   const saveTs=Date.now();
-  try{
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
-    localStorage.setItem(LAST_SAVE_KEY,String(saveTs));
-  }catch(e){}
-  // 2. Sync to Firebase in background. The save timestamp travels inside the
-  // SAME Firestore batch as the settings write (see saveFBModule), so the
-  // timestamp can never be "ahead of" or "behind" the actual data — they
-  // commit atomically together, closing the race window entirely.
   setSyncStatus('syncing','🔄 Syncing to Firebase...');
-  Promise.all(FB_MODULES.map(m=>saveFBModule(m,db[m],saveTs)))
+
+  return Promise.all(FB_MODULES.map(m=>saveFBModule(m,db[m],saveTs)))
     .then(()=>{
       const now=new Date();
       const t=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
@@ -922,11 +858,12 @@ function saveDB(){
     })
     .catch(e=>{
       console.error('Firebase sync error:',e);
-      let reason='data saved locally';
-      if(e&&e.code==='permission-denied')reason='Firestore rules blocked the write — check your security rules';
+      let reason='unknown error';
+      if(e&&e.code==='permission-denied')reason='Firestore rules blocked the write';
       else if(e&&e.code==='unavailable')reason='no internet connection';
-      else if(e&&e.code==='unauthenticated')reason='you were logged out — please log in again';
+      else if(e&&e.code==='unauthenticated')reason='your login session expired';
       setSyncStatus('error','❌ Sync failed: '+reason);
+      throw e;
     });
 }
 
