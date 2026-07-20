@@ -326,7 +326,11 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
    - Existing save/load/auth code needs ZERO changes.
    ══════════════════════════════════════════════════════════════════ */
 (function(){
-  const PROTECTED_KEYS=['VELTROX_CRM','VELTROX_FULL_CRM_V2','VELTROX_NOTIFS_DISMISSED'];
+  /* Any key starting with these prefixes gets encoded. Covers the main
+     CRM (VELTROX_*), the Service CRM (vcrm_*), nav mode (VTX_*) and
+     the deploy tag — i.e. everything this app family writes. */
+  const PROTECTED_PREFIXES=['VELTROX_','vcrm_','VTX_','crmDeployTag'];
+  const isProtected=k=>typeof k==='string'&&PROTECTED_PREFIXES.some(p=>k.startsWith(p));
   const SALT='VTX9';
   const _set=Storage.prototype.setItem;
   const _get=Storage.prototype.getItem;
@@ -339,11 +343,11 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
     }catch(e){return s;}                               /* plain legacy data — return as-is */
   };
   Storage.prototype.setItem=function(k,v){
-    _set.call(this,k,(PROTECTED_KEYS.includes(k)&&typeof v==='string')?enc(v):v);
+    _set.call(this,k,(isProtected(k)&&typeof v==='string')?enc(v):v);
   };
   Storage.prototype.getItem=function(k){
     const v=_get.call(this,k);
-    return (PROTECTED_KEYS.includes(k)&&v)?dec(v):v;
+    return (isProtected(k)&&v)?dec(v):v;
   };
 })();
 /* ═══════════════ END OBFUSCATION LAYER ═══════════════ */
@@ -353,7 +357,9 @@ const STORAGE_KEY='VELTROX_CRM';
 try{
   const _oldKey='VELTROX_FULL_CRM_V2', _old=localStorage.getItem(_oldKey);
   if(_old && !localStorage.getItem(STORAGE_KEY)){ localStorage.setItem(STORAGE_KEY,_old); }
-  if(_old && localStorage.getItem(STORAGE_KEY)===_old){ localStorage.removeItem(_oldKey); }
+  /* Cleanup: once data exists under the new key, the legacy key is no
+     longer needed on any device — remove it unconditionally. */
+  if(localStorage.getItem(STORAGE_KEY)){ localStorage.removeItem(_oldKey); }
   /* Security cleanup: remove legacy users key that stored a plaintext password.
      The current CRM uses Firebase Authentication only and never reads this key. */
   localStorage.removeItem('VELTROX_USERS');
