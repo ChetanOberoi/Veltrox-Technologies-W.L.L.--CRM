@@ -23,13 +23,13 @@ button,input,select,textarea{font-family:inherit}
 .nav{width:100%;border:0;background:transparent;color:#1e3a5f;text-align:left;padding:11px 12px;border-radius:11px;margin:3px 0;cursor:pointer;font-weight:700;display:flex;gap:9px;align-items:center}
 .nav:hover{background:#fff;color:#1d4ed8}
 .nav.active{background:var(--primary);color:#fff}
-.main{margin-left:280px;width:calc(100% - 280px);padding:22px}
-.topbar{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
+.main{margin-left:280px;width:calc(100% - 280px);padding:14px}
+.topbar{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:12px}
 h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .search{width:330px;max-width:100%;padding:11px 13px;border:1px solid #d1d5db;border-radius:12px;outline:none;background:#fff}.search:focus{border-color:var(--primary)}
 .btn{border:0;border-radius:10px;padding:10px 13px;background:var(--primary);color:#fff;font-weight:800;cursor:pointer}.btn:hover{opacity:.9}.btn.small{padding:7px 9px;font-size:12px}.btn.gray{background:#64748b}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.red{background:var(--red)}.btn.purple{background:var(--purple)}.btn.cyan{background:var(--cyan)}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:13px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow)}.card.click{cursor:pointer}.card.click:hover{transform:translateY(-2px)}.card-title{font-size:12px;color:var(--muted);font-weight:800}.card-value{font-size:25px;font-weight:900;margin-top:7px}.card-foot{font-size:11px;color:var(--muted);margin-top:6px}
-.grid-2{display:grid;grid-template-columns:1.5fr .8fr;gap:16px}.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.panel h2,.panel h3{margin:0}.hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;padding:11px;margin-bottom:12px;font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:13px;margin-bottom:12px}.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow)}.card.click{cursor:pointer}.card.click:hover{transform:translateY(-2px)}.card-title{font-size:12px;color:var(--muted);font-weight:800}.card-value{font-size:25px;font-weight:900;margin-top:7px}.card-foot{font-size:11px;color:var(--muted);margin-top:6px}
+.grid-2{display:grid;grid-template-columns:1.5fr .8fr;gap:16px}.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin-bottom:12px}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.panel h2,.panel h3{margin:0}.hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;padding:11px;margin-bottom:8px;font-size:13px}
 .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:1100px}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:13px;vertical-align:top}th{background:#f8fafc;color:#334155;white-space:nowrap}tr:hover td{background:#fafafa}.link{color:var(--primary);font-weight:800;cursor:pointer;text-decoration:none}
 .badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:900;background:#dbeafe;color:#1d4ed8}.b-green{background:#dcfce7;color:#166534}.b-red{background:#fee2e2;color:#991b1b}.b-orange{background:#fef3c7;color:#92400e}.b-gray{background:#e5e7eb;color:#374151}.b-purple{background:#ede9fe;color:#5b21b6}
 .kanban{display:grid;grid-template-columns:repeat(7,minmax(220px,1fr));gap:12px;overflow:auto;padding-bottom:6px}.kanban.service{grid-template-columns:repeat(6,minmax(220px,1fr))}.kanban.pay{grid-template-columns:repeat(4,minmax(230px,1fr))}.lane{background:#f8fafc;border:1px solid var(--border);border-radius:16px;padding:10px;min-height:280px}.lane-title{font-weight:900;font-size:13px;margin:3px 4px 10px;display:flex;justify-content:space-between}.kcard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 6px 14px rgba(15,23,42,.06)}.kcard b{display:block;margin-bottom:5px}.kmeta{font-size:12px;color:var(--muted);line-height:1.55}.k-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
@@ -1045,7 +1045,7 @@ function filterBar(mod, statuses, assignList, amtLabel){
   const statusOpts=(statuses||[]).map(s=>`<option value="${esc(s)}" ${s===f.status?'selected':''}>${esc(s)}</option>`).join('');
   const assignOpts=(assignList||[]).map(a=>`<option value="${esc(a)}" ${a===f.assignedTo?'selected':''}>${esc(a)}</option>`).join('');
   const activeCount=[f.from,f.to,f.status,f.assignedTo,f.customerId,f.amtMin,f.amtMax].filter(Boolean).length;
-  return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:12px 16px;margin-bottom:14px">
+  return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:12px 16px;margin-bottom:10px">
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
       <div style="display:flex;flex-direction:column;gap:3px;min-width:130px">
         <label style="font-size:11px;font-weight:800;color:#374151">From Date</label>
@@ -1365,8 +1365,8 @@ function renderLeadsPipeline() {
   const totalValue = all.reduce((s,x) => s + Number(x.value||0), 0);
   const winRate = total ? Math.round((won/(won+lost||1))*100) : 0;
   
-  let html = '<div style="margin-bottom:24px">';
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px">';
+  let html = '<div style="margin-bottom:8px">';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:8px">';
   
   // KPI Card: Total Leads
   html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
@@ -1400,7 +1400,7 @@ function renderLeadsPipeline() {
   html += '</div>';
   
   // Pipeline Bar Chart
-  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:18px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
+  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
   html += '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px">Sales Pipeline</div>';
   html += '<div style="display:grid;grid-template-columns:repeat('+pipelineStages.length+',1fr);gap:6px">';
   
