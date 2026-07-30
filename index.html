@@ -41,6 +41,12 @@ h1{margin:0 0 4px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px
 .qtb-btn.danger:hover{background:#fee2e2;color:#991b1b}
 .customer-head{display:grid;grid-template-columns:1fr auto;gap:12px}.timeline{border-left:3px solid #dbeafe;margin-left:8px;padding-left:16px}.event{position:relative;margin-bottom:13px}.event:before{content:"";position:absolute;left:-25px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--primary)}
 @media(max-width:950px){.sidebar{position:relative;width:100%;height:auto}.app{display:block}.main{margin-left:0;width:100%;padding:14px}.topbar,.grid-2,.customer-head{display:block}.actions{justify-content:flex-start;margin-top:10px}.form-grid{grid-template-columns:1fr}.kanban,.kanban.service,.kanban.pay{grid-template-columns:repeat(1,1fr)}}
+/* ──── HYBRID SALES PIPELINE STYLES ──── */
+.pipeline-kpi-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 6px rgba(15,23,42,.05);transition:all .2s}
+.pipeline-kpi-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(15,23,42,.1)}
+.lead-card-item{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(15,23,42,.05);transition:all .2s}
+.lead-card-item:hover{border-color:#2563eb;box-shadow:0 4px 14px rgba(37,99,235,.12)}
+
 #printArea{display:none}
 @media print{
   @page{size:A4;margin:12mm}
@@ -1326,9 +1332,170 @@ function leadStatusBadge(current) {
 
 
 function renderLeads() {
-  document.getElementById('sectionTitle').innerText = 'Leads Register - Table View';
-  document.getElementById('sectionActions').innerHTML = '<button class="btn green" onclick="openForm()">+ Add Lead</button>';
-  leadTableView();
+  document.getElementById('sectionTitle').innerText = 'Sales Pipeline';
+  const viewMode = localStorage.getItem('leadsViewMode') || 'pipeline';
+  document.getElementById('sectionActions').innerHTML = 
+    '<button class="btn small '+(viewMode==='pipeline'?'green':'gray')+'" onclick="toggleLeadsView(\'pipeline\')">📊 Pipeline</button>' +
+    '<button class="btn small '+(viewMode==='table'?'green':'gray')+'" onclick="toggleLeadsView(\'table\')">📋 Table</button>' +
+    '<button class="btn green" onclick="openForm()" style="margin-left:8px">+ Add Lead</button>';
+  if(viewMode === 'pipeline') {
+    renderLeadsPipeline();
+  } else {
+    leadTableView();
+  }
+}
+
+function toggleLeadsView(mode) {
+  localStorage.setItem('leadsViewMode', mode);
+  sessionStorage.removeItem('filterStage');
+  render();
+}
+
+// ────────── HYBRID SALES PIPELINE VIEW ──────────
+function renderLeadsPipeline() {
+  const pipelineStages = ['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Qualified'];
+  let all = db.leads.filter(match);
+  
+  // KPI Cards
+  const total = all.length;
+  const won = all.filter(x => x.status === 'Won').length;
+  const lost = all.filter(x => x.status === 'Lost').length;
+  const notQual = all.filter(x => x.status === 'Not Qualified').length;
+  const active = total - won - lost - notQual;
+  const totalValue = all.reduce((s,x) => s + Number(x.value||0), 0);
+  const winRate = total ? Math.round((won/(won+lost||1))*100) : 0;
+  
+  let html = '<div style="margin-bottom:24px">';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px">';
+  
+  // KPI Card: Total Leads
+  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
+  html += '<div style="font-size:11px;color:#6b7280;font-weight:800;margin-bottom:4px">Total Leads</div>';
+  html += '<div style="font-size:24px;font-weight:900;color:#1e3a8a">'+total+'</div>';
+  html += '<div style="font-size:10px;color:#9ca3af;margin-top:4px">'+active+' active</div>';
+  html += '</div>';
+  
+  // KPI Card: Pipeline Value
+  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
+  html += '<div style="font-size:11px;color:#6b7280;font-weight:800;margin-bottom:4px">Pipeline Value</div>';
+  html += '<div style="font-size:20px;font-weight:900;color:#16a34a">'+formatMoney(totalValue)+' BHD</div>';
+  html += '<div style="font-size:10px;color:#9ca3af;margin-top:4px">Active deals</div>';
+  html += '</div>';
+  
+  // KPI Card: Win Rate
+  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
+  html += '<div style="font-size:11px;color:#6b7280;font-weight:800;margin-bottom:4px">Win Rate</div>';
+  html += '<div style="font-size:24px;font-weight:900;color:#f59e0b">'+winRate+'%</div>';
+  html += '<div style="font-size:10px;color:#9ca3af;margin-top:4px">'+won+' won / '+lost+' lost</div>';
+  html += '</div>';
+  
+  // KPI Card: Follow-ups Due
+  const followupsDue = all.filter(x => x.nextFollowup && new Date(x.nextFollowup) <= new Date(today())).length;
+  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
+  html += '<div style="font-size:11px;color:#6b7280;font-weight:800;margin-bottom:4px">Follow-ups Due</div>';
+  html += '<div style="font-size:24px;font-weight:900;color:#dc2626">'+followupsDue+'</div>';
+  html += '<div style="font-size:10px;color:#9ca3af;margin-top:4px">Action needed</div>';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  // Pipeline Bar Chart
+  html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:18px;box-shadow:0 2px 6px rgba(15,23,42,.05)">';
+  html += '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px">Sales Pipeline</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat('+pipelineStages.length+',1fr);gap:6px">';
+  
+  pipelineStages.forEach(stage => {
+    const stageCount = all.filter(x => x.status === stage).length;
+    const stageValue = all.filter(x => x.status === stage).reduce((s,x) => s + Number(x.value||0), 0);
+    let stageColor = '#2563eb';
+    if(stage === 'Won') stageColor = '#16a34a';
+    else if(stage === 'Lost' || stage === 'Not Qualified') stageColor = '#dc2626';
+    else if(stage === 'Negotiation') stageColor = '#f59e0b';
+    
+    html += '<div style="text-align:center;padding:10px;background:'+stageColor+'15;border:1px solid '+stageColor+'40;border-radius:8px;cursor:pointer" onclick="filterLeadsByStage(\''+stage+'\')">';
+    html += '<div style="font-size:11px;font-weight:800;color:'+stageColor+';margin-bottom:3px">'+stage+'</div>';
+    html += '<div style="font-size:16px;font-weight:900;color:'+stageColor+'">'+stageCount+'</div>';
+    html += '<div style="font-size:9px;color:#6b7280;margin-top:2px">'+formatMoney(stageValue)+'</div>';
+    html += '</div>';
+  });
+  
+  html += '</div></div>';
+  
+  // Filters
+  const leadStatuses = ['New','Contacted','Demo Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Qualified'];
+  html += filterBar('leads', leadStatuses, db.team, 'Amount (BHD)');
+  
+  // Lead Cards
+  let filtered = applyFilters(all, 'leads', 'leadDate', 'status', 'assignedTo', 'value');
+  
+  // Check for stage filter from pipeline click
+  const stageFilter = sessionStorage.getItem('filterStage');
+  if(stageFilter && stageFilter !== 'all') {
+    filtered = filtered.filter(l => l.status === stageFilter);
+  }
+  
+  if(filtered.length === 0) {
+    html += '<div style="text-align:center;padding:40px;color:#6b7280"><div style="font-size:14px;margin-bottom:8px">No leads found</div><button class="btn green" onclick="openForm()" style="margin-top:10px">+ Add your first lead</button></div>';
+  } else {
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">';
+    
+    filtered.forEach(l => {
+      let c = customer(l.customerId);
+      let statusColor = '#2563eb';
+      if(l.status === 'Won') statusColor = '#16a34a';
+      else if(l.status === 'Lost' || l.status === 'Not Qualified') statusColor = '#dc2626';
+      else if(l.status === 'Negotiation') statusColor = '#f59e0b';
+      
+      html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(15,23,42,.05);transition:all .2s">';
+      
+      // Header
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
+      html += '<div><div style="font-weight:900;font-size:14px;color:#111827">'+esc(c.companyName)+'</div>';
+      html += '<div style="font-size:11px;color:#6b7280;margin-top:2px">'+esc(l.leadId)+'</div></div>';
+      html += '<div style="background:'+statusColor+'20;color:'+statusColor+';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800">'+l.status+'</div>';
+      html += '</div>';
+      
+      // Details Grid
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e5e7eb">';
+      html += '<div><div style="color:#6b7280;font-size:10px;font-weight:800">Contact</div><div style="color:#111827;font-weight:600">'+esc(c.contactPerson)+'</div></div>';
+      html += '<div><div style="color:#6b7280;font-size:10px;font-weight:800">Phone</div><div style="color:#111827;font-weight:600">'+esc(c.mobile)+'</div></div>';
+      html += '<div><div style="color:#6b7280;font-size:10px;font-weight:800">Amount</div><div style="color:#16a34a;font-weight:900">'+formatMoney(l.value)+' BHD</div></div>';
+      html += '<div><div style="color:#6b7280;font-size:10px;font-weight:800">Follow-up</div><div style="color:#111827;font-weight:600">'+esc(l.nextFollowup)+'</div></div>';
+      html += '</div>';
+      
+      // Quick Actions
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+      html += '<button class="btn small" style="background:#2563eb;color:#fff;flex:1;padding:7px" onclick="quickFollowup(\'Lead\',\''+l.leadId+'\',\''+l.customerId+'\')">📞 Follow-up</button>';
+      html += '<button class="btn small" style="background:#25D366;color:#fff;flex:1;padding:7px" onclick="waLead(\''+l.leadId+'\')">💬 WhatsApp</button>';
+      html += '<button class="btn small" style="background:#16a34a;color:#fff;flex:1;padding:7px" onclick="createQuotationFromLead(\''+l.leadId+'\')">📄 Quotation</button>';
+      html += '<button class="btn small orange" style="flex:1;padding:7px" onclick="openForm(\''+l.leadId+'\')">✏️ Edit</button>';
+      html += '</div>';
+      
+      html += '</div>';
+    });
+    
+    html += '</div>';
+  }
+  
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+function filterLeadsByStage(stage) {
+  const current = sessionStorage.getItem('filterStage');
+  if(current === stage) {
+    sessionStorage.removeItem('filterStage');
+  } else {
+    sessionStorage.setItem('filterStage', stage);
+  }
+  render();
+}
+
+function formatMoney(val) {
+  const n = Number(val || 0);
+  if(n >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if(n >= 1000) return (n/1000).toFixed(0)+'K';
+  return n.toFixed(0);
 }
 
 // ── FIX 2: Status cell shows ONLY the color-coded dropdown — duplicate badge removed ──
