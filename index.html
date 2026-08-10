@@ -1120,83 +1120,225 @@ function render(){cards();document.getElementById('sectionActions').innerHTML=''
 function cards(){let invTotal=db.invoices.reduce((s,x)=>s+Number(x.total||0),0),rec=db.payments.reduce((s,x)=>s+Number(x.received||0),0);let dueRen=db.renewals.filter(x=>x.expiryDate&&x.expiryDate<=new Date(Date.now()+30*86400000).toISOString().slice(0,10)&&x.status!=='Renewed').length;document.getElementById('summaryCards').innerHTML=`<div class="card click" onclick="setModule('leads')"><div class="card-title">Total Leads</div><div class="card-value">${db.leads.length}</div><div class="card-foot">Pipeline opportunities</div></div><div class="card click" onclick="setModule('quotations')"><div class="card-title">Open Quotations</div><div class="card-value">${db.quotations.filter(x=>!['Approved','Rejected','Converted'].includes(x.status)).length}</div><div class="card-foot">Pending conversion</div></div><div class="card click" onclick="setModule('tickets')"><div class="card-title">Open Tickets</div><div class="card-value">${db.tickets.filter(x=>x.status!=='Closed').length}</div><div class="card-foot">Service workload</div></div><div class="card click" onclick="setModule('payments')"><div class="card-title">Pending Collection</div><div class="card-value">${money(invTotal-rec)}</div><div class="card-foot">BHD outstanding</div></div><div class="card click" onclick="setModule('renewals')"><div class="card-title">Renewals Due</div><div class="card-value">${dueRen}</div><div class="card-foot">Next 30 days</div></div>`}
 function table(h,r){return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r||`<tr><td colspan="${h.length}">No records found.</td></tr>`}</tbody></table></div>`}
 function renderDashboard(){
-  document.getElementById('sectionTitle').innerText='Dashboard — Charts & Kanban';
+  document.getElementById('sectionTitle').innerText='Dashboard';
+  document.getElementById('sectionSub').innerText='Welcome to Veltrox CRM';
   document.getElementById('sectionActions').innerHTML='';
-  const recent=[...db.leads.map(x=>['Lead',x.leadDate,x.leadId,x.customerId,x.status,x.product]),...db.followups.map(x=>['Follow-up',x.date,x.followupId,x.customerId,x.status,x.discussion]),...db.quotations.map(x=>['Quotation',x.date,x.quotationNo,x.customerId,x.status,x.item]),...db.tickets.map(x=>['Ticket',x.date,x.ticketNo,x.customerId,x.status,x.issue]),...db.invoices.map(x=>['Invoice',x.date,x.invoiceNo,x.customerId,x.status,x.item])].sort((a,b)=>String(b[1]).localeCompare(String(a[1]))).slice(0,10).map(a=>`<tr><td>${a[1]||''}</td><td>${a[0]}</td><td>${esc(customer(a[3]).companyName||'')}</td><td>${esc(a[2])}</td><td>${esc(a[5]||'')}</td><td>${badge(a[4])}</td></tr>`).join('');
-  document.getElementById('content').innerHTML=`
-    <div class="hint">Live charts built from your CRM data. Scroll down for Kanban and recent activity.</div>
 
-    <!-- ROW 1: Funnel + Revenue Trend -->
-    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:16px">
-      <div class="panel" style="margin:0">
-        <h3 style="margin-bottom:10px">🎯 Lead Pipeline Funnel</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px;color:#6b7280">
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2563eb;margin-right:3px;vertical-align:middle"></span>Stages</span>
-        </div>
-        <div style="position:relative;width:100%;height:210px"><canvas id="ch_funnel" role="img" aria-label="Lead pipeline funnel">Lead funnel</canvas></div>
+  // KPI calculations
+  const openTickets=db.tickets.filter(t=>t.status!=='Closed'&&t.status!=='Resolved').length;
+  const totalRevenue=db.invoices.reduce((s,i)=>s+Number(i.total||0),0);
+  const activeCustomers=db.customers.filter(c=>c.status!=='Inactive').length;
+  const overdueRenewals=db.renewals.filter(r=>new Date(r.dueDate)<new Date()&&r.status!=='Renewed').length;
+
+  // Activity Summary calculations
+  const now=new Date();
+  const thisMonth=new Date(now.getFullYear(),now.getMonth(),1);
+  const leadsThisMonth=db.leads.filter(l=>new Date(l.leadDate)>=thisMonth).length;
+  const activeQuotations=db.quotations.filter(q=>q.status!=='Rejected'&&q.status!=='Converted').length;
+  const pendingInvoices=db.invoices.filter(i=>i.status!=='Paid').length;
+  const overdueTasks=db.tickets.filter(t=>t.status==='Open'||t.status==='In Progress').length;
+
+  // Revenue trend (last 3 months)
+  const months=[];
+  const invoicedData=[];
+  const collectedData=[];
+  for(let i=2;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const monthName=d.toLocaleString('en-US',{month:'short'});
+    const monthStart=new Date(d.getFullYear(),d.getMonth(),1);
+    const monthEnd=new Date(d.getFullYear(),d.getMonth()+1,0);
+    months.push(monthName);
+    const invTotal=db.invoices.filter(i=>new Date(i.date)>=monthStart&&new Date(i.date)<=monthEnd).reduce((s,i)=>s+Number(i.total||0),0);
+    const paidTotal=db.payments.filter(p=>new Date(p.date)>=monthStart&&new Date(p.date)<=monthEnd).reduce((s,p)=>s+Number(p.received||0),0);
+    invoicedData.push(Math.round(invTotal));
+    collectedData.push(Math.round(paidTotal));
+  }
+
+  // Get visible modules
+  const visModules=db.settings.dashboardModules||{dashboard:true,tickets:true,customers:true,invoices:true,renewals:true,quotations:true,leads:true,products:true};
+  const moduleList=[
+    {key:'tickets',name:'Service Tickets',icon:'🎫'},
+    {key:'customers',name:'Customers',icon:'👥'},
+    {key:'invoices',name:'Invoices',icon:'📑'},
+    {key:'renewals',name:'Renewals',icon:'♻️'},
+    {key:'quotations',name:'Quotations',icon:'📄'},
+    {key:'leads',name:'Leads',icon:'🔵'},
+    {key:'payments',name:'Payments',icon:'💳'},
+    {key:'products',name:'Products',icon:'📦'},
+    {key:'reports',name:'Reports',icon:'📈'},
+    {key:'settings',name:'Settings',icon:'⚙️'}
+  ].filter(m=>crmCan(m.key));
+
+  const visibleCards=moduleList.filter(m=>visModules[m.key]!==false);
+
+  let html=`
+    <!-- SECTION 1: MY APPS / MODULES -->
+    <div style="margin-bottom:40px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0;font-size:20px;font-weight:900">📱 My apps</h2>
+        <button style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#e5e7eb;border:0;border-radius:10px;color:#374151;font-weight:800;font-size:12px;cursor:pointer" onmouseover="this.style.background='#d1d5db'" onmouseout="this.style.background='#e5e7eb'" onclick="openDashCustomize()">⚙️ Customize apps</button>
       </div>
-      <div class="panel" style="margin:0">
-        <h3 style="margin-bottom:10px">💰 Invoiced vs Collected (BHD)</h3>
-        <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#6b7280">
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2563eb;margin-right:3px;vertical-align:middle"></span>Invoiced</span>
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Collected</span>
-        </div>
-        <div style="position:relative;width:100%;height:210px"><canvas id="ch_revenue" role="img" aria-label="Revenue trend chart">Revenue trend</canvas></div>
+      
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:20px">
+        ${visibleCards.map(m=>`
+          <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:18px;padding:24px;cursor:pointer;transition:all .3s;box-shadow:0 2px 8px rgba(15,23,42,.05);text-align:center;display:flex;flex-direction:column;align-items:center" onmouseover="this.style.transform='translateY(-6px)';this.style.boxShadow='0 8px 20px rgba(15,23,42,.12)';this.style.borderColor='var(--primary)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(15,23,42,.05)';this.style.borderColor='var(--border)'" onclick="setModule('${m.key}');render()">
+            <div style="font-size:48px;margin-bottom:12px">${m.icon}</div>
+            <h3 style="font-size:13px;font-weight:900;color:var(--text);margin:0;text-align:center">${m.name}</h3>
+          </div>
+        `).join('')}
       </div>
     </div>
 
-    <!-- ROW 2: Win Rate + Ticket Status + Salesman -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:16px;margin-bottom:16px">
-      <div class="panel" style="margin:0">
-        <h3 style="margin-bottom:10px">🏆 Lead Win Rate</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:11px;color:#6b7280">
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Won</span>
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px;vertical-align:middle"></span>Lost</span>
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#94a3b8;margin-right:3px;vertical-align:middle"></span>Active</span>
-        </div>
-        <div style="position:relative;width:100%;height:170px"><canvas id="ch_win" role="img" aria-label="Lead win rate donut">Win rate</canvas></div>
+    <!-- SECTION 2: LIVE WORKSPACE / BUSINESS OVERVIEW -->
+    <div style="margin-bottom:40px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;color:#2563eb;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:1px">
+        <span style="display:inline-block;width:2px;height:14px;background:#2563eb"></span>LIVE WORKSPACE
       </div>
-      <div class="panel" style="margin:0">
-        <h3 style="margin-bottom:10px">🛠 Ticket Status</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:11px;color:#6b7280">
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px;vertical-align:middle"></span>Open</span>
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f59e0b;margin-right:3px;vertical-align:middle"></span>In Progress</span>
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Resolved/Closed</span>
+
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:24px;box-shadow:0 4px 16px rgba(15,23,42,.08)">
+        <h3 style="margin:0 0 6px;font-size:16px;font-weight:900">Business overview</h3>
+        <p style="margin:0 0 20px;font-size:12px;color:var(--muted)">Revenue trend & key metrics</p>
+        
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px">
+          <!-- Chart on left -->
+          <div>
+            <div style="display:flex;gap:16px;margin-bottom:12px;font-size:11px;color:#6b7280">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2563eb;margin-right:4px;vertical-align:middle"></span>Invoiced</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#16a34a;margin-right:4px;vertical-align:middle"></span>Collected</span>
+            </div>
+            <div style="position:relative;width:100%;height:200px"><canvas id="dashRevenueChart" role="img" aria-label="Revenue trend">Revenue Chart</canvas></div>
+          </div>
+
+          <!-- KPIs on right -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);border-radius:12px;padding:12px;text-align:center">
+              <div style="font-size:20px;margin-bottom:4px">🎫</div>
+              <p style="font-size:22px;font-weight:900;color:#1e40af;margin:0">${openTickets}</p>
+              <div style="font-size:10px;color:#1e40af;margin-top:3px">Open Tickets</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-radius:12px;padding:12px;text-align:center">
+              <div style="font-size:20px;margin-bottom:4px">📄</div>
+              <p style="font-size:22px;font-weight:900;color:#92400e;margin:0">${activeQuotations}</p>
+              <div style="font-size:10px;color:#92400e;margin-top:3px">Active Deals</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fee2e2 0%,#fecaca 100%);border-radius:12px;padding:12px;text-align:center">
+              <div style="font-size:20px;margin-bottom:4px">💳</div>
+              <p style="font-size:22px;font-weight:900;color:#991b1b;margin:0">${pendingInvoices}</p>
+              <div style="font-size:10px;color:#991b1b;margin-top:3px">Pending Pay</div>
+            </div>
+          </div>
         </div>
-        <div style="position:relative;width:100%;height:170px"><canvas id="ch_ticket" role="img" aria-label="Ticket status donut">Ticket status</canvas></div>
-      </div>
-      <div class="panel" style="margin:0">
-        <h3 style="margin-bottom:10px">👤 Salesman Performance (BHD)</h3>
-        <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#6b7280">
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#7c3aed;margin-right:3px;vertical-align:middle"></span>Leads Value</span>
-          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a34a;margin-right:3px;vertical-align:middle"></span>Won Value</span>
-        </div>
-        <div style="position:relative;width:100%;height:170px"><canvas id="ch_sales" role="img" aria-label="Salesman performance bar chart">Salesman performance</canvas></div>
       </div>
     </div>
 
-    <!-- ROW 3: Renewals Timeline -->
-    <div class="panel" style="margin-bottom:16px">
-      <h3 style="margin-bottom:10px">🔁 Renewals Due — Next 90 Days (BHD)</h3>
-      <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#6b7280">
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px;vertical-align:middle"></span>Overdue</span>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f59e0b;margin-right:3px;vertical-align:middle"></span>This Month</span>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2563eb;margin-right:3px;vertical-align:middle"></span>30–90 Days</span>
+    <!-- SECTION 3: KEY METRICS SUMMARY -->
+    <div>
+      <h3 style="margin:0 0 16px;font-size:16px;font-weight:900">📊 Key metrics</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px">
+        <div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">👥</div>
+          <p style="font-size:24px;font-weight:900;color:#166534;margin:0">${activeCustomers}</p>
+          <div style="font-size:11px;color:#166534;margin-top:4px">Active Customers</div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fee2e2;border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">♻️</div>
+          <p style="font-size:24px;font-weight:900;color:#991b1b;margin:0">${overdueRenewals}</p>
+          <div style="font-size:11px;color:#991b1b;margin-top:4px">Overdue Renewals</div>
+        </div>
+        <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">📞</div>
+          <p style="font-size:24px;font-weight:900;color:#5b21b6;margin:0">${leadsThisMonth}</p>
+          <div style="font-size:11px;color:#5b21b6;margin-top:4px">Leads This Month</div>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">💰</div>
+          <p style="font-size:24px;font-weight:900;color:#1e40af;margin:0">BD ${(totalRevenue/1000).toFixed(1)}k</p>
+          <div style="font-size:11px;color:#1e40af;margin-top:4px">Revenue YTD</div>
+        </div>
       </div>
-      <div style="position:relative;width:100%;height:160px"><canvas id="ch_renewal" role="img" aria-label="Renewals timeline bar chart">Renewals timeline</canvas></div>
-    </div>
-
-    <!-- ROW 4: Kanban + Alerts + Recent -->
-    <div class="panel"><h3>Lead Pipeline Kanban</h3><br>${leadKanban()}</div>
-    <div class="panel"><h3>Service Ticket Kanban</h3><br>${serviceKanban()}</div>
-    <div class="grid-2">
-      <div class="panel"><h3>Today / Pending Actions</h3><br>${alerts()}</div>
-      <div class="panel"><h3>Recent Activities</h3><br>${table(['Date','Type','Customer','Reference','Details','Status'],recent)}</div>
     </div>
   `;
-  // Draw charts after DOM is ready
-  setTimeout(drawDashboardCharts, 50);
+
+  document.getElementById('content').innerHTML=html;
+  
+  // Draw chart after DOM ready
+  setTimeout(()=>{
+    if(typeof Chart!=='undefined'){
+      const ctx=document.getElementById('dashRevenueChart');
+      if(ctx){
+        new Chart(ctx,{
+          type:'bar',
+          data:{
+            labels:months,
+            datasets:[
+              {label:'Invoiced (BHD)',data:invoicedData,backgroundColor:'#2563eb',borderRadius:6,borderSkipped:false},
+              {label:'Collected (BHD)',data:collectedData,backgroundColor:'#16a34a',borderRadius:6,borderSkipped:false}
+            ]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+              legend:{position:'bottom',labels:{boxWidth:12,font:{size:10},padding:10}},
+              tooltip:{backgroundColor:'rgba(15,23,42,.9)',padding:8,titleFont:{size:11},bodyFont:{size:10}}
+            },
+            scales:{
+              y:{beginAtZero:true,ticks:{font:{size:10}},grid:{color:'#f1f5f9'}},
+              x:{ticks:{font:{size:10}}}
+            }
+          }
+        });
+      }
+    }
+  },100);
 }
+
+window.openDashCustomize=function(){
+  const visModules=db.settings.dashboardModules||{dashboard:true,tickets:true,customers:true,invoices:true,renewals:true,quotations:true,leads:true,products:true};
+  const moduleList=[
+    {key:'tickets',name:'Service Tickets',icon:'🎫'},
+    {key:'customers',name:'Customers',icon:'👥'},
+    {key:'invoices',name:'Invoices',icon:'📑'},
+    {key:'renewals',name:'Renewals',icon:'♻️'},
+    {key:'quotations',name:'Quotations',icon:'📄'},
+    {key:'leads',name:'Leads',icon:'🔵'},
+    {key:'payments',name:'Payments',icon:'💳'},
+    {key:'products',name:'Products',icon:'📦'},
+    {key:'reports',name:'Reports',icon:'📈'},
+    {key:'settings',name:'Settings',icon:'⚙️'}
+  ].filter(m=>crmCan(m.key));
+
+  let html=`<h2 style="margin:0 0 16px;font-size:20px">Customize Dashboard</h2>`;
+  html+=moduleList.map(m=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;margin-bottom:8px;cursor:pointer;background:#f9fafb" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f9fafb'">
+      <input type="checkbox" id="cm_${m.key}" ${visModules[m.key]!==false?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary)" onchange="updateDashModuleVisibility('${m.key}',this.checked)">
+      <label for="cm_${m.key}" style="margin:0;flex:1;cursor:pointer;font-size:14px;font-weight:700">${m.icon} ${m.name}</label>
+    </div>
+  `).join('');
+  html+=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px"><button class="btn green small" onclick="closeDashCustomize()">Done</button></div>`;
+
+  if(!document.querySelector('.customize-modal')){
+    const modal=document.createElement('div');
+    modal.className='customize-modal';
+    modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2000;align-items:center;justify-content:center;padding:16px';
+    modal.innerHTML='<div class="customize-panel" style="background:var(--panel);border-radius:20px;padding:24px;max-width:480px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 20px 50px rgba(15,23,42,.2)"></div>';
+    document.body.appendChild(modal);
+  }
+
+  document.querySelector('.customize-panel').innerHTML=html;
+  document.querySelector('.customize-modal').style.display='flex';
+};
+
+window.updateDashModuleVisibility=function(key,visible){
+  db.settings.dashboardModules=db.settings.dashboardModules||{dashboard:true,tickets:true,customers:true,invoices:true,renewals:true,quotations:true,leads:true,products:true};
+  db.settings.dashboardModules[key]=visible;
+  saveDB();
+};
+
+window.closeDashCustomize=function(){
+  document.querySelector('.customize-modal').style.display='none';
+  renderDashboard();
+};
 
 function drawDashboardCharts(){
   if(typeof Chart==='undefined') return;
@@ -5573,136 +5715,6 @@ function printTicket(no){
   /* NEW HOME DASHBOARD WITH STATS & MODULE CARDS (APPENDED) */
   /* ═══════════════════════════════════════════════════════════════════ */
 
-  // Dashboard module visibility (stored in settings)
-  const DEFAULT_DASHBOARD_MODULES={dashboard:true,tickets:true,customers:true,invoices:true,renewals:true,quotations:true,leads:true,products:true};
-
-  function getVisibleModules(){
-    return db.settings.dashboardModules||DEFAULT_DASHBOARD_MODULES;
-  }
-
-  function saveModuleVisibility(modules){
-    db.settings.dashboardModules=modules;
-    saveDB();
-  }
-
-  window.showDashboard=function(){
-    setActive('dashboard');
-    document.getElementById('sectionTitle').innerText='Dashboard';
-    document.getElementById('sectionSub').innerText='Welcome to Veltrox CRM';
-
-    // KPI calculations
-    const openTickets=db.tickets.filter(t=>t.status!=='Closed'&&t.status!=='Resolved').length;
-    const totalRevenue=db.invoices.reduce((s,i)=>s+Number(i.total||0),0);
-    const activeCustomers=db.customers.filter(c=>c.status!=='Inactive').length;
-    const overdueRenewals=db.renewals.filter(r=>new Date(r.dueDate)<new Date()&&r.status!=='Renewed').length;
-
-    // Get visible modules
-    const visModules=getVisibleModules();
-    const moduleList=[
-      {key:'tickets',name:'Service Tickets',icon:'🎫',action:'showTickets'},
-      {key:'customers',name:'Customers',icon:'👥',action:'renderCustomers'},
-      {key:'invoices',name:'Invoices',icon:'📑',action:'renderInvoices'},
-      {key:'renewals',name:'Renewals',icon:'♻️',action:'renderRenewals'},
-      {key:'quotations',name:'Quotations',icon:'📄',action:'renderQuotations'},
-      {key:'leads',name:'Leads',icon:'🔵',action:'renderLeads'},
-      {key:'payments',name:'Payments',icon:'💳',action:'renderPayments'},
-      {key:'products',name:'Products',icon:'📦',action:'renderProducts'},
-      {key:'reports',name:'Reports',icon:'📈',action:'renderFinancialReport'},
-      {key:'settings',name:'Settings',icon:'⚙️',action:'renderSettings'}
-    ].filter(m=>crmCan(m.key));
-
-    const visibleCards=moduleList.filter(m=>visModules[m.key]!==false);
-
-    let html=`
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-        <h2 style="margin:0;font-size:32px;font-weight:900">Welcome to Veltrox</h2>
-        <button style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:#e5e7eb;border:0;border-radius:10px;color:#374151;font-weight:800;font-size:13px;cursor:pointer" onmouseover="this.style.background='#d1d5db'" onmouseout="this.style.background='#e5e7eb'" onclick="openCustomizeDashboard()">⚙️ Customize</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:28px">
-        <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.05);text-align:center">
-          <div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Open Tickets</div>
-          <p style="font-size:32px;font-weight:900;color:var(--primary);margin:0;line-height:1">${openTickets}</p>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Active service items</div>
-        </div>
-        <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.05);text-align:center">
-          <div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Revenue (YTD)</div>
-          <p style="font-size:32px;font-weight:900;color:var(--primary);margin:0;line-height:1">BD ${(totalRevenue/1000).toFixed(1)}k</p>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Total invoiced</div>
-        </div>
-        <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.05);text-align:center">
-          <div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Active Customers</div>
-          <p style="font-size:32px;font-weight:900;color:var(--primary);margin:0;line-height:1">${activeCustomers}</p>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">In database</div>
-        </div>
-        <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.05);text-align:center">
-          <div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Overdue Renewals</div>
-          <p style="font-size:32px;font-weight:900;color:var(--primary);margin:0;line-height:1">${overdueRenewals}</p>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Pending action</div>
-        </div>
-      </div>
-
-      <h3 style="margin:20px 0 14px;font-size:16px;font-weight:900">📱 Quick Access Modules</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:28px">
-        ${visibleCards.map(m=>`
-          <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(15,23,42,.05);text-align:center" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)';this.style.borderColor='var(--primary)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(15,23,42,.05)';this.style.borderColor='var(--border)'" onclick="${m.action}()">
-            <div style="font-size:40px;margin-bottom:10px">${m.icon}</div>
-            <h3 style="font-size:14px;font-weight:900;color:var(--text);margin:0">${m.name}</h3>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">Manage & view</div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-
-    document.getElementById('content').innerHTML=html;
-  };
-
-  window.openCustomizeDashboard=function(){
-    const visModules=getVisibleModules();
-    const moduleList=[
-      {key:'tickets',name:'Service Tickets',icon:'🎫'},
-      {key:'customers',name:'Customers',icon:'👥'},
-      {key:'invoices',name:'Invoices',icon:'📑'},
-      {key:'renewals',name:'Renewals',icon:'♻️'},
-      {key:'quotations',name:'Quotations',icon:'📄'},
-      {key:'leads',name:'Leads',icon:'🔵'},
-      {key:'payments',name:'Payments',icon:'💳'},
-      {key:'products',name:'Products',icon:'📦'},
-      {key:'reports',name:'Reports',icon:'📈'},
-      {key:'settings',name:'Settings',icon:'⚙️'}
-    ].filter(m=>crmCan(m.key));
-
-    let html=`<h2 style="margin:0 0 16px;font-size:20px">Customize Dashboard</h2>`;
-    html+=moduleList.map(m=>`
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;margin-bottom:8px;cursor:pointer;background:#f9fafb" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f9fafb'">
-        <input type="checkbox" id="cm_${m.key}" ${visModules[m.key]!==false?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary)" onchange="updateModuleVisibility('${m.key}',this.checked)">
-        <label for="cm_${m.key}" style="margin:0;flex:1;cursor:pointer;font-size:14px;font-weight:700">${m.icon} ${m.name}</label>
-      </div>
-    `).join('');
-    html+=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px"><button class="btn green small" onclick="closeDashCustomize()">Done</button></div>`;
-
-    if(!document.querySelector('.customize-modal')){
-      const modal=document.createElement('div');
-      modal.className='customize-modal';
-      modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2000;align-items:center;justify-content:center;padding:16px';
-      modal.innerHTML='<div class="customize-panel" style="background:var(--panel);border-radius:20px;padding:24px;max-width:480px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 20px 50px rgba(15,23,42,.2)"></div>';
-      document.body.appendChild(modal);
-    }
-
-    document.querySelector('.customize-panel').innerHTML=html;
-    document.querySelector('.customize-modal').style.display='flex';
-  };
-
-  window.updateModuleVisibility=function(key,visible){
-    const visModules=getVisibleModules();
-    visModules[key]=visible;
-    saveModuleVisibility(visModules);
-  };
-
-  window.closeDashCustomize=function(){
-    document.querySelector('.customize-modal').style.display='none';
-    showDashboard(); // Refresh dashboard
-  };
 
 });
 </script>
