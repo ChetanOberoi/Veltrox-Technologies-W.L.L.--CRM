@@ -5606,7 +5606,18 @@ function printTicket(no){
 <script>
 (function(){
   var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var REPEAT_WINDOW_DAYS=60;   /* how far back counts as a "repeat visit" */
+  var REPEAT_WINDOW_DAYS=60;       /* normal customers */
+  var REPEAT_WINDOW_AMC_DAYS=30;   /* AMC-covered customers \u2014 tighter */
+
+  /* AMC context = the AMC dropdown on this form, else the customer's last case */
+  function isAmcContext(cands){
+    var f=document.getElementById('amc');
+    if(f && f.value==='Yes')return true;
+    return !!(cands && cands.length && cands[0].amc==='Yes');
+  }
+  function repeatWindow(cands){
+    return isAmcContext(cands)?REPEAT_WINDOW_AMC_DAYS:REPEAT_WINDOW_DAYS;
+  }
 
   function dLabel(s){
     if(!s)return '\u2014';
@@ -5712,9 +5723,11 @@ function printTicket(no){
     var cands=vtxRefCandidates();
     var last=cands[0];
     var d=last?daysAgo(last.date):null;
-    if(last && d!==null && d>=0 && d<=REPEAT_WINDOW_DAYS){
+    var win=repeatWindow(cands);
+    var amcTag=isAmcContext(cands)?' <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:5px;font-size:10.5px;font-weight:800">AMC</span>':'';
+    if(last && d!==null && d>=0 && d<=win){
       var no=esc(last.ticketNo).replace(/'/g,"\\'");
-      banner.innerHTML='\uD83D\uDD01 <b>Repeat visit.</b> This customer had a case '+
+      banner.innerHTML='\uD83D\uDD01 <b>Repeat visit.</b>'+amcTag+' This customer had a case '+
         (d===0?'today':(d===1?'1 day ago':d+' days ago'))+' \u2014 <b>'+esc(last.ticketNo)+'</b> ('+esc(dLabel(last.date))+
         ', '+esc(last.status||'')+'): '+esc(oneLine(last,60))+
         '<div class="acts">'+
@@ -5787,6 +5800,10 @@ function printTicket(no){
           : '\u2014';
         dl.insertAdjacentHTML('beforeend','<dt>Reference Case</dt><dd>'+dd+'</dd>');
       }
+
+      /* AMC toggle changes the repeat-visit window, so re-evaluate the banner */
+      var amcFld=document.getElementById('amc');
+      if(amcFld)amcFld.addEventListener('change',function(){vtxRefPaint();});
 
       setTimeout(vtxRefPaint,0);
     };
@@ -5922,6 +5939,256 @@ function printTicket(no){
 })();
 </script>
 <!-- ========= END REFERENCE CASE BLOCK ========= -->
+
+
+<!-- ============================================================
+     VELTROX — DASHBOARD CALENDAR
+     Append-only block. Adds a month calendar panel to the top of
+     the Dashboard showing:
+       • Service tickets      (ticket.date)
+       • Renewals / expiry    (renewal.expiryDate, not yet Renewed)
+       • Invoice due dates    (payment.dueDate, not yet Paid)
+     Month navigation, today jump, per-type toggles, day detail
+     list, click-through to the record. Original code untouched.
+     ============================================================ -->
+<style>
+.vtx-cal{margin-bottom:16px}
+.vtx-cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.vtx-cal-head h3{margin:0;flex:0 0 auto}
+.vtx-cal-nav{display:flex;align-items:center;gap:6px}
+.vtx-cal-nav button{border:1px solid #d1d5db;background:#fff;color:#1e3a8a;font-weight:800;font-size:13px;padding:5px 11px;border-radius:8px;cursor:pointer;line-height:1.3}
+.vtx-cal-nav button:hover{background:#eff6ff;border-color:#2563eb}
+.vtx-cal-month{font-weight:900;font-size:15px;color:#0f172a;min-width:150px;text-align:center}
+.vtx-cal-legend{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.vtx-cal-legend button{border:1px solid #e5e7eb;background:#fff;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:20px;cursor:pointer;color:#64748b;display:flex;align-items:center;gap:5px}
+.vtx-cal-legend button i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.vtx-cal-legend button.off{opacity:.4;text-decoration:line-through}
+.vtx-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.vtx-cal-dow{text-align:center;font-size:10.5px;font-weight:900;letter-spacing:.06em;color:#94a3b8;padding:4px 0;text-transform:uppercase}
+.vtx-cal-day{min-height:78px;border:1px solid #e5e7eb;border-radius:9px;background:#fff;padding:5px 6px;cursor:pointer;overflow:hidden;transition:border-color .12s}
+.vtx-cal-day:hover{border-color:#2563eb}
+.vtx-cal-day.pad{background:#f8fafc;border-color:#f1f5f9;cursor:default}
+.vtx-cal-day.pad:hover{border-color:#f1f5f9}
+.vtx-cal-day.today{border:1.5px solid #2563eb;background:#eff6ff}
+.vtx-cal-day.sel{border:1.5px solid #1d4ed8;box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.vtx-cal-dnum{font-size:11.5px;font-weight:800;color:#334155;margin-bottom:3px}
+.vtx-cal-day.pad .vtx-cal-dnum{color:#cbd5e1}
+.vtx-cal-day.today .vtx-cal-dnum{color:#1d4ed8}
+.vtx-cal-ev{font-size:10px;font-weight:700;color:#fff;border-radius:4px;padding:1px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.vtx-cal-more{font-size:9.5px;font-weight:800;color:#64748b;padding-left:2px}
+.vtx-cal-detail{margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px}
+.vtx-cal-detail h4{margin:0 0 9px;font-size:13px;color:#0f172a}
+.vtx-cal-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid #e5e7eb;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fff}
+.vtx-cal-row:hover{background:#f8fafc;border-color:#bfdbfe}
+.vtx-cal-row i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.vtx-cal-row .ttl{font-weight:800;font-size:12.5px;color:#1e293b}
+.vtx-cal-row .sub{font-size:11.5px;color:#64748b}
+.vtx-cal-row .amt{margin-left:auto;font-weight:800;font-size:12px;color:#0f172a;white-space:nowrap}
+.vtx-cal-empty{color:#94a3b8;font-size:12px;padding:6px 2px}
+@media(max-width:950px){.vtx-cal-day{min-height:56px}.vtx-cal-ev{font-size:9px}.vtx-cal-legend{margin-left:0}}
+</style>
+<script>
+(function(){
+  var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var TYPES={
+    ticket :{label:'Tickets',      color:'#2563eb'},
+    renewal:{label:'Renewals',     color:'#f59e0b'},
+    invoice:{label:'Invoice Due',  color:'#7c3aed'}
+  };
+  var OVERDUE='#dc2626';
+
+  window.vtxCalOn   = window.vtxCalOn   || {ticket:true,renewal:true,invoice:true};
+  window.vtxCalCur  = window.vtxCalCur  || null;   /* 'YYYY-MM' being viewed */
+  window.vtxCalSel  = window.vtxCalSel  || null;   /* 'YYYY-MM-DD' selected  */
+
+  function iso(d){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function todayIso(){ return iso(new Date()); }
+  function curMonth(){
+    if(!window.vtxCalCur)window.vtxCalCur=todayIso().slice(0,7);
+    return window.vtxCalCur;
+  }
+  function trim(s,n){
+    s=String(s||'').split('\n')[0];
+    n=n||26;
+    return s.length>n?s.slice(0,n)+'\u2026':s;
+  }
+  function custName(id){ var c=customer(id); return (c&&c.companyName)||'\u2014'; }
+
+  /* ---------- collect every dated record for a given month ---------- */
+  function eventsFor(ym){
+    var out=[];
+    var today=todayIso();
+
+    if(vtxCalOn.ticket){
+      (db.tickets||[]).forEach(function(t){
+        if(!t.date||String(t.date).slice(0,7)!==ym)return;
+        out.push({
+          type:'ticket', date:t.date, mod:'tickets', id:t.ticketNo,
+          title:t.ticketNo, sub:custName(t.customerId)+' \u2014 '+trim(t.issue||t.product,40),
+          amt:Number(t.charges||0)?money(t.charges)+' BHD':'',
+          status:t.status,
+          color:['Resolved','Closed'].includes(t.status)?'#16a34a':TYPES.ticket.color
+        });
+      });
+    }
+
+    if(vtxCalOn.renewal){
+      (db.renewals||[]).forEach(function(r){
+        if(!r.expiryDate||String(r.expiryDate).slice(0,7)!==ym)return;
+        if(r.status==='Renewed')return;
+        var late=r.expiryDate<today;
+        out.push({
+          type:'renewal', date:r.expiryDate, mod:'renewals', id:r.renewalId,
+          title:(late?'\u26A0 ':'')+custName(r.customerId),
+          sub:(r.type||'Renewal')+(r.license?(' \u00b7 '+trim(r.license,24)):'')+' \u2014 '+(r.status||''),
+          amt:Number(r.amount||0)?money(r.amount)+' BHD':'',
+          status:r.status,
+          color:late?OVERDUE:TYPES.renewal.color
+        });
+      });
+    }
+
+    if(vtxCalOn.invoice){
+      (db.payments||[]).forEach(function(p){
+        if(!p.dueDate||String(p.dueDate).slice(0,7)!==ym)return;
+        if(p.status==='Paid')return;
+        var late=p.dueDate<today;
+        var bal=Number(p.invoiceAmount||0)-Number(p.received||0);
+        out.push({
+          type:'invoice', date:p.dueDate, mod:'payments', id:p.paymentId,
+          title:(late?'\u26A0 ':'')+(p.invoiceNo||p.paymentId),
+          sub:custName(p.customerId)+' \u2014 '+(p.status||'Pending'),
+          amt:bal>0?money(bal)+' BHD':'',
+          status:p.status,
+          color:late?OVERDUE:TYPES.invoice.color
+        });
+      });
+    }
+
+    out.sort(function(a,b){
+      return a.date.localeCompare(b.date) || a.type.localeCompare(b.type);
+    });
+    return out;
+  }
+
+  /* ---------- build the panel body ---------- */
+  function calHTML(){
+    var ym=curMonth();
+    var y=Number(ym.slice(0,4)), m=Number(ym.slice(5,7))-1;
+    var evs=eventsFor(ym);
+    var byDay={};
+    evs.forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e); });
+
+    var first=new Date(y,m,1);
+    var lead=first.getDay();                 /* Sunday-start week (Bahrain) */
+    var days=new Date(y,m+1,0).getDate();
+    var today=todayIso();
+
+    var legend=Object.keys(TYPES).map(function(k){
+      var n=evs.filter(function(e){return e.type===k;}).length;
+      return '<button type="button" class="'+(vtxCalOn[k]?'':'off')+'" onclick="vtxCalToggle(\''+k+'\')">'+
+        '<i style="background:'+TYPES[k].color+'"></i>'+TYPES[k].label+(vtxCalOn[k]?' ('+n+')':'')+'</button>';
+    }).join('');
+
+    var cells=DOW.map(function(d){return '<div class="vtx-cal-dow">'+d+'</div>';}).join('');
+    for(var i=0;i<lead;i++)cells+='<div class="vtx-cal-day pad"></div>';
+
+    for(var d=1;d<=days;d++){
+      var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      var list=byDay[ds]||[];
+      var cls='vtx-cal-day'+(ds===today?' today':'')+(ds===window.vtxCalSel?' sel':'');
+      var chips=list.slice(0,3).map(function(e){
+        return '<div class="vtx-cal-ev" style="background:'+e.color+'" title="'+esc(e.title+' \u2014 '+e.sub)+'">'+esc(trim(e.title,18))+'</div>';
+      }).join('');
+      if(list.length>3)chips+='<div class="vtx-cal-more">+'+(list.length-3)+' more</div>';
+      cells+='<div class="'+cls+'" onclick="vtxCalPickDay(\''+ds+'\')">'+
+        '<div class="vtx-cal-dnum">'+d+'</div>'+chips+'</div>';
+    }
+
+    /* day detail */
+    var detail='';
+    if(window.vtxCalSel && window.vtxCalSel.slice(0,7)===ym){
+      var sel=byDay[window.vtxCalSel]||[];
+      var sd=new Date(window.vtxCalSel+'T00:00:00');
+      detail='<div class="vtx-cal-detail"><h4>'+DOW[sd.getDay()]+', '+sd.getDate()+' '+MONTHS[m]+' '+y+
+        ' \u2014 '+sel.length+' item'+(sel.length===1?'':'s')+'</h4>'+
+        (sel.length?sel.map(function(e){
+          return '<div class="vtx-cal-row" onclick="vtxCalOpen(\''+e.mod+'\',\''+String(e.id).replace(/'/g,"\\'")+'\')">'+
+            '<i style="background:'+e.color+'"></i>'+
+            '<div><div class="ttl">'+esc(e.title)+'</div><div class="sub">'+esc(e.sub)+'</div></div>'+
+            (e.amt?'<div class="amt">'+esc(e.amt)+'</div>':'')+
+          '</div>';
+        }).join(''):'<div class="vtx-cal-empty">Nothing scheduled on this day.</div>')+
+      '</div>';
+    }
+
+    return '<div class="vtx-cal-head">'+
+        '<h3 style="margin:0">\uD83D\uDCC5 Calendar</h3>'+
+        '<div class="vtx-cal-nav">'+
+          '<button type="button" onclick="vtxCalMove(-1)">\u2039</button>'+
+          '<span class="vtx-cal-month">'+MONTHS[m]+' '+y+'</span>'+
+          '<button type="button" onclick="vtxCalMove(1)">\u203A</button>'+
+          '<button type="button" onclick="vtxCalToday()">Today</button>'+
+        '</div>'+
+        '<div class="vtx-cal-legend">'+legend+'</div>'+
+      '</div>'+
+      '<div class="vtx-cal-grid">'+cells+'</div>'+
+      detail;
+  }
+
+  /* ---------- interactions ---------- */
+  window.vtxCalRefresh=function(){
+    var host=document.getElementById('vtxCalBody');
+    if(host)host.innerHTML=calHTML();
+  };
+  window.vtxCalMove=function(step){
+    var ym=curMonth();
+    var d=new Date(Number(ym.slice(0,4)),Number(ym.slice(5,7))-1+step,1);
+    window.vtxCalCur=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    vtxCalRefresh();
+  };
+  window.vtxCalToday=function(){
+    window.vtxCalCur=todayIso().slice(0,7);
+    window.vtxCalSel=todayIso();
+    vtxCalRefresh();
+  };
+  window.vtxCalToggle=function(k){
+    vtxCalOn[k]=!vtxCalOn[k];
+    vtxCalRefresh();
+  };
+  window.vtxCalPickDay=function(ds){
+    window.vtxCalSel=(window.vtxCalSel===ds)?null:ds;
+    vtxCalRefresh();
+  };
+  window.vtxCalOpen=function(mod,id){
+    setModule(mod);
+    setTimeout(function(){ openForm(id); },0);
+  };
+
+  /* ---------- mount on the dashboard ---------- */
+  if(typeof renderDashboard==='function'){
+    var _prevDash=renderDashboard;
+    renderDashboard=function(){
+      _prevDash();
+      var content=document.getElementById('content');
+      if(!content||document.getElementById('vtxCalBody'))return;
+      if(!window.vtxCalSel)window.vtxCalSel=todayIso();
+      var panel=document.createElement('div');
+      panel.className='panel vtx-cal';
+      panel.style.marginTop='0';
+      panel.innerHTML='<div id="vtxCalBody"></div>';
+      var hint=content.querySelector('.hint');
+      if(hint&&hint.nextSibling)content.insertBefore(panel,hint.nextSibling);
+      else content.insertBefore(panel,content.firstChild);
+      vtxCalRefresh();
+    };
+  }
+})();
+</script>
+<!-- ========= END DASHBOARD CALENDAR BLOCK ========= -->
 
 </body>
 </html>
