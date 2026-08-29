@@ -5571,5 +5571,357 @@ function printTicket(no){
 </script>
 <!-- ========= END TICKET ACTIVITY & RELATED TABS BLOCK ========= -->
 
+
+<!-- ============================================================
+     VELTROX — REFERENCE CASE / REPEAT VISIT LINKING
+     Append-only block. Adds r.refTicketNo to service tickets:
+       • "Reference Case" picker in the ticket form (same customer)
+       • Repeat-visit banner when the customer was here recently
+       • Ref chip in the ticket register
+       • Reference Case + Follow-on Cases in the Related tab
+       • Ref line on the printed service report
+       • Search matches on the reference case number
+     Nothing above this line is modified. Auth/login untouched.
+     ============================================================ -->
+<style>
+.vtx-ref-wrap label.vtx-ref-lbl{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:5px}
+.vtx-ref-row{display:flex;gap:8px;align-items:center}
+.vtx-ref-row input[type=text]{flex:1}
+.vtx-ref-pop{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #2563eb;border-radius:10px;max-height:240px;overflow:auto;z-index:1300;box-shadow:0 10px 26px rgba(15,23,42,.18)}
+.vtx-ref-opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12.5px;line-height:1.45}
+.vtx-ref-opt:hover{background:#eff6ff}
+.vtx-ref-opt b{color:#1d4ed8}
+.vtx-ref-opt .sub{color:#64748b;font-size:11.5px}
+.vtx-ref-empty{padding:11px 13px;color:#9ca3af;font-size:12px}
+.vtx-ref-banner{margin-top:8px;background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #f59e0b;border-radius:9px;padding:9px 12px;font-size:12.5px;color:#7c2d12}
+.vtx-ref-banner b{color:#9a3412}
+.vtx-ref-banner .acts{margin-top:7px;display:flex;gap:7px;flex-wrap:wrap}
+.vtx-ref-banner button{border:0;background:#f59e0b;color:#fff;font-weight:800;font-size:11.5px;padding:5px 11px;border-radius:8px;cursor:pointer}
+.vtx-ref-banner button.ghost{background:#fff;color:#92400e;border:1px solid #fed7aa}
+.vtx-ref-sel{margin-top:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:8px 12px;font-size:12.5px;color:#1e3a8a}
+.vtx-ref-sel b{color:#1d4ed8}
+.vtx-refchip{display:inline-block;margin-top:3px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap}
+.vtx-refchip:hover{background:#e0e7ff}
+</style>
+<script>
+(function(){
+  var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var REPEAT_WINDOW_DAYS=60;   /* how far back counts as a "repeat visit" */
+
+  function dLabel(s){
+    if(!s)return '\u2014';
+    var p=String(s).split('-');
+    if(p.length!==3)return s;
+    return Number(p[2])+' '+(MONTHS[Number(p[1])-1]||'')+' '+p[0];
+  }
+  function daysAgo(s){
+    if(!s)return null;
+    var d=new Date(String(s)+'T00:00:00');
+    if(isNaN(d.getTime()))return null;
+    return Math.round((Date.now()-d.getTime())/86400000);
+  }
+  function val(id){var e=document.getElementById(id);return e?e.value:'';}
+  function tkt(no){return (db.tickets||[]).find(function(x){return x.ticketNo===no;});}
+  function oneLine(t,n){
+    var s=String(t.issue||'').split('\n')[0];
+    n=n||46;
+    if(s.length>n)s=s.slice(0,n)+'\u2026';
+    return s||'\u2014';
+  }
+
+  /* ---------- candidate previous cases for the selected customer ---------- */
+  window.vtxRefCandidates=function(){
+    var cid=val('customerId'), self=val('ticketNo');
+    if(!cid)return [];
+    return (db.tickets||[])
+      .filter(function(t){return t.customerId===cid && t.ticketNo!==self;})
+      .sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+  };
+
+  /* ---------- picker rendering ---------- */
+  window.vtxRefFilter=function(){
+    var box=document.getElementById('vtxRefSearch');
+    var list=document.getElementById('vtxRefList');
+    if(!box||!list)return;
+    var term=(box.value||'').toLowerCase().trim();
+    var opts=vtxRefCandidates().filter(function(t){
+      if(!term)return true;
+      return (String(t.ticketNo)+' '+String(t.issue||'')+' '+String(t.issueCategory||'')+' '+String(t.date||''))
+        .toLowerCase().indexOf(term)>=0;
+    });
+    if(!val('customerId')){
+      list.innerHTML='<div class="vtx-ref-empty">Select a customer first \u2014 then their earlier cases appear here.</div>';
+    }else if(!opts.length){
+      list.innerHTML='<div class="vtx-ref-empty">No earlier cases found for this customer.</div>';
+    }else{
+      list.innerHTML=opts.slice(0,40).map(function(t){
+        var ago=daysAgo(t.date);
+        var agoTxt=(ago===null)?'':(ago===0?'today':(ago===1?'1 day ago':ago+' days ago'));
+        return '<div class="vtx-ref-opt" onclick="vtxRefPick(\''+esc(t.ticketNo).replace(/'/g,"\\'")+'\')">'+
+          '<b>'+esc(t.ticketNo)+'</b> \u00b7 '+esc(dLabel(t.date))+(agoTxt?' <span class="sub">('+agoTxt+')</span>':'')+
+          '<div class="sub">'+esc(oneLine(t))+' \u2014 '+esc(t.status||'\u2014')+
+          (t.engineer?(' \u00b7 '+esc(t.engineer)):'')+'</div>'+
+        '</div>';
+      }).join('');
+    }
+    list.style.display='block';
+  };
+
+  window.vtxRefPick=function(no){
+    var hid=document.getElementById('refTicketNo');
+    var box=document.getElementById('vtxRefSearch');
+    var list=document.getElementById('vtxRefList');
+    if(hid)hid.value=no||'';
+    if(box)box.value=no||'';
+    if(list)list.style.display='none';
+    vtxRefPaint();
+  };
+
+  window.vtxRefClear=function(){
+    var hid=document.getElementById('refTicketNo');
+    var box=document.getElementById('vtxRefSearch');
+    if(hid)hid.value='';
+    if(box)box.value='';
+    vtxRefPaint();
+  };
+
+  /* ---------- selected-ref summary + repeat-visit banner ---------- */
+  window.vtxRefPaint=function(){
+    var selBox=document.getElementById('vtxRefSel');
+    var banner=document.getElementById('vtxRefBanner');
+    if(!selBox||!banner)return;
+    var ref=val('refTicketNo');
+    var rt=ref?tkt(ref):null;
+
+    if(rt){
+      var ago=daysAgo(rt.date);
+      selBox.innerHTML='\uD83D\uDD17 Tagged to <b>'+esc(rt.ticketNo)+'</b> \u2014 '+esc(dLabel(rt.date))+
+        (ago!==null?(' ('+ago+' days earlier)'):'')+'<br>'+esc(oneLine(rt,70))+' \u2014 '+esc(rt.status||'');
+      selBox.style.display='block';
+      banner.style.display='none';
+      return;
+    }
+    if(ref){
+      selBox.innerHTML='\uD83D\uDD17 Reference: <b>'+esc(ref)+'</b> (ticket not found in this database)';
+      selBox.style.display='block';
+    }else{
+      selBox.style.display='none';
+    }
+
+    /* repeat-visit suggestion: most recent case within the window */
+    var cands=vtxRefCandidates();
+    var last=cands[0];
+    var d=last?daysAgo(last.date):null;
+    if(last && d!==null && d>=0 && d<=REPEAT_WINDOW_DAYS){
+      var no=esc(last.ticketNo).replace(/'/g,"\\'");
+      banner.innerHTML='\uD83D\uDD01 <b>Repeat visit.</b> This customer had a case '+
+        (d===0?'today':(d===1?'1 day ago':d+' days ago'))+' \u2014 <b>'+esc(last.ticketNo)+'</b> ('+esc(dLabel(last.date))+
+        ', '+esc(last.status||'')+'): '+esc(oneLine(last,60))+
+        '<div class="acts">'+
+          '<button type="button" onclick="vtxRefPick(\''+no+'\')">Tag as reference</button>'+
+          '<button type="button" class="ghost" onclick="this.closest(\'.vtx-ref-banner\').style.display=\'none\'">Not related</button>'+
+        '</div>';
+      banner.style.display='block';
+    }else{
+      banner.style.display='none';
+    }
+  };
+
+  /* ---------- inject the field into the ticket form ---------- */
+  function refFieldHTML(current){
+    return '<div class="vtx-ref-wrap full" id="vtxRefWrap">'+
+      '<label class="vtx-ref-lbl">\uD83D\uDD17 Reference Case <span style="font-weight:600;color:#94a3b8">(link this ticket to an earlier case)</span></label>'+
+      '<div style="position:relative">'+
+        '<div class="vtx-ref-row">'+
+          '<input type="text" id="vtxRefSearch" placeholder="Search this customer\u2019s previous cases\u2026" autocomplete="off" value="'+esc(current||'')+'" oninput="vtxRefTyped()" onfocus="vtxRefFilter()">'+
+          '<input type="hidden" id="refTicketNo" value="'+esc(current||'')+'">'+
+          '<button type="button" class="btn gray" style="white-space:nowrap" onclick="vtxRefClear()">Clear</button>'+
+        '</div>'+
+        '<div id="vtxRefList" class="vtx-ref-pop"></div>'+
+      '</div>'+
+      '<div id="vtxRefSel" class="vtx-ref-sel" style="display:none"></div>'+
+      '<div id="vtxRefBanner" class="vtx-ref-banner" style="display:none"></div>'+
+    '</div>';
+  }
+
+  window.vtxRefTyped=function(){
+    var box=document.getElementById('vtxRefSearch');
+    var hid=document.getElementById('refTicketNo');
+    if(box&&hid)hid.value=box.value.trim();
+    vtxRefFilter();
+    vtxRefPaint();
+  };
+
+  /* close the popup on outside click */
+  document.addEventListener('click',function(e){
+    var list=document.getElementById('vtxRefList');
+    if(!list||list.style.display!=='block')return;
+    var box=document.getElementById('vtxRefSearch');
+    if(e.target!==box && !list.contains(e.target))list.style.display='none';
+  });
+
+  if(typeof ticketForm==='function'){
+    var _prevTicketForm=ticketForm;
+    ticketForm=function(id){
+      _prevTicketForm(id);
+      var r=(db.tickets||[]).find(function(x){return x.ticketNo===id;})||{};
+
+      /* place the picker right under the Ticket section (after Assigned Engineer) */
+      var anchor=document.getElementById('engineer');
+      if(anchor){
+        while(anchor.parentElement && !anchor.parentElement.classList.contains('form-grid')){
+          anchor=anchor.parentElement;
+        }
+        if(anchor.parentElement){
+          anchor.insertAdjacentHTML('afterend',refFieldHTML(r.refTicketNo||''));
+        }
+      }
+
+      /* show it on the read-only summary too */
+      var dl=document.querySelector('.vtx-tf-summary');
+      if(dl && r.ticketNo){
+        var rt=r.refTicketNo?tkt(r.refTicketNo):null;
+        var dd=r.refTicketNo
+          ? '<span class="vtx-ref" data-ref="'+esc(r.refTicketNo)+'">'+esc(r.refTicketNo)+'</span>'+
+            (rt?(' \u00b7 '+esc(dLabel(rt.date))):'')
+          : '\u2014';
+        dl.insertAdjacentHTML('beforeend','<dt>Reference Case</dt><dd>'+dd+'</dd>');
+      }
+
+      setTimeout(vtxRefPaint,0);
+    };
+  }
+
+  /* refresh candidates + banner whenever the customer changes */
+  if(typeof ticketCustomerChanged==='function'){
+    var _prevCustChanged=ticketCustomerChanged;
+    ticketCustomerChanged=function(cid){
+      _prevCustChanged(cid);
+      if(document.getElementById('vtxRefWrap')){
+        /* a ref from another customer no longer applies */
+        var hid=document.getElementById('refTicketNo');
+        var cur=hid?hid.value:'';
+        var rt=cur?tkt(cur):null;
+        if(rt && rt.customerId!==cid)vtxRefClear();
+        vtxRefPaint();
+      }
+    };
+  }
+
+  /* ---------- persist on save (chains onto the existing wrappers) ---------- */
+  if(typeof saveTicket==='function'){
+    var _prevSaveTicket=saveTicket;
+    saveTicket=function(){
+      var no=val('ticketNo');
+      var refEl=document.getElementById('refTicketNo');
+      var ref=refEl?refEl.value.trim():null;
+      var before=no?tkt(no):null;
+      var prevRef=before?(before.refTicketNo||''):'';
+      _prevSaveTicket();
+      if(!no)return;
+      var t=tkt(no);
+      if(!t)return;
+      if(refEl){
+        if(ref)t.refTicketNo=ref; else delete t.refTicketNo;
+        if((ref||'')!==prevRef && Array.isArray(t.activity)){
+          t.activity.push({
+            k:'history',
+            at:Date.now(),
+            by:(typeof crmCurrentUser!=='undefined'&&crmCurrentUser&&crmCurrentUser.name)?crmCurrentUser.name:'User',
+            text: ref ? ('Linked to reference case '+ref) : ('Reference case '+prevRef+' unlinked')
+          });
+        }
+      }else if(before && before.refTicketNo){
+        t.refTicketNo=before.refTicketNo;   /* form not open \u2014 don\u2019t lose it */
+      }
+    };
+  }
+
+  /* ---------- register: ref chip under the ticket number ---------- */
+  if(typeof renderTickets==='function'){
+    var _prevRenderTickets=renderTickets;
+    renderTickets=function(){
+      _prevRenderTickets();
+      document.querySelectorAll('#content .vtx-tkno').forEach(function(span){
+        var t=tkt(span.textContent.trim());
+        if(!t||!t.refTicketNo)return;
+        var cell=span.parentElement;
+        if(!cell||cell.querySelector('.vtx-refchip'))return;
+        var chip=document.createElement('span');
+        chip.className='vtx-refchip';
+        chip.title='Reference case \u2014 click to open';
+        chip.textContent='\u21A9 '+t.refTicketNo;
+        chip.onclick=function(ev){ev.stopPropagation();openForm(t.refTicketNo);};
+        cell.appendChild(document.createElement('br'));
+        cell.appendChild(chip);
+      });
+    };
+  }
+
+  /* ---------- Related tab: parent reference + follow-on cases ---------- */
+  if(typeof window.vtxTfRelatedHTML==='function'){
+    var _prevRelated=window.vtxTfRelatedHTML;
+    window.vtxTfRelatedHTML=function(r){
+      var html='';
+      var rt=r.refTicketNo?tkt(r.refTicketNo):null;
+      html+='<div class="vtx-rl-head">\u21A9 Reference Case</div>';
+      if(rt){
+        html+='<div class="vtx-rl-case"><div><span class="vtx-ref" data-ref="'+esc(rt.ticketNo)+'">'+esc(rt.ticketNo)+
+          '</span><div class="sub">'+esc(dLabel(rt.date))+' \u2014 '+esc(oneLine(rt))+'</div></div>'+badge(rt.status)+'</div>';
+      }else if(r.refTicketNo){
+        html+='<div class="vtx-ac-empty">Reference '+esc(r.refTicketNo)+' is not in this database.</div>';
+      }else{
+        html+='<div class="vtx-ac-empty">This ticket is not linked to an earlier case.</div>';
+      }
+
+      var kids=(db.tickets||[]).filter(function(t){return t.refTicketNo===r.ticketNo;})
+        .sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+      html+='<div class="vtx-rl-head">\u21AA Follow-on Cases</div>';
+      html+=kids.length
+        ? kids.map(function(t){
+            return '<div class="vtx-rl-case"><div><span class="vtx-ref" data-ref="'+esc(t.ticketNo)+'">'+esc(t.ticketNo)+
+              '</span><div class="sub">'+esc(dLabel(t.date))+' \u2014 '+esc(oneLine(t))+'</div></div>'+badge(t.status)+'</div>';
+          }).join('')
+        : '<div class="vtx-ac-empty">No later tickets reference this case.</div>';
+
+      return html+_prevRelated(r);
+    };
+  }
+
+  /* ---------- search also matches the reference number ---------- */
+  if(typeof match==='function'){
+    var _prevMatch=match;
+    match=function(o){
+      if(_prevMatch(o))return true;
+      var term=(document.getElementById('searchBox')?document.getElementById('searchBox').value:'')
+        .toLowerCase().trim();
+      return !!(term && o && o.refTicketNo && String(o.refTicketNo).toLowerCase().indexOf(term)>=0);
+    };
+  }
+
+  /* ---------- printed service report: show the reference line ---------- */
+  if(typeof printTicket==='function'){
+    var _prevPrint=printTicket;
+    printTicket=function(no){
+      _prevPrint(no);
+      var t=tkt(no);
+      if(!t||!t.refTicketNo)return;
+      setTimeout(function(){
+        var area=document.getElementById('printArea');
+        if(!area)return;
+        var rt=tkt(t.refTicketNo);
+        var line=document.createElement('div');
+        line.style.cssText='margin:6px 0 10px;font-size:11.5px;font-weight:700;color:#111';
+        line.textContent='Reference Case: '+t.refTicketNo+(rt?(' dated '+dLabel(rt.date)):'');
+        var tbl=area.querySelector('table');
+        if(tbl&&tbl.parentElement)tbl.parentElement.insertBefore(line,tbl);
+        else area.insertBefore(line,area.firstChild);
+      },0);
+    };
+  }
+})();
+</script>
+<!-- ========= END REFERENCE CASE BLOCK ========= -->
+
 </body>
 </html>
